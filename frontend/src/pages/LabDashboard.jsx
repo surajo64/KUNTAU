@@ -14,11 +14,114 @@ const LabDashboard = () => {
     const [completedSearchTerm, setCompletedSearchTerm] = useState('');
     const [selectedOrder, setSelectedOrder] = useState(null);
     const [results, setResults] = useState('');
+    const [tableResults, setTableResults] = useState([]);
+    const [isTableFormat, setIsTableFormat] = useState(false);
     const [viewResultModal, setViewResultModal] = useState(null);
     const [editResultModal, setEditResultModal] = useState(null);
     const [editResults, setEditResults] = useState('');
     const [systemSettings, setSystemSettings] = useState(null);
     const { user } = useContext(AuthContext);
+
+    // Helper function to parse normal range and determine if value is abnormal
+    const parseRange = (rangeStr) => {
+        if (!rangeStr) return null;
+
+        // Handle ranges like "4.0-11.0"
+        const rangeMatch = rangeStr.match(/([\d.]+)\s*-\s*([\d.]+)/);
+        if (rangeMatch) {
+            return {
+                type: 'range',
+                min: parseFloat(rangeMatch[1]),
+                max: parseFloat(rangeMatch[2])
+            };
+        }
+
+        // Handle "<" ranges like "<200"
+        const lessThanMatch = rangeStr.match(/<\s*([\d.]+)/);
+        if (lessThanMatch) {
+            return {
+                type: 'lessThan',
+                max: parseFloat(lessThanMatch[1])
+            };
+        }
+
+        // Handle ">" ranges like ">40"
+        const greaterThanMatch = rangeStr.match(/>\s*([\d.]+)/);
+        if (greaterThanMatch) {
+            return {
+                type: 'greaterThan',
+                min: parseFloat(greaterThanMatch[1])
+            };
+        }
+
+        return null;
+    };
+
+    // Helper function to check if value is out of range
+    const checkRange = (value, rangeStr) => {
+        if (!value || !rangeStr) return 'normal';
+
+        const numValue = parseFloat(value);
+        if (isNaN(numValue)) return 'normal';
+
+        const range = parseRange(rangeStr);
+        if (!range) return 'normal';
+
+        if (range.type === 'range') {
+            if (numValue < range.min) return 'low';
+            if (numValue > range.max) return 'high';
+            return 'normal';
+        } else if (range.type === 'lessThan') {
+            if (numValue >= range.max) return 'high';
+            return 'normal';
+        } else if (range.type === 'greaterThan') {
+            if (numValue <= range.min) return 'low';
+            return 'normal';
+        }
+
+        return 'normal';
+    };
+
+    // Helper function to get color class based on range status
+    const getRangeColorClass = (status) => {
+        switch (status) {
+            case 'low':
+                return 'bg-orange-100 text-orange-800 border-orange-300';
+            case 'high':
+                return 'bg-red-100 text-red-800 border-red-300';
+            case 'normal':
+                return 'bg-green-50 text-green-800 border-green-200';
+            default:
+                return '';
+        }
+    };
+
+    // Parse text-based template into table format
+    const parseTextTemplate = (template) => {
+        if (!template) return [];
+
+        const lines = template.split('\n');
+        const params = [];
+
+        for (const line of lines) {
+            // Match patterns like "- WBC: _____ x10^3/μL (Normal: 4.0-11.0)"
+            const match = line.match(/^\s*-\s*([^:]+):\s*_+\s*([^(]*)\(?(?:Normal:\s*)?([^)]*)\)?/);
+            if (match) {
+                const name = match[1].trim();
+                const unit = match[2].trim();
+                const normalRange = match[3].trim();
+
+                params.push({
+                    name,
+                    value: '',
+                    unit,
+                    normalRange
+                });
+            }
+        }
+
+        return params;
+    };
 
     useEffect(() => {
         const fetchSystemSettings = async () => {
@@ -60,24 +163,85 @@ const LabDashboard = () => {
         setSelectedOrder(order);
 
         if (order.result) {
-            setResults(order.result);
+            // Check if result is in table format (JSON) or text format
+            try {
+                const parsedResult = JSON.parse(order.result);
+                if (parsedResult.format === 'table' && Array.isArray(parsedResult.parameters)) {
+                    setIsTableFormat(true);
+                    setTableResults(parsedResult.parameters);
+                    setResults('');
+                } else {
+                    setIsTableFormat(false);
+                    setResults(order.result);
+                    setTableResults([]);
+                }
+            } catch (e) {
+                // Not JSON, treat as text
+                setIsTableFormat(false);
+                setResults(order.result);
+                setTableResults([]);
+            }
         } else {
             try {
                 const config = { headers: { Authorization: `Bearer ${user.token}` } };
                 const { data } = await axios.get(`http://localhost:5000/api/charges?type=lab&active=true`, config);
                 const matchingCharge = data.find(c => c.name === order.testName);
-                setResults(matchingCharge?.resultTemplate || '');
+                const template = matchingCharge?.resultTemplate || '';
+
+                // Try to parse as JSON table format
+                try {
+                    const parsedTemplate = JSON.parse(template);
+                    if (parsedTemplate.format === 'table' && Array.isArray(parsedTemplate.parameters)) {
+                        setIsTableFormat(true);
+                        setTableResults(parsedTemplate.parameters.map(p => ({ ...p, value: '' })));
+                        setResults('');
+                    } else {
+                        throw new Error('Not table format');
+                    }
+                } catch (e) {
+                    // Text-based template - try to parse it into table format
+                    const parsedParams = parseTextTemplate(template);
+                    if (parsedParams.length > 0) {
+                        setIsTableFormat(true);
+                        setTableResults(parsedParams);
+                        setResults('');
+                    } else {
+                        setIsTableFormat(false);
+                        setResults(template);
+                        setTableResults([]);
+                    }
+                }
             } catch (error) {
                 console.error('Error fetching template:', error);
+                setIsTableFormat(false);
                 setResults('');
+                setTableResults([]);
             }
         }
     };
 
     const handleSaveResults = async () => {
-        if (!results.trim()) {
-            toast.error('Please enter lab results');
-            return;
+        let resultData;
+
+        if (isTableFormat) {
+            // Validate that at least one value is entered
+            const hasValues = tableResults.some(param => param.value && param.value.trim());
+            if (!hasValues) {
+                toast.error('Please enter at least one lab result value');
+                return;
+            }
+
+            // Save as JSON
+            resultData = JSON.stringify({
+                format: 'table',
+                parameters: tableResults
+            });
+        } else {
+            if (!results.trim()) {
+                toast.error('Please enter lab results');
+                return;
+            }
+            resultData = results;
         }
 
         try {
@@ -86,7 +250,7 @@ const LabDashboard = () => {
                 `http://localhost:5000/api/lab/${selectedOrder._id}/result`,
                 {
                     status: 'completed',
-                    result: results,
+                    result: resultData,
                     signedBy: user._id,
                     resultDate: new Date()
                 },
@@ -96,6 +260,8 @@ const LabDashboard = () => {
             toast.success('Lab results saved and signed!');
             setSelectedOrder(null);
             setResults('');
+            setTableResults([]);
+            setIsTableFormat(false);
             fetchLabOrders();
         } catch (error) {
             console.error(error);
@@ -201,7 +367,65 @@ const LabDashboard = () => {
 
                     <div class="results-section">
                         <h3>Test Results:</h3>
-                        <div class="results-content">${order.result}</div>
+                        ${(() => {
+                try {
+                    const parsed = JSON.parse(order.result);
+                    if (parsed.format === 'table' && Array.isArray(parsed.parameters)) {
+                        return `
+                                        <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                                            <thead>
+                                                <tr style="background: #f3f4f6;">
+                                                    <th style="text-align: left; padding: 12px; border: 1px solid #d1d5db; font-weight: 600;">Parameter</th>
+                                                    <th style="text-align: left; padding: 12px; border: 1px solid #d1d5db; font-weight: 600; width: 120px;">Value</th>
+                                                    <th style="text-align: left; padding: 12px; border: 1px solid #d1d5db; font-weight: 600; width: 100px;">Unit</th>
+                                                    <th style="text-align: left; padding: 12px; border: 1px solid #d1d5db; font-weight: 600; width: 150px;">Normal Range</th>
+                                                    <th style="text-align: center; padding: 12px; border: 1px solid #d1d5db; font-weight: 600; width: 80px;">Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${parsed.parameters.map(param => {
+                            const rangeStatus = checkRange(param.value, param.normalRange);
+                            let bgColor = '#f9fafb';
+                            let statusText = '';
+                            let statusColor = '';
+
+                            if (param.value) {
+                                if (rangeStatus === 'low') {
+                                    bgColor = '#fed7aa';
+                                    statusText = '↓ LOW';
+                                    statusColor = '#9a3412';
+                                } else if (rangeStatus === 'high') {
+                                    bgColor = '#fecaca';
+                                    statusText = '↑ HIGH';
+                                    statusColor = '#991b1b';
+                                } else {
+                                    bgColor = '#d1fae5';
+                                    statusText = '✓ Normal';
+                                    statusColor = '#065f46';
+                                }
+                            }
+
+                            return `
+                                                        <tr style="background: ${bgColor};">
+                                                            <td style="padding: 10px; border: 1px solid #d1d5db; font-weight: 500;">${param.name}</td>
+                                                            <td style="padding: 10px; border: 1px solid #d1d5db; font-weight: 600;">${param.value || '-'}</td>
+                                                            <td style="padding: 10px; border: 1px solid #d1d5db; color: #6b7280;">${param.unit || ''}</td>
+                                                            <td style="padding: 10px; border: 1px solid #d1d5db; color: #6b7280;">${param.normalRange || ''}</td>
+                                                            <td style="padding: 10px; border: 1px solid #d1d5db; text-align: center;">
+                                                                ${param.value ? `<span style="color: ${statusColor}; font-weight: 600; font-size: 11px;">${statusText}</span>` : ''}
+                                                            </td>
+                                                        </tr>
+                                                    `;
+                        }).join('')}
+                                            </tbody>
+                                        </table>
+                                    `;
+                    }
+                } catch (e) {
+                    // Not JSON or not table format
+                }
+                return `<div class="results-content">${order.result}</div>`;
+            })()}
                     </div>
 
                     <div class="signature-section">
@@ -395,13 +619,69 @@ const LabDashboard = () => {
                                 <label className="block text-gray-700 mb-2 font-semibold flex items-center gap-2">
                                     <FaEdit /> Lab Results
                                 </label>
-                                <textarea
-                                    className="w-full border p-3 rounded font-mono text-sm"
-                                    rows="20"
-                                    value={results}
-                                    onChange={(e) => setResults(e.target.value)}
-                                    placeholder="Enter lab test results here..."
-                                ></textarea>
+
+                                {isTableFormat ? (
+                                    <div className="border rounded overflow-hidden">
+                                        <table className="w-full">
+                                            <thead className="bg-gray-100">
+                                                <tr>
+                                                    <th className="text-left p-3 font-semibold border-b">Parameter</th>
+                                                    <th className="text-left p-3 font-semibold border-b w-32">Value</th>
+                                                    <th className="text-left p-3 font-semibold border-b w-24">Unit</th>
+                                                    <th className="text-left p-3 font-semibold border-b w-40">Normal Range</th>
+                                                    <th className="text-left p-3 font-semibold border-b w-24">Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {tableResults.map((param, index) => {
+                                                    const rangeStatus = checkRange(param.value, param.normalRange);
+                                                    const colorClass = getRangeColorClass(rangeStatus);
+
+                                                    return (
+                                                        <tr key={index} className={`border-b ${param.value ? colorClass : ''}`}>
+                                                            <td className="p-3 font-medium">{param.name}</td>
+                                                            <td className="p-2">
+                                                                <input
+                                                                    type="text"
+                                                                    value={param.value}
+                                                                    onChange={(e) => {
+                                                                        const newResults = [...tableResults];
+                                                                        newResults[index].value = e.target.value;
+                                                                        setTableResults(newResults);
+                                                                    }}
+                                                                    className="w-full border p-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                                    placeholder="Enter value"
+                                                                />
+                                                            </td>
+                                                            <td className="p-3 text-sm text-gray-600">{param.unit}</td>
+                                                            <td className="p-3 text-sm text-gray-600">{param.normalRange}</td>
+                                                            <td className="p-3">
+                                                                {param.value && (
+                                                                    <span className={`text-xs px-2 py-1 rounded font-semibold ${rangeStatus === 'low' ? 'bg-orange-200 text-orange-900' :
+                                                                        rangeStatus === 'high' ? 'bg-red-200 text-red-900' :
+                                                                            'bg-green-200 text-green-900'
+                                                                        }`}>
+                                                                        {rangeStatus === 'low' ? '↓ LOW' :
+                                                                            rangeStatus === 'high' ? '↑ HIGH' :
+                                                                                '✓ Normal'}
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                ) : (
+                                    <textarea
+                                        className="w-full border p-3 rounded font-mono text-sm"
+                                        rows="20"
+                                        value={results}
+                                        onChange={(e) => setResults(e.target.value)}
+                                        placeholder="Enter lab test results here..."
+                                    ></textarea>
+                                )}
 
                                 {/* Signature Display */}
                                 {selectedOrder.signedBy && (
@@ -591,9 +871,62 @@ const LabDashboard = () => {
 
                             <div className="border-t border-b border-gray-300 py-4 mb-6">
                                 <h3 className="font-bold text-lg mb-3">Test Results:</h3>
-                                <pre className="whitespace-pre-wrap font-mono text-sm bg-gray-50 p-4 rounded">
-                                    {viewResultModal.result}
-                                </pre>
+                                {(() => {
+                                    try {
+                                        const parsed = JSON.parse(viewResultModal.result);
+                                        if (parsed.format === 'table' && Array.isArray(parsed.parameters)) {
+                                            return (
+                                                <div className="overflow-x-auto">
+                                                    <table className="w-full border-collapse">
+                                                        <thead className="bg-gray-100">
+                                                            <tr>
+                                                                <th className="text-left p-3 font-semibold border">Parameter</th>
+                                                                <th className="text-left p-3 font-semibold border w-32">Value</th>
+                                                                <th className="text-left p-3 font-semibold border w-24">Unit</th>
+                                                                <th className="text-left p-3 font-semibold border w-40">Normal Range</th>
+                                                                <th className="text-center p-3 font-semibold border w-24">Status</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            {parsed.parameters.map((param, index) => {
+                                                                const rangeStatus = checkRange(param.value, param.normalRange);
+                                                                const colorClass = getRangeColorClass(rangeStatus);
+
+                                                                return (
+                                                                    <tr key={index} className={`${param.value ? colorClass : ''} border`}>
+                                                                        <td className="p-3 font-medium border">{param.name}</td>
+                                                                        <td className="p-3 font-semibold border">{param.value || '-'}</td>
+                                                                        <td className="p-3 text-gray-600 border">{param.unit}</td>
+                                                                        <td className="p-3 text-gray-600 border">{param.normalRange}</td>
+                                                                        <td className="p-3 text-center border">
+                                                                            {param.value && (
+                                                                                <span className={`text-xs px-2 py-1 rounded font-semibold ${rangeStatus === 'low' ? 'bg-orange-200 text-orange-900' :
+                                                                                        rangeStatus === 'high' ? 'bg-red-200 text-red-900' :
+                                                                                            'bg-green-200 text-green-900'
+                                                                                    }`}>
+                                                                                    {rangeStatus === 'low' ? '↓ LOW' :
+                                                                                        rangeStatus === 'high' ? '↑ HIGH' :
+                                                                                            '✓ Normal'}
+                                                                                </span>
+                                                                            )}
+                                                                        </td>
+                                                                    </tr>
+                                                                );
+                                                            })}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            );
+                                        }
+                                    } catch (e) {
+                                        // Not JSON or not table format
+                                    }
+                                    return (
+                                        <pre className="whitespace-pre-wrap font-mono text-sm bg-gray-50 p-4 rounded">
+                                            {viewResultModal.result}
+                                        </pre>
+                                    );
+                                })()}
                             </div>
 
                             <div className="mt-8 pt-4 border-t border-gray-300">

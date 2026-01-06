@@ -32,8 +32,22 @@ const NurseTriage = () => {
         respiratoryRate: '',
         weight: '',
         height: '',
-        spo2: ''
+        spo2: '',
+        bmi: ''
     });
+
+    // Calculate BMI automatically when weight and height change
+    const calculateBMI = (weight, height) => {
+        if (!weight || !height) return '';
+        const weightNum = parseFloat(weight);
+        const heightNum = parseFloat(height);
+        if (isNaN(weightNum) || isNaN(heightNum) || heightNum === 0) return '';
+
+        // BMI = weight (kg) / (height (m))²
+        const heightInMeters = heightNum / 100; // Convert cm to meters
+        const bmi = weightNum / (heightInMeters * heightInMeters);
+        return bmi.toFixed(1);
+    };
 
     // Nursing Charges State
     const [nursingCharges, setNursingCharges] = useState([]);
@@ -225,14 +239,17 @@ const NurseTriage = () => {
 
     const handleEditVital = (vital) => {
         setEditingVitalId(vital._id);
+        const weight = vital.weight || '';
+        const height = vital.height || '';
         setVitals({
             temperature: vital.temperature || '',
             bloodPressure: vital.bloodPressure || '',
             heartRate: vital.pulseRate || '',
             respiratoryRate: vital.respiratoryRate || '',
-            weight: vital.weight || '',
-            height: vital.height || '',
-            spo2: vital.spo2 || ''
+            weight,
+            height,
+            spo2: vital.spo2 || '',
+            bmi: vital.bmi || calculateBMI(weight, height)
         });
         // Scroll to form
         window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
@@ -242,7 +259,7 @@ const NurseTriage = () => {
         setEditingVitalId(null);
         setVitals({
             temperature: '', bloodPressure: '', heartRate: '',
-            respiratoryRate: '', weight: '', height: '', spo2: ''
+            respiratoryRate: '', weight: '', height: '', spo2: '', bmi: ''
         });
     };
 
@@ -342,7 +359,7 @@ const NurseTriage = () => {
             // Clear form
             setVitals({
                 temperature: '', bloodPressure: '', heartRate: '',
-                respiratoryRate: '', weight: '', height: '', spo2: ''
+                respiratoryRate: '', weight: '', height: '', spo2: '', bmi: ''
             });
         } catch (error) {
             console.error(error);
@@ -561,7 +578,9 @@ const NurseTriage = () => {
                 heartRate: '',
                 respiratoryRate: '',
                 weight: '',
-                height: ''
+                height: '',
+                spo2: '',
+                bmi: ''
             });
             setNursingNotesList([]);
             setNoteForm({
@@ -746,44 +765,57 @@ const NurseTriage = () => {
                                                     <th className="p-2">SpO2 (%)</th>
                                                     <th className="p-2">Wt (kg)</th>
                                                     <th className="p-2">Ht (cm)</th>
+                                                    <th className="p-2">BMI</th>
                                                     <th className="p-2">Nurse</th>
                                                     <th className="p-2">Action</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
-                                                {existingVitals.map((v, idx) => (
-                                                    <tr key={idx} className="border-b">
-                                                        <td className="p-2">{new Date(v.createdAt).toLocaleTimeString()}</td>
-                                                        <td className={`p-2 ${getVitalColorClass('bloodPressure', v.bloodPressure)}`}>
-                                                            {v.bloodPressure || '-'}
-                                                        </td>
-                                                        <td className={`p-2 ${getVitalColorClass('temperature', v.temperature)}`}>
-                                                            {v.temperature ? `${v.temperature}` : '-'}
-                                                        </td>
-                                                        <td className={`p-2 ${getVitalColorClass('heartRate', v.pulseRate)}`}>
-                                                            {v.pulseRate || '-'}
-                                                        </td>
-                                                        <td className={`p-2 ${getVitalColorClass('respiratoryRate', v.respiratoryRate)}`}>
-                                                            {v.respiratoryRate || '-'}
-                                                        </td>
-                                                        <td className={`p-2 ${getVitalColorClass('spo2', v.spo2)}`}>
-                                                            {v.spo2 ? `${v.spo2}` : '-'}
-                                                        </td>
-                                                        <td className="p-2">{v.weight || '-'}</td>
-                                                        <td className="p-2">{v.height || '-'}</td>
-                                                        <td className="p-2">{v.nurse?.name || 'Unknown'}</td>
-                                                        <td className="p-2">
-                                                            {(!isReadOnly) && (
-                                                                <button
-                                                                    onClick={() => handleEditVital(v)}
-                                                                    className="text-blue-600 hover:underline text-xs"
-                                                                >
-                                                                    Edit
-                                                                </button>
-                                                            )}
-                                                        </td>
-                                                    </tr>
-                                                ))}
+                                                {existingVitals.map((v, idx) => {
+                                                    const bmi = v.bmi || calculateBMI(v.weight, v.height);
+                                                    return (
+                                                        <tr key={idx} className="border-b">
+                                                            <td className="p-2">{new Date(v.createdAt).toLocaleTimeString()}</td>
+                                                            <td className={`p-2 ${getVitalColorClass('bloodPressure', v.bloodPressure)}`}>
+                                                                {v.bloodPressure || '-'}
+                                                            </td>
+                                                            <td className={`p-2 ${getVitalColorClass('temperature', v.temperature)}`}>
+                                                                {v.temperature ? `${v.temperature}` : '-'}
+                                                            </td>
+                                                            <td className={`p-2 ${getVitalColorClass('heartRate', v.pulseRate)}`}>
+                                                                {v.pulseRate || '-'}
+                                                            </td>
+                                                            <td className={`p-2 ${getVitalColorClass('respiratoryRate', v.respiratoryRate)}`}>
+                                                                {v.respiratoryRate || '-'}
+                                                            </td>
+                                                            <td className={`p-2 ${getVitalColorClass('spo2', v.spo2)}`}>
+                                                                {v.spo2 ? `${v.spo2}` : '-'}
+                                                            </td>
+                                                            <td className="p-2">{v.weight || '-'}</td>
+                                                            <td className="p-2">{v.height || '-'}</td>
+                                                            <td className={`p-2 font-semibold ${bmi ? (
+                                                                parseFloat(bmi) < 18.5 ? 'text-yellow-600' :
+                                                                    parseFloat(bmi) < 25 ? 'text-green-600' :
+                                                                        parseFloat(bmi) < 30 ? 'text-orange-600' :
+                                                                            'text-red-600'
+                                                            ) : ''
+                                                                }`}>
+                                                                {bmi || '-'}
+                                                            </td>
+                                                            <td className="p-2">{v.nurse?.name || 'Unknown'}</td>
+                                                            <td className="p-2">
+                                                                {(!isReadOnly) && (
+                                                                    <button
+                                                                        onClick={() => handleEditVital(v)}
+                                                                        className="text-blue-600 hover:underline text-xs"
+                                                                    >
+                                                                        Edit
+                                                                    </button>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
                                             </tbody>
                                         </table>
                                     </div>
@@ -880,7 +912,14 @@ const NurseTriage = () => {
                                             step="0.1"
                                             className="w-full border p-2 rounded"
                                             value={vitals.weight}
-                                            onChange={(e) => setVitals({ ...vitals, weight: e.target.value })}
+                                            onChange={(e) => {
+                                                const newWeight = e.target.value;
+                                                setVitals({
+                                                    ...vitals,
+                                                    weight: newWeight,
+                                                    bmi: calculateBMI(newWeight, vitals.height)
+                                                });
+                                            }}
                                             placeholder="70.5"
                                             disabled={isReadOnly}
                                         />
@@ -892,9 +931,37 @@ const NurseTriage = () => {
                                             step="0.1"
                                             className="w-full border p-2 rounded"
                                             value={vitals.height}
-                                            onChange={(e) => setVitals({ ...vitals, height: e.target.value })}
+                                            onChange={(e) => {
+                                                const newHeight = e.target.value;
+                                                setVitals({
+                                                    ...vitals,
+                                                    height: newHeight,
+                                                    bmi: calculateBMI(vitals.weight, newHeight)
+                                                });
+                                            }}
                                             placeholder="175"
                                             disabled={isReadOnly}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm text-gray-600 mb-1">BMI (kg/m²)</label>
+                                        <input
+                                            type="text"
+                                            className={`w-full border p-2 rounded font-semibold ${vitals.bmi ? (
+                                                    parseFloat(vitals.bmi) < 18.5 ? 'bg-yellow-50 text-yellow-700 border-yellow-300' :
+                                                        parseFloat(vitals.bmi) < 25 ? 'bg-green-50 text-green-700 border-green-300' :
+                                                            parseFloat(vitals.bmi) < 30 ? 'bg-orange-50 text-orange-700 border-orange-300' :
+                                                                'bg-red-50 text-red-700 border-red-300'
+                                                ) : ''
+                                                }`}
+                                            value={vitals.bmi ? `${vitals.bmi} ${parseFloat(vitals.bmi) < 18.5 ? '(Underweight)' :
+                                                    parseFloat(vitals.bmi) < 25 ? '(Normal)' :
+                                                        parseFloat(vitals.bmi) < 30 ? '(Overweight)' :
+                                                            '(Obese)'
+                                                }` : ''}
+                                            placeholder="Auto-calculated"
+                                            disabled
+                                            readOnly
                                         />
                                     </div>
                                 </div>

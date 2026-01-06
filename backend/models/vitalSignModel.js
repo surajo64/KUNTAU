@@ -12,6 +12,7 @@ const vitalSignSchema = mongoose.Schema({
     weight: { type: Number }, // in kg
     height: { type: Number }, // in cm
     spo2: { type: Number }, // Oxygen Saturation
+    bmi: { type: Number }, // Body Mass Index (calculated)
 
     notes: { type: String },
 }, {

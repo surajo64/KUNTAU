@@ -6,9 +6,10 @@ const {
     getPatientPrescriptions,
     getPrescriptionsByVisit,
     dispensePrescription,
-    dispenseWithInventory
+    dispenseWithInventory,
+    generatePrescriptionCharge
 } = require('../controllers/prescriptionController');
-const { protect } = require('../middleware/authMiddleware');
+const { protect, pharmacy } = require('../middleware/authMiddleware');
 
 router.route('/')
     .post(protect, createPrescription)
@@ -18,5 +19,6 @@ router.get('/patient/:id', protect, getPatientPrescriptions);
 router.get('/visit/:id', protect, getPrescriptionsByVisit);
 router.put('/:id/dispense', protect, dispensePrescription);
 router.put('/:id/dispense-with-inventory', protect, dispenseWithInventory);
+router.put('/:id/generate-charge', protect, pharmacy, generatePrescriptionCharge);
 
 module.exports = router;

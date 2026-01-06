@@ -547,46 +547,15 @@ const PatientDetails = () => {
     const processSinglePrescription = async (drugItem, config) => {
         const selectedDrugData = inventoryDrugs.find(d => d._id === drugItem.drugId);
 
-        // Find or create drug charge
-        let drugCharge = await axios.get('http://localhost:5000/api/charges?active=true', config);
-        let chargeForDrug = drugCharge.data.find(c => c.type === 'drugs' && c.name === selectedDrugData.name);
+        // removed charge generation logic here
 
-        // If no charge exists for this drug, create one
-        if (!chargeForDrug) {
-            const newCharge = await axios.post(
-                'http://localhost:5000/api/charges',
-                {
-                    name: selectedDrugData.name,
-                    type: 'drugs',
-                    basePrice: selectedDrugData.price,
-                    department: 'Pharmacy',
-                    active: true
-                },
-                config
-            );
-            chargeForDrug = newCharge.data;
-        }
-
-        // 1. Add charge to encounter FIRST
-        const chargeRes = await axios.post(
-            'http://localhost:5000/api/encounter-charges',
-            {
-                encounterId: encounter._id,
-                patientId: patient._id,
-                chargeId: chargeForDrug._id,
-                quantity: drugItem.quantity,
-                notes: `${selectedDrugData.name} - Qty: ${drugItem.quantity}`
-            },
-            config
-        );
-
-        // 2. Create prescription with charge ID
+        // Create prescription WITHOUT charge ID
         await axios.post(
             'http://localhost:5000/api/prescriptions',
             {
                 patientId: patient._id,
                 visitId: encounter._id,
-                chargeId: chargeRes.data._id, // Link to charge
+                // chargeId is now omitted
                 medicines: [{
                     name: selectedDrugData.name,
                     dosage: drugItem.dosage,
@@ -1101,7 +1070,7 @@ const PatientDetails = () => {
                                         <h3 className="text-xl font-bold mb-4">Vital Signs & Nursing Assessment</h3>
                                         {vitals ? (
                                             <div>
-                                                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-2 mb-4">
+                                                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 mb-4">
                                                     <div className="bg-blue-50 p-2 rounded text-center">
                                                         <p className="text-xs text-gray-600">Temp (°C)</p>
                                                         <p className={`font-bold ${getVitalColorClass('temperature', vitals.temperature)}`}>
@@ -1139,6 +1108,44 @@ const PatientDetails = () => {
                                                     <div className="bg-blue-50 p-2 rounded text-center">
                                                         <p className="text-xs text-gray-600">Height (cm)</p>
                                                         <p className="font-bold">{vitals.height || '-'}</p>
+                                                    </div>
+                                                    <div className={`p-2 rounded text-center ${vitals.bmi || (vitals.weight && vitals.height) ? (
+                                                        (() => {
+                                                            const bmiValue = vitals.bmi || (vitals.weight / Math.pow(vitals.height / 100, 2));
+                                                            return parseFloat(bmiValue) < 18.5 ? 'bg-yellow-100 border border-yellow-300' :
+                                                                parseFloat(bmiValue) < 25 ? 'bg-green-100 border border-green-300' :
+                                                                    parseFloat(bmiValue) < 30 ? 'bg-orange-100 border border-orange-300' :
+                                                                        'bg-red-100 border border-red-300';
+                                                        })()
+                                                    ) : 'bg-blue-50'
+                                                        }`}>
+                                                        <p className="text-xs text-gray-600">BMI (kg/m²)</p>
+                                                        <p className={`font-bold ${vitals.bmi || (vitals.weight && vitals.height) ? (
+                                                            (() => {
+                                                                const bmiValue = vitals.bmi || (vitals.weight / Math.pow(vitals.height / 100, 2));
+                                                                return parseFloat(bmiValue) < 18.5 ? 'text-yellow-700' :
+                                                                    parseFloat(bmiValue) < 25 ? 'text-green-700' :
+                                                                        parseFloat(bmiValue) < 30 ? 'text-orange-700' :
+                                                                            'text-red-700';
+                                                            })()
+                                                        ) : ''
+                                                            }`}>
+                                                            {vitals.bmi ? vitals.bmi.toFixed(1) :
+                                                                (vitals.weight && vitals.height) ?
+                                                                    (vitals.weight / Math.pow(vitals.height / 100, 2)).toFixed(1) :
+                                                                    '-'}
+                                                        </p>
+                                                        {(vitals.bmi || (vitals.weight && vitals.height)) && (
+                                                            <p className="text-xs font-semibold mt-1">
+                                                                {(() => {
+                                                                    const bmiValue = vitals.bmi || (vitals.weight / Math.pow(vitals.height / 100, 2));
+                                                                    return parseFloat(bmiValue) < 18.5 ? 'Underweight' :
+                                                                        parseFloat(bmiValue) < 25 ? 'Normal' :
+                                                                            parseFloat(bmiValue) < 30 ? 'Overweight' :
+                                                                                'Obese';
+                                                                })()}
+                                                            </p>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 {vitals.nurse && (

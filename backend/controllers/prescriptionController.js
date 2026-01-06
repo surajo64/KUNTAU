@@ -25,7 +25,7 @@ const createPrescription = async (req, res) => {
         doctor: req.user._id,
         patient: patientId,
         visit: visitId,
-        charge: chargeId,
+        charge: chargeId || null, // Allow chargeId to be null/undefined
         medicines,
         notes,
     });
@@ -62,6 +62,140 @@ const getPrescriptionsByVisit = async (req, res) => {
         .populate('charge') // Populate full charge object
         .populate('dispensedBy', 'name');
     res.json(prescriptions);
+};
+
+// @desc    Generate charge for a prescription (Pharmacist Verified)
+// @route   PUT /api/prescriptions/:id/generate-charge
+// @access  Private (Pharmacist)
+const generatePrescriptionCharge = async (req, res) => {
+    try {
+        const { quantity } = req.body;
+        const prescription = await Prescription.findById(req.params.id)
+            .populate('patient');
+
+        if (!prescription) {
+            return res.status(404).json({ message: 'Prescription not found' });
+        }
+
+        if (prescription.charge) {
+            return res.status(400).json({ message: 'Charge already generated for this prescription' });
+        }
+
+        // Logic to create charge (similar to frontend PatientDetails logic but secure)
+        const Charge = require('../models/chargeModel');
+        const EncounterCharge = require('../models/encounterChargeModel');
+
+        // We assume the prescription has one main drug or logic needs to handle multiple?
+        // The current model creates ONE prescription document with multiple medicines, 
+        // BUT the previous frontend logic created ONE prescription per ONE drug charge (1:1 mapping).
+        // Let's verify PatientDetails.jsx:
+        // processSinglePrescription creates ONE encounter-charge and ONE prescription with ONE medicine in the array.
+        // So we can assume medicine[0] is the target drug.
+
+        const medicine = prescription.medicines[0];
+        if (!medicine) {
+            return res.status(400).json({ message: 'No medicine found in prescription' });
+        }
+
+        // Find existing charge definition for the drug
+        let drugCharge = await Charge.findOne({
+            type: 'drugs',
+            name: medicine.name,
+            active: true
+        });
+
+        // Current frontend logic creates it if not found, we should probably do same or error.
+        // Let's create if not found to maintain compatibility, though ideally drugs should exist in DB.
+        // However, we need a price. If it's not in Charge DB, where do we get price?
+        // In PatientDetails.jsx, it used `selectedDrugData.price` from Inventory.
+        // So we might need to look up Inventory here.
+
+        const Inventory = require('../models/inventoryModel');
+        // Find inventory item to get price if Charge doesn't exist or to ensure price consistency
+        const inventoryItem = await Inventory.findOne({
+            name: medicine.name,
+            quantity: { $gt: 0 }
+        }).sort({ createdAt: -1 }); // Get latest batch price? Or just any?
+
+        let basePrice = 0;
+        if (drugCharge) {
+            basePrice = drugCharge.basePrice; // or standardFee
+        } else if (inventoryItem) {
+            basePrice = inventoryItem.price;
+            // Create Charge definition since it doesn't exist
+            drugCharge = await Charge.create({
+                name: medicine.name,
+                type: 'drugs',
+                basePrice: basePrice,
+                department: 'Pharmacy',
+                active: true
+            });
+        } else {
+            return res.status(400).json({ message: `Drug ${medicine.name} not found in charges or inventory.` });
+        }
+
+        // Calculate Fee logic (reusing logic from encounterChargeController.js roughly, or just calling it?)
+        // Better to replicate crucial logic or extract into a service. 
+        // For now, let's implement the core logic here.
+
+        const patient = prescription.patient;
+        let fee = 0;
+        let isCovered = true;
+
+        if (patient.provider === 'Retainership') fee = drugCharge.retainershipFee || 0;
+        else if (patient.provider === 'NHIA') fee = drugCharge.nhiaFee || 0;
+        else if (patient.provider === 'KSCHMA') fee = drugCharge.kschmaFee || 0;
+        else fee = drugCharge.standardFee || drugCharge.basePrice;
+
+        if (fee === 0 && patient.provider !== 'Standard') {
+            fee = drugCharge.standardFee || drugCharge.basePrice;
+        }
+
+        const finalQuantity = quantity || medicine.quantity || 1;
+        const totalAmount = fee * finalQuantity;
+
+        let patientPortion = totalAmount;
+        let hmoPortion = 0;
+
+        if (patient.provider === 'Retainership') {
+            patientPortion = 0;
+            hmoPortion = totalAmount;
+        } else if (patient.provider === 'NHIA' || patient.provider === 'KSCHMA') {
+            patientPortion = totalAmount * 0.1;
+            hmoPortion = totalAmount * 0.9;
+        }
+
+        // Create Encounter Charge
+        const encounterCharge = await EncounterCharge.create({
+            encounter: prescription.visit,
+            patient: prescription.patient._id,
+            charge: drugCharge._id,
+            quantity: finalQuantity,
+            unitPrice: fee,
+            totalAmount,
+            patientPortion,
+            hmoPortion,
+            addedBy: req.user._id, // Pharmacist
+            notes: `${medicine.name} - Qty: ${finalQuantity} (Verified by Pharmacy)`
+        });
+
+        // Update Prescription
+        prescription.charge = encounterCharge._id;
+        // Also update the quantity in the medicine array effectively
+        prescription.medicines[0].quantity = finalQuantity;
+
+        await prescription.save();
+
+        res.json({
+            message: 'Charge generated successfully',
+            prescription,
+            encounterCharge
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error generating charge', error: error.message });
+    }
 };
 
 // @desc    Update prescription status (Dispense)
@@ -126,33 +260,58 @@ const dispenseWithInventory = async (req, res) => {
                 pharmacyFilter.pharmacy = req.user.assignedPharmacy._id || req.user.assignedPharmacy;
             }
 
+            // Escape special regex characters to ensure literal matching of parentheses, etc.
+            const escapedName = name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+
+
             const inventoryItems = await Inventory.find({
-                name: { $regex: new RegExp(name, 'i') },
+                name: { $regex: new RegExp(escapedName, 'i') },
                 quantity: { $gt: 0 },
                 ...pharmacyFilter
             }).sort({ expiryDate: 1 });
 
+
+
             if (inventoryItems.length === 0) {
+
+
                 insufficientStock.push({ name, reason: 'Not in stock' });
                 continue;
             }
 
-            // Calculate total available
-            const totalAvailable = inventoryItems.reduce((sum, item) => sum + item.quantity, 0);
+            // Separate valid and expired stock
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
 
-            if (totalAvailable < quantityDispensed) {
+            const validStock = inventoryItems.filter(item => new Date(item.expiryDate) >= today);
+            const expiredStock = inventoryItems.filter(item => new Date(item.expiryDate) < today);
+
+            // Calculate total available from VALID stock only
+            const totalValidAvailable = validStock.reduce((sum, item) => sum + item.quantity, 0);
+
+            if (totalValidAvailable < quantityDispensed) {
+                const totalExpired = expiredStock.reduce((sum, item) => sum + item.quantity, 0);
+
+                let reason = 'Insufficient stock';
+                if (totalValidAvailable === 0 && totalExpired > 0) {
+                    reason = `⛔ BLOCKED: All ${totalExpired} units in stock are EXPIRED.`;
+                } else if (totalExpired > 0) {
+                    reason = `⚠️ Insufficient valid stock. You have ${totalExpired} expired units that cannot be dispensed.`;
+                }
+
                 insufficientStock.push({
                     name,
                     requested: quantityDispensed,
-                    available: totalAvailable,
-                    reason: 'Insufficient stock'
+                    available: totalValidAvailable,
+                    reason
                 });
                 continue;
             }
 
-            // Deduct using FIFO (First Expiry, First Out)
+            // Deduct using FIFO (First Expiry, First Out) from VALID items
             let remainingToDispense = quantityDispensed;
-            for (const item of inventoryItems) {
+            for (const item of validStock) {
                 if (remainingToDispense <= 0) break;
 
                 const deductAmount = Math.min(item.quantity, remainingToDispense);
@@ -202,6 +361,7 @@ module.exports = {
     getPrescriptions,
     getPatientPrescriptions,
     getPrescriptionsByVisit,
+    generatePrescriptionCharge,
     dispensePrescription,
     dispenseWithInventory,
 };

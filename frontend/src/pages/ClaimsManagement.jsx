@@ -28,6 +28,7 @@ const ClaimsManagement = () => {
     const [rejectionReason, setRejectionReason] = useState('');
     const [notes, setNotes] = useState('');
     const [defaultBank, setDefaultBank] = useState(null);
+    const [systemSettings, setSystemSettings] = useState(null);
 
     useEffect(() => {
         if (user?.token) {
@@ -35,6 +36,7 @@ const ClaimsManagement = () => {
             fetchClaims();
             fetchSummary();
             fetchDefaultBank();
+            fetchSystemSettings();
         }
     }, [user]);
 
@@ -44,6 +46,15 @@ const ClaimsManagement = () => {
             fetchSummary();
         }
     }, [selectedHMO, selectedStatus, startDate, endDate, user]);
+
+    const fetchSystemSettings = async () => {
+        try {
+            const { data } = await axios.get('http://localhost:5000/api/settings');
+            setSystemSettings(data);
+        } catch (error) {
+            console.error('Error fetching system settings:', error);
+        }
+    };
 
     const fetchHMOs = async () => {
         try {
@@ -185,60 +196,127 @@ const ClaimsManagement = () => {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             const { data } = await axios.get(`http://localhost:5000/api/claims/${claimId}`, config);
 
+            // Calculate totals
+            const totalBilled = data.totalClaimAmount;
+            const patientPayable = data.claimItems.reduce((sum, item) => sum + (item.patientPortion || 0), 0);
+            const hmoPayable = data.claimItems.reduce((sum, item) => sum + (item.hmoPortion || 0), 0);
+
             const printWindow = window.open('', '', 'width=800,height=600');
             printWindow.document.write(`
                 <html>
                 <head>
                     <title>Claim Statement - ${data.claimNumber}</title>
                     <style>
-                        body { font-family: Arial, sans-serif; padding: 20px; }
-                        .header { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
-                        .header h1 { margin: 0; color: #2d5016; }
-                        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                        th { background-color: #f2f2f2; font-weight: bold; }
-                        .total-row { font-weight: bold; background-color: #f9f9f9; }
-                        .bank-details { background-color: #f0f8ff; padding: 15px; border-radius: 5px; margin: 20px 0; }
-                        @media print { button { display: none; } }
+                        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #333; }
+                        .header { text-align: center; margin-bottom: 20px; }
+                        .logo { height: 80px; margin-bottom: 10px; }
+                        .hospital-name { font-size: 24px; font-weight: bold; color: #000; text-transform: uppercase; margin: 0; }
+                        .hospital-details { font-size: 14px; margin: 5px 0; color: #555; }
+                        .document-title { font-size: 20px; font-weight: bold; text-align: center; margin: 20px 0 10px 0; color: #000; }
+                        
+                        .separator { border-bottom: 2px solid #000; margin-bottom: 30px; }
+                        
+                        .info-section { margin-bottom: 30px; }
+                        .info-row { margin-bottom: 8px; font-size: 15px; }
+                        .label { font-weight: bold; width: 120px; display: inline-block; }
+                        
+                        .summary-box { 
+                            background-color: #f9f9f9; 
+                            border: 1px solid #ddd; 
+                            padding: 15px; 
+                            margin-bottom: 30px; 
+                            display: flex; 
+                            justify-content: space-between;
+                        }
+                        .summary-item { text-align: center; }
+                        .summary-label { font-size: 14px; color: #666; font-weight: bold; display: block; margin-bottom: 5px; }
+                        .summary-value { font-size: 18px; font-weight: bold; color: #000; }
+                        
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
+                        th { text-align: left; padding: 10px; border-bottom: 2px solid #ddd; font-weight: bold; color: #000; }
+                        td { padding: 10px; border-bottom: 1px solid #eee; font-size: 14px; }
+                        .amount-col { text-align: right; }
+                        
+                        .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 20px; }
+                        
+                        @media print { button { display: none; } body { padding: 0; } }
                     </style>
                 </head>
                 <body>
                     <div class="header">
-                        <h1>SUD EMR - HMO Claim Statement</h1>
-                        <p>Claim: ${data.claimNumber} | Date: ${new Date().toLocaleDateString()}</p>
+                       ${systemSettings?.hospitalLogo ? `<img src="${systemSettings.hospitalLogo}" style="height: 150px; max-width: 250px; object-fit: contain; margin-bottom: 0;" />` : ''}
+                        <h1 class="hospital-name">${systemSettings?.reportHeader || systemSettings?.hospitalName || 'Not Recorded'}</h1>
+                        <p class="hospital-details">${systemSettings?.address || 'Not Recorded'}</p>
+                        <p class="hospital-details">Phone: ${systemSettings?.phone || 'Not Recorded'} | Email: ${systemSettings?.email || 'Not Recorded'}</p>
                     </div>
-                    <p><strong>Patient:</strong> ${data.patient?.name || 'N/A'} (MRN: ${data.patient?.mrn || 'N/A'})</p>
-                    <p><strong>HMO:</strong> ${data.hmo?.name || 'N/A'}</p>
+
+                    <h2 class="document-title">HMO Claim Statement</h2>
+                    <div class="separator"></div>
+
+                    <div class="info-section">
+                        <div class="info-row"><span class="label">Patient:</span> ${data.patient?.name || 'N/A'}</div>
+                        <div class="info-row"><span class="label">MRN:</span> ${data.patient?.mrn || 'N/A'}</div>
+                        <div class="info-row"><span class="label">HMO:</span> ${data.hmo?.name || 'N/A'}</div>
+                        <div class="info-row"><span class="label">Claim No:</span> ${data.claimNumber}</div>
+                        <div class="info-row"><span class="label">Date:</span> ${new Date().toLocaleDateString()}</div>
+                    </div>
+
+                    <div class="summary-box">
+                        <div class="summary-item">
+                            <span class="summary-label">Total Billed</span>
+                            <span class="summary-value">₦${totalBilled.toLocaleString()}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-label">Patient Payable</span>
+                            <span class="summary-value">₦${patientPayable.toLocaleString()}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-label">HMO Payable</span>
+                            <span class="summary-value">₦${hmoPayable.toLocaleString()}</span>
+                        </div>
+                    </div>
+
+                    <h3>Service Details</h3>
                     <table>
-                        <thead><tr><th>Service</th><th>Type</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead>
+                        <thead>
+                            <tr>
+                                <th>Service</th>
+                                <th>Type</th>
+                                <th class="amount-col">Qty</th>
+                                <th class="amount-col">Unit Price</th>
+                                <th class="amount-col">Total</th>
+                            </tr>
+                        </thead>
                         <tbody>
                             ${data.claimItems.map(item => `
                                 <tr>
                                     <td>${item.description}</td>
                                     <td>${item.chargeType}</td>
-                                    <td>${item.quantity}</td>
-                                    <td>₦${item.unitPrice.toLocaleString()}</td>
-                                    <td>₦${item.totalAmount.toLocaleString()}</td>
+                                    <td class="amount-col">${item.quantity}</td>
+                                    <td class="amount-col">₦${item.unitPrice.toLocaleString()}</td>
+                                    <td class="amount-col">₦${item.totalAmount.toLocaleString()}</td>
                                 </tr>
                             `).join('')}
-                            <tr class="total-row">
-                                <td colspan="4" style="text-align: right;">Total:</td>
-                                <td>₦${data.totalClaimAmount.toLocaleString()}</td>
-                            </tr>
                         </tbody>
                     </table>
+
                     ${defaultBank ? `
-                    <div class="bank-details">
-                        <h3>Payment Details</h3>
-                        <p><strong>Bank:</strong> ${defaultBank.bankName}</p>
-                        <p><strong>Account Name:</strong> ${defaultBank.accountName}</p>
-                        <p><strong>Account Number:</strong> ${defaultBank.accountNumber}</p>
-                        ${defaultBank.branchName ? `<p><strong>Branch:</strong> ${defaultBank.branchName}</p>` : ''}
+                    <div style="margin-top: 30px; background: #f0f8ff; padding: 15px; border-radius: 5px;">
+                        <h4 style="margin-top: 0; margin-bottom: 10px;">Payment Details</h4>
+                        <p style="margin: 5px 0;"><strong>Bank:</strong> ${defaultBank.bankName}</p>
+                        <p style="margin: 5px 0;"><strong>Account Name:</strong> ${defaultBank.accountName}</p>
+                        <p style="margin: 5px 0;"><strong>Account Number:</strong> ${defaultBank.accountNumber}</p>
                     </div>
-                    ` : '<p style="color: red;">No bank details available.</p>'}
-                    <div style="text-align: center; margin: 20px;">
-                        <button onclick="window.print()" style="padding: 10px 20px; background: #2d5016; color: white; border: none; border-radius: 5px; cursor: pointer;">Print</button>
-                        <button onclick="window.close()" style="padding: 10px 20px; background: #666; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px;">Close</button>
+                    ` : ''}
+
+                    <div class="footer">
+                        <p>Generated on ${new Date().toLocaleString()}</p>
+                        <p>This document is computer generated and valid without signature.</p>
+                    </div>
+
+                    <div style="text-align: center; margin: 30px;">
+                        <button onclick="window.print()" style="padding: 12px 30px; background: #2d5016; color: white; border: none; border-radius: 5px; cursor: pointer;">Print</button>
+                        <button onclick="window.close()" style="padding: 12px 30px; background: #666; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px;">Close</button>
                     </div>
                 </body>
                 </html>
@@ -278,68 +356,118 @@ const ClaimsManagement = () => {
                 <head>
                     <title>Batch Claim Statement - ${hmoName}</title>
                     <style>
-                        body { font-family: Arial, sans-serif; padding: 20px; }
-                        .header { text-align: center; margin-bottom: 30px; border-bottom: 3px solid #2d5016; padding-bottom: 15px; }
-                        .header h1 { margin: 0; color: #2d5016; font-size: 24px; }
-                        .patient-section { margin: 30px 0; page-break-inside: avoid; border: 1px solid #ddd; padding: 15px; border-radius: 5px; }
-                        .patient-header { background-color: #f5f5f5; padding: 10px; margin: -15px -15px 15px -15px; }
-                        .patient-header h3 { margin: 0; color: #2d5016; }
-                        table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 12px; }
-                        th { background-color: #f2f2f2; font-weight: bold; }
-                        .subtotal-row { font-weight: bold; background-color: #f9f9f9; }
-                        .grand-total { background-color: #2d5016; color: white; padding: 20px; margin: 30px 0; text-align: center; border-radius: 5px; }
-                        .grand-total h2 { margin: 0; font-size: 28px; }
-                        .bank-details { background-color: #f0f8ff; padding: 20px; border-radius: 5px; margin: 20px 0; border: 2px solid #2d5016; }
-                        @media print { button { display: none; } .patient-section { page-break-inside: avoid; } }
+                        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 40px; color: #333; }
+                        .header { text-align: center; margin-bottom: 20px; }
+                        .logo { height: 120px; object-fit: contain; margin-bottom: 5px; }
+                        .hospital-name { font-size: 26px; font-weight: bold; color: #000; text-transform: uppercase; margin: 0; }
+                        .hospital-details { font-size: 14px; margin: 5px 0; color: #555; }
+                        .document-title { font-size: 22px; font-weight: bold; text-align: center; margin: 20px 0 10px 0; color: #000; }
+                        
+                        .separator { border-bottom: 2px solid #000; margin-bottom: 30px; }
+                        
+                        .summary-box { 
+                            background-color: #f9f9f9; 
+                            border: 1px solid #ddd; 
+                            padding: 20px; 
+                            margin-bottom: 30px; 
+                            display: flex; 
+                            justify-content: space-between;
+                            align-items: center;
+                        }
+                        .summary-item { text-align: center; flex: 1; }
+                        .summary-label { font-size: 14px; color: #666; font-weight: bold; display: block; margin-bottom: 5px; }
+                        .summary-value { font-size: 24px; font-weight: bold; color: #2d5016; }
+                        
+                        .patient-section { margin-bottom: 25px; border-bottom: 1px solid #eee; padding-bottom: 15px; page-break-inside: avoid; }
+                        .patient-header { font-size: 16px; font-weight: bold; color: #000; margin-bottom: 5px; }
+                        .patient-sub { font-size: 13px; color: #666; margin-bottom: 10px; }
+                        
+                        table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
+                        th { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; background-color: #f5f5f5; font-size: 12px; font-weight: bold; }
+                        td { padding: 8px; border-bottom: 1px solid #eee; font-size: 12px; }
+                        .amount-col { text-align: right; }
+                        .total-row { font-weight: bold; }
+                        
+                        .footer { margin-top: 50px; text-align: center; font-size: 12px; color: #888; border-top: 1px solid #eee; padding-top: 20px; }
+                        
+                        @media print { button { display: none; } body { padding: 0; } }
                     </style>
                 </head>
                 <body>
                     <div class="header">
-                        <h1>SUD EMR - CONSOLIDATED HMO CLAIM STATEMENT</h1>
-                        <p><strong>HMO:</strong> ${hmoName}</p>
-                        <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
-                        <p><strong>Total Claims:</strong> ${data.length} patients</p>
+                       ${systemSettings?.hospitalLogo ? `<img src="${systemSettings.hospitalLogo}" style="height: 150px; max-width: 250px; object-fit: contain; margin-bottom: 0;" />` : ''}
+                        <h1 class="hospital-name">${systemSettings?.reportHeader || systemSettings?.hospitalName || 'Not Recorded'}</h1>
+                        <p class="hospital-details">${systemSettings?.address || 'Not Recorded'}</p>
+                        <p class="hospital-details">Phone: ${systemSettings?.phone || 'Not Recorded'} | Email: ${systemSettings?.email || 'Not Recorded'}</p>
                     </div>
+
+                    <h2 class="document-title">Consolidated HMO Claim Statement</h2>
+                    <div class="separator"></div>
+
+                    <div style="margin-bottom: 20px;">
+                        <p><strong>HMO:</strong> ${hmoName}</p>
+                        <p><strong>Period:</strong> ${startDate || 'Any'} to ${endDate || 'Any'}</p>
+                    </div>
+
+                    <div class="summary-box">
+                        <div class="summary-item">
+                            <span class="summary-label">Total Claims</span>
+                            <span class="summary-value">${data.length}</span>
+                        </div>
+                        <div class="summary-item">
+                            <span class="summary-label">Grand Total Payable</span>
+                            <span class="summary-value">₦${grandTotal.toLocaleString()}</span>
+                        </div>
+                    </div>
+
                     ${data.map((claim, index) => `
                         <div class="patient-section">
-                            <div class="patient-header">
-                                <h3>Patient ${index + 1}: ${claim.patient?.name || 'N/A'}</h3>
-                                <p style="margin: 5px 0 0 0;"><strong>MRN:</strong> ${claim.patient?.mrn || 'N/A'} | <strong>Claim #:</strong> ${claim.claimNumber}</p>
-                            </div>
+                            <div class="patient-header">${index + 1}. ${claim.patient?.name || 'N/A'}</div>
+                            <div class="patient-sub">MRN: ${claim.patient?.mrn || 'N/A'} | Claim #: ${claim.claimNumber}</div>
+                            
                             <table>
-                                <thead><tr><th>Service</th><th>Type</th><th>Qty</th><th>Unit Price</th><th>Total</th></tr></thead>
+                                <thead>
+                                    <tr>
+                                        <th>Service</th>
+                                        <th>Type</th>
+                                        <th class="amount-col">Qty</th>
+                                        <th class="amount-col">Unit Price</th>
+                                        <th class="amount-col">Total</th>
+                                    </tr>
+                                </thead>
                                 <tbody>
                                     ${claim.claimItems.map(item => `
                                         <tr>
                                             <td>${item.description}</td>
                                             <td>${item.chargeType}</td>
-                                            <td>${item.quantity}</td>
-                                            <td>₦${item.unitPrice.toLocaleString()}</td>
-                                            <td>₦${item.totalAmount.toLocaleString()}</td>
+                                            <td class="amount-col">${item.quantity}</td>
+                                            <td class="amount-col">₦${item.unitPrice.toLocaleString()}</td>
+                                            <td class="amount-col">₦${item.totalAmount.toLocaleString()}</td>
                                         </tr>
                                     `).join('')}
-                                    <tr class="subtotal-row">
-                                        <td colspan="4" style="text-align: right;">Subtotal:</td>
-                                        <td>₦${claim.totalClaimAmount.toLocaleString()}</td>
+                                    <tr class="total-row">
+                                        <td colspan="4" class="amount-col">Subtotal:</td>
+                                        <td class="amount-col">₦${claim.totalClaimAmount.toLocaleString()}</td>
                                     </tr>
                                 </tbody>
                             </table>
                         </div>
                     `).join('')}
-                    <div class="grand-total">
-                        <h2>GRAND TOTAL: ₦${grandTotal.toLocaleString()}</h2>
-                        <p style="margin: 10px 0 0 0;">Total payable by ${hmoName}</p>
-                    </div>
+
                     ${defaultBank ? `
-                    <div class="bank-details">
-                        <h3>PAYMENT INSTRUCTIONS</h3>
-                        <p><strong>Bank:</strong> ${defaultBank.bankName}</p>
-                        <p><strong>Account Name:</strong> ${defaultBank.accountName}</p>
-                        <p><strong>Account Number:</strong> ${defaultBank.accountNumber}</p>
-                        ${defaultBank.branchName ? `<p><strong>Branch:</strong> ${defaultBank.branchName}</p>` : ''}
+                    <div style="margin-top: 30px; background: #f0f8ff; padding: 15px; border-radius: 5px;">
+                        <h4 style="margin-top: 0; margin-bottom: 10px;">Payment Details</h4>
+                        <p style="margin: 5px 0;"><strong>Bank:</strong> ${defaultBank.bankName}</p>
+                        <p style="margin: 5px 0;"><strong>Account Name:</strong> ${defaultBank.accountName}</p>
+                        <p style="margin: 5px 0;"><strong>Account Number:</strong> ${defaultBank.accountNumber}</p>
                     </div>
-                    ` : '<p style="color: red;">No bank details available.</p>'}
+                    ` : ''}
+
+                    <div class="footer">
+                        <p>Generated on ${new Date().toLocaleString()}</p>
+                        <p>This document is computer generated and valid without signature.</p>
+                    </div>
+
                     <div style="text-align: center; margin: 30px;">
                         <button onclick="window.print()" style="padding: 12px 30px; background: #2d5016; color: white; border: none; border-radius: 5px; cursor: pointer;">Print</button>
                         <button onclick="window.close()" style="padding: 12px 30px; background: #666; color: white; border: none; border-radius: 5px; cursor: pointer; margin-left: 10px;">Close</button>

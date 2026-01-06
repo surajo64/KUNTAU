@@ -88,13 +88,33 @@ const PharmacyPrescriptions = () => {
         try {
             // setLoading(true); // Optional, maybe too disruptive for every selection
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/inventory', config);
+
+            // Filter by logged-in pharmacist's assigned pharmacy
+            let url = 'http://localhost:5000/api/inventory';
+            const pharmacyId = user?.assignedPharmacy?._id || user?.assignedPharmacy;
+
+            console.log('User:', user);
+            console.log('Assigned Pharmacy ID:', pharmacyId);
+
+            if (pharmacyId && typeof pharmacyId === 'string') {
+                url += `?pharmacy=${pharmacyId}`;
+            }
+
+            const { data } = await axios.get(url, config);
+            console.log('Fetched Inventory Data:', data);
 
             const availability = {};
             medicines.forEach(med => {
-                const inventoryItems = data.filter(item =>
-                    item.name.toLowerCase().includes(med.name.toLowerCase()) && item.quantity > 0
-                );
+                // Modified matching logic: match strictly by name or check includes in both directions
+                // Also handle potential whitespace and case sensitivity
+                const inventoryItems = data.filter(item => {
+                    const itemName = item.name.toLowerCase().trim();
+                    const medName = med.name.toLowerCase().trim();
+                    return (itemName === medName || itemName.includes(medName) || medName.includes(itemName)) && item.quantity > 0;
+                });
+
+                console.log(`Matching for ${med.name}:`, inventoryItems);
+
                 const totalAvailable = inventoryItems.reduce((sum, item) => sum + item.quantity, 0);
                 availability[med.name] = {
                     available: totalAvailable,
@@ -279,7 +299,12 @@ const PharmacyPrescriptions = () => {
 
             if (error.response?.data?.insufficientStock) {
                 error.response.data.insufficientStock.forEach(item => {
-                    toast.error(`${item.name}: ${item.reason} (Available: ${item.available || 0})`);
+                    // Cleaner error message: Don't show redundant availability if it's an expiry error
+                    if (item.reason.includes('EXPIRED')) {
+                        toast.error(item.reason, { autoClose: 5000 });
+                    } else {
+                        toast.error(`${item.name}: ${item.reason} (Available: ${item.available || 0})`);
+                    }
                 });
             }
         } finally {
@@ -383,8 +408,8 @@ const PharmacyPrescriptions = () => {
                                                 {renderMedicines(p.medicines)}
                                             </div>
                                             <div className="mt-2 flex gap-2">
-                                                <span className={`text-xs px-3 py-1 rounded ${p.charge?.status === 'paid' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>
-                                                    {p.charge?.status === 'paid' ? 'Paid' : 'Unpaid'}
+                                                <span className={`text-xs px-3 py-1 rounded ${!p.charge ? 'bg-blue-100 text-blue-800' : p.charge.status === 'paid' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>
+                                                    {!p.charge ? 'Process' : p.charge.status === 'paid' ? 'Paid' : 'Unpaid'}
                                                 </span>
                                                 <span className={`text-xs px-3 py-1 rounded ${p.status === 'dispensed' ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-600'}`}>
                                                     {p.status}
@@ -432,20 +457,88 @@ const PharmacyPrescriptions = () => {
                                 <FaCheckCircle /> Already Dispensed
                             </h3>
                             <p className="text-sm text-gray-700 mb-4">
-                                This prescription has already been dispensed and cannot be dispensed again.
+                                This prescription has already been dispensed.
                             </p>
-                            <div className="bg-white p-4 rounded border">
-                                <p className="font-semibold mb-2">Dispensing Details:</p>
-                                <p className="text-sm text-gray-700">
-                                    Dispensed on: {selectedPrescription.dispensedAt ? new Date(selectedPrescription.dispensedAt).toLocaleString() : 'N/A'}
-                                </p>
-                                <div className="mt-3">
-                                    <p className="font-semibold mb-2">Medications Dispensed:</p>
-                                    {renderMedicines(selectedPrescription.medicines)}
-                                </div>
-                            </div>
                         </div>
-                    ) : selectedPrescription.charge?.status !== 'paid' ? (
+                    ) : !selectedPrescription.charge ? (
+                        // CASE 1: NO CHARGE YET (New Workflow)
+                        <div className="border-2 border-blue-300 bg-blue-50 p-6 rounded mb-6">
+                            <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-blue-800">
+                                <FaBoxOpen /> Process Prescription
+                            </h3>
+                            <p className="text-sm text-gray-700 mb-4">
+                                This prescription needs to be processed. Please verify the quantity and generate a charge.
+                            </p>
+
+                            <div className="bg-white p-4 rounded border mb-4">
+                                <h4 className="font-bold text-lg mb-3">Medication Details</h4>
+                                {dispensingMedicines.map((med, index) => (
+                                    <div key={index} className="mb-4 pb-4 border-b last:border-0">
+                                        <p className="font-bold text-lg">{med.name}</p>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                                            <div>
+                                                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                                    Quantity to Charge
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    min="1"
+                                                    className="border p-2 rounded w-full"
+                                                    value={med.quantityDispensed}
+                                                    onChange={(e) => updateMedicine(index, 'quantityDispensed', parseInt(e.target.value))}
+                                                />
+                                                <p className="text-xs text-gray-600 mt-1">
+                                                    Available Stock: {inventoryAvailability[med.name]?.available || 0}
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                                    Dosage/Instruction
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    className="border p-2 rounded w-full"
+                                                    value={med.dosage}
+                                                    readOnly
+                                                />
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <button
+                                onClick={async () => {
+                                    try {
+                                        setLoading(true);
+                                        const config = { headers: { Authorization: `Bearer ${user.token}` } };
+                                        // Assume single drug per prescription for now as per current structure
+                                        const qty = dispensingMedicines[0]?.quantityDispensed || 1;
+
+                                        await axios.put(
+                                            `http://localhost:5000/api/prescriptions/${selectedPrescription._id}/generate-charge`,
+                                            { quantity: qty },
+                                            config
+                                        );
+                                        toast.success('Charge generated successfully!');
+
+                                        // Refresh
+                                        fetchPrescriptions();
+                                        setSelectedPrescription(null);
+                                        setDispensingMedicines([]);
+                                    } catch (error) {
+                                        console.error(error);
+                                        toast.error(error.response?.data?.message || 'Error generating charge');
+                                    } finally {
+                                        setLoading(false);
+                                    }
+                                }}
+                                className="w-full bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700 font-bold flex items-center justify-center gap-2"
+                            >
+                                <FaSave /> Generate Charge & Process
+                            </button>
+                        </div>
+                    ) : selectedPrescription.charge.status !== 'paid' ? (
                         <div className="border-2 border-red-300 bg-red-50 p-6 rounded mb-6">
                             <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-red-800">
                                 <FaCheckCircle /> Payment Required
@@ -584,8 +677,9 @@ const PharmacyPrescriptions = () => {
                         ← Back to Prescriptions
                     </button>
                 </div>
-            )}
-        </Layout>
+            )
+            }
+        </Layout >
     );
 };
 
