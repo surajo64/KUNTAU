@@ -147,7 +147,7 @@ const getClaims = async (req, res) => {
         }
 
         const claims = await Claim.find(filter)
-            .populate('patient', 'name mrn')
+            .populate('patient', 'name mrn insuranceNumber')
             .populate('hmo', 'name code')
             .populate('encounter', 'createdAt type')
             .sort({ createdAt: -1 });
@@ -165,7 +165,7 @@ const getClaims = async (req, res) => {
 const getClaimById = async (req, res) => {
     try {
         const claim = await Claim.findById(req.params.id)
-            .populate('patient')
+            .populate('patient', 'name mrn insuranceNumber')
             .populate('hmo')
             .populate('encounter')
             .populate('claimItems.charge');

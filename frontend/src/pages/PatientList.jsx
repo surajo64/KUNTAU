@@ -3,12 +3,14 @@ import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
+import LoadingOverlay from '../components/loadingOverlay';
 import { FaSearch, FaUserPlus } from 'react-icons/fa';
 
 const PatientList = () => {
     const [patients, setPatients] = useState([]);
     const [filteredPatients, setFilteredPatients] = useState([]);
     const [search, setSearch] = useState('');
+    const [loading, setLoading] = useState(false);
     const { user } = useContext(AuthContext);
 
     useEffect(() => {
@@ -28,17 +30,21 @@ const PatientList = () => {
     const fetchPatients = async () => {
         if (!user) return;
         try {
+            setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             const { data } = await axios.get('http://localhost:5000/api/patients', config);
             setPatients(data);
             setFilteredPatients(data);
         } catch (error) {
             console.error(error);
+        } finally {
+            setLoading(false);
         }
     };
 
     return (
         <Layout>
+            {loading && <LoadingOverlay />}
             <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-bold text-gray-800">Patient Registry List</h2>
 

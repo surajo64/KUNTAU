@@ -348,15 +348,7 @@ const FrontDeskDashboard = () => {
                 <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
                     <FaUserPlus className="text-green-600" /> Front Desk
                 </h2>
-                <div className="flex gap-2">
 
-                    <button
-                        onClick={() => setShowRegisterForm(!showRegisterForm)}
-                        className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 flex items-center gap-2"
-                    >
-                        <FaUserPlus /> Register New Patient
-                    </button>
-                </div>
             </div>
 
             {/* Register Patient Form */}

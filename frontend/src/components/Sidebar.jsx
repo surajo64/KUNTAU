@@ -11,19 +11,24 @@ const Sidebar = () => {
     const [openDropdown, setOpenDropdown] = useState('');
 
     const [hospitalName, setHospitalName] = useState('SUD EMR');
+    const [hospitalLogo, setHospitalLogo] = useState(null);
+
 
     useEffect(() => {
-        const fetchHospitalName = async () => {
+        const fetchHospitalSettings = async () => {
             try {
                 const { data } = await axios.get('http://localhost:5000/api/settings');
                 if (data && data.hospitalName) {
                     setHospitalName(data.hospitalName);
                 }
+                if (data && data.hospitalLogo) {
+                    setHospitalLogo(data.hospitalLogo);
+                }
             } catch (error) {
-                console.error('Error fetching hospital name:', error);
+                console.error('Error fetching hospital settings:', error);
             }
         };
-        fetchHospitalName();
+        fetchHospitalSettings();
     }, []);
 
     if (!user) {
@@ -64,7 +69,12 @@ const Sidebar = () => {
     return (
         <div className="w-64 bg-green-800 text-white min-h-screen flex flex-col">
             <div className="p-6 text-2xl font-bold border-b border-green-700 flex items-center gap-2">
-                <FaNotesMedical /> {hospitalName}
+                {hospitalLogo ? (
+                    <img src={hospitalLogo} alt="Hospital Logo" className="h-10 w-10 object-contain" />
+                ) : (
+                    <FaNotesMedical />
+                )}
+                {hospitalName}
             </div>
 
             <nav className="flex-1 p-4 space-y-2 overflow-y-auto">

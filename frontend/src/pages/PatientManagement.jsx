@@ -550,6 +550,7 @@ const PatientManagement = () => {
                                         className="w-full border p-2 rounded"
                                         value={editPatient.mrn || ''}
                                         onChange={(e) => setEditPatient({ ...editPatient, mrn: e.target.value })}
+                                        disabled
                                     />
                                 </div>
                                 <div>
@@ -627,9 +628,9 @@ const PatientManagement = () => {
                                                 <option value="">Select HMO *</option>
                                                 {hmos
                                                     .filter(hmo => {
-                                                        // For NHIA and Retainership, show all HMOs except KSCHMA
+                                                        // Strict filtering based on category for NHIA and Retainership
                                                         if (editPatient.provider === 'NHIA' || editPatient.provider === 'Retainership') {
-                                                            return hmo.name.toUpperCase() !== 'KSCHMA';
+                                                            return hmo.category === editPatient.provider;
                                                         }
                                                         // For KSCHMA, show only KSCHMA HMO
                                                         if (editPatient.provider === 'KSCHMA') {
@@ -646,15 +647,18 @@ const PatientManagement = () => {
                                         </div>
                                     )}
 
-                                    <div>
-                                        <label className="block text-sm font-semibold mb-1">Insurance Number</label>
-                                        <input
-                                            type="text"
-                                            className="w-full border p-2 rounded"
-                                            value={editPatient.insuranceNumber || ''}
-                                            onChange={(e) => setEditPatient({ ...editPatient, insuranceNumber: e.target.value })}
-                                        />
-                                    </div>
+                                    {(editPatient.provider === 'NHIA' || editPatient.provider === 'KSCHMA') && (
+                                        <div>
+                                            <label className="block text-sm font-semibold mb-1">Insurance Number <span className="text-red-500">*</span></label>
+                                            <input
+                                                type="text"
+                                                className="w-full border p-2 rounded"
+                                                value={editPatient.insuranceNumber || ''}
+                                                onChange={(e) => setEditPatient({ ...editPatient, insuranceNumber: e.target.value })}
+                                                required
+                                            />
+                                        </div>
+                                    )}
                                 </div>
                             </div>
 

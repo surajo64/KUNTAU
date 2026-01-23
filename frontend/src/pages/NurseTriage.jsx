@@ -127,7 +127,7 @@ const NurseTriage = () => {
             const patientEncounters = data.filter(v =>
                 (v.patient._id === patient._id || v.patient === patient._id) &&
                 (v.encounterStatus === 'payment_pending' || v.encounterStatus === 'in_nursing' || v.encounterStatus === 'registered' || v.encounterStatus === 'with_doctor' ||
-                    v.encounterStatus === 'completed' || v.encounterStatus === 'cancelled' || v.encounterStatus === 'discharged' || v.encounterStatus === 'in_ward')
+                    v.encounterStatus === 'completed' || v.encounterStatus === 'cancelled' || v.encounterStatus === 'discharged' || v.encounterStatus === 'in_ward' || v.encounterStatus === 'admitted')
             );
             // Sort encounters by creation date - latest first
             patientEncounters.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -948,16 +948,16 @@ const NurseTriage = () => {
                                         <input
                                             type="text"
                                             className={`w-full border p-2 rounded font-semibold ${vitals.bmi ? (
-                                                    parseFloat(vitals.bmi) < 18.5 ? 'bg-yellow-50 text-yellow-700 border-yellow-300' :
-                                                        parseFloat(vitals.bmi) < 25 ? 'bg-green-50 text-green-700 border-green-300' :
-                                                            parseFloat(vitals.bmi) < 30 ? 'bg-orange-50 text-orange-700 border-orange-300' :
-                                                                'bg-red-50 text-red-700 border-red-300'
-                                                ) : ''
+                                                parseFloat(vitals.bmi) < 18.5 ? 'bg-yellow-50 text-yellow-700 border-yellow-300' :
+                                                    parseFloat(vitals.bmi) < 25 ? 'bg-green-50 text-green-700 border-green-300' :
+                                                        parseFloat(vitals.bmi) < 30 ? 'bg-orange-50 text-orange-700 border-orange-300' :
+                                                            'bg-red-50 text-red-700 border-red-300'
+                                            ) : ''
                                                 }`}
                                             value={vitals.bmi ? `${vitals.bmi} ${parseFloat(vitals.bmi) < 18.5 ? '(Underweight)' :
-                                                    parseFloat(vitals.bmi) < 25 ? '(Normal)' :
-                                                        parseFloat(vitals.bmi) < 30 ? '(Overweight)' :
-                                                            '(Obese)'
+                                                parseFloat(vitals.bmi) < 25 ? '(Normal)' :
+                                                    parseFloat(vitals.bmi) < 30 ? '(Overweight)' :
+                                                        '(Obese)'
                                                 }` : ''}
                                             placeholder="Auto-calculated"
                                             disabled

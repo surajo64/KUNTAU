@@ -256,6 +256,7 @@ const ClaimsManagement = () => {
                     <div class="info-section">
                         <div class="info-row"><span class="label">Patient:</span> ${data.patient?.name || 'N/A'}</div>
                         <div class="info-row"><span class="label">MRN:</span> ${data.patient?.mrn || 'N/A'}</div>
+                        <div class="info-row"><span class="label">Insurance No:</span> ${data.patient?.insuranceNumber || 'N/A'}</div>
                         <div class="info-row"><span class="label">HMO:</span> ${data.hmo?.name || 'N/A'}</div>
                         <div class="info-row"><span class="label">Claim No:</span> ${data.claimNumber}</div>
                         <div class="info-row"><span class="label">Date:</span> ${new Date().toLocaleDateString()}</div>
@@ -423,7 +424,7 @@ const ClaimsManagement = () => {
                     ${data.map((claim, index) => `
                         <div class="patient-section">
                             <div class="patient-header">${index + 1}. ${claim.patient?.name || 'N/A'}</div>
-                            <div class="patient-sub">MRN: ${claim.patient?.mrn || 'N/A'} | Claim #: ${claim.claimNumber}</div>
+                            <div class="patient-sub">MRN: ${claim.patient?.mrn || 'N/A'} | Insurance No: ${claim.patient?.insuranceNumber || 'N/A'} | Claim #: ${claim.claimNumber}</div>
                             
                             <table>
                                 <thead>
@@ -684,6 +685,7 @@ const ClaimsManagement = () => {
                                 <p className="text-sm text-gray-600">Patient</p>
                                 <p className="font-semibold">{selectedClaim.patient?.name || 'N/A'}</p>
                                 <p className="text-sm text-gray-600">MRN: {selectedClaim.patient?.mrn || 'N/A'}</p>
+                                <p className="text-sm text-gray-600">Insurance No: {selectedClaim.patient?.insuranceNumber || 'N/A'}</p>
                             </div>
                             <div>
                                 <p className="text-sm text-gray-600">HMO</p>

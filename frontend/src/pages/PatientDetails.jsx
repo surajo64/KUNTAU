@@ -190,7 +190,7 @@ const PatientDetails = () => {
 
             // Find active encounter
             const activeEncounter = patientVisits.find(v =>
-                v.encounterStatus === 'with_doctor' || v.encounterStatus === 'in_nursing' || v.encounterStatus === 'in_pharmacy' || v.encounterStatus === 'in_ward'
+                v.encounterStatus === 'with_doctor' || v.encounterStatus === 'in_nursing' || v.encounterStatus === 'in_pharmacy' || v.encounterStatus === 'in_ward' || v.encounterStatus === 'admitted'
             );
             setEncounter(activeEncounter);
 

@@ -229,9 +229,9 @@ const RegisterPatientModal = ({ isOpen, onClose, onSuccess, userToken }) => {
                                             <option value="">Select HMO *</option>
                                             {hmos
                                                 .filter(hmo => {
-                                                    // For NHIA and Retainership, show all HMOs except KSCHMA
+                                                    // Strict filtering based on category for NHIA and Retainership
                                                     if (formData.provider === 'NHIA' || formData.provider === 'Retainership') {
-                                                        return hmo.name.toUpperCase() !== 'KSCHMA';
+                                                        return hmo.category === formData.provider;
                                                     }
                                                     // For KSCHMA, show only KSCHMA HMO
                                                     if (formData.provider === 'KSCHMA') {
@@ -248,19 +248,22 @@ const RegisterPatientModal = ({ isOpen, onClose, onSuccess, userToken }) => {
                                     </div>
                                 )}
 
-                                {/* Insurance Number */}
-                                <div>
-                                    <label className="block text-sm font-semibold mb-1">
-                                        Insurance Number
-                                    </label>
-                                    <input
-                                        type="text"
-                                        name="insuranceNumber"
-                                        value={formData.insuranceNumber}
-                                        onChange={handleChange}
-                                        className="w-full border p-2 rounded"
-                                    />
-                                </div>
+                                {/* Insurance Number - Visible & Required only for NHIA and KSCHMA */}
+                                {(formData.provider === 'NHIA' || formData.provider === 'KSCHMA') && (
+                                    <div>
+                                        <label className="block text-sm font-semibold mb-1">
+                                            Insurance Number <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            name="insuranceNumber"
+                                            value={formData.insuranceNumber}
+                                            onChange={handleChange}
+                                            className="w-full border p-2 rounded"
+                                            required
+                                        />
+                                    </div>
+                                )}
                             </div>
                         </div>
 

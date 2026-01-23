@@ -224,91 +224,357 @@ const BillingDashboard = () => {
         const patientReceipts = receipts.filter(r => r.patient?._id === patient._id);
         const totalSpent = patientReceipts.reduce((sum, r) => sum + r.amountPaid, 0);
 
-        const printWindow = window.open('', '', 'width=800,height=600');
+        const printWindow = window.open('', '', 'width=900,height=800');
         printWindow.document.write(`
             <html>
                 <head>
                     <title>Patient Statement - ${patient.name}</title>
                     <style>
-                        body { font-family: 'Helvetica', sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; color: #333; }
-                        .header { display: flex; justify-content: space-between; margin-bottom: 40px; border-bottom: 2px solid #eee; padding-bottom: 20px; }
-                        .logo { font-size: 24px; font-weight: bold; color: #2c3e50; }
-                        .statement-title { font-size: 36px; color: #2c3e50; margin: 0; }
-                        .patient-info { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 30px; }
-                        .info-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
-                        .table { width: 100%; border-collapse: collapse; margin-bottom: 30px; }
-                        .table th { text-align: left; padding: 12px; background: #f8f9fa; border-bottom: 2px solid #eee; }
-                        .table td { padding: 12px; border-bottom: 1px solid #eee; }
-                        .summary { background: #f8f9fa; padding: 20px; border-radius: 8px; margin-top: 30px; }
-                        .summary-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 16px; }
-                        .summary-row.total { font-size: 20px; font-weight: bold; border-top: 2px solid #333; padding-top: 10px; margin-top: 10px; }
-                        .footer { margin-top: 60px; text-align: center; font-size: 12px; color: #7f8c8d; border-top: 1px solid #eee; padding-top: 20px; }
+                        @import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+                        
+                        body { 
+                            font-family: 'Roboto', sans-serif; 
+                            color: #333; 
+                            margin: 0; 
+                            padding: 40px; 
+                            font-size: 14px;
+                            -webkit-print-color-adjust: exact;
+                        }
+
+                        @media print {
+                            body { padding: 0; }
+                            .no-print { display: none; }
+                        }
+
+                        .header { 
+                            text-align: center;
+                            border-bottom: 3px solid #1a365d; 
+                            padding-bottom: 20px; 
+                            margin-bottom: 30px; 
+                        }
+
+                        .hospital-info {
+                            margin-bottom: 15px;
+                        }
+                        
+                        .hospital-info img { 
+                            height: 100px;
+                            width: auto;
+                            object-fit: contain;
+                            margin: 0 auto 15px auto;
+                            display: block;
+                        }
+
+                        .hospital-info h1 {
+                            font-size: 28px;
+                            font-weight: 800;
+                            margin: 0 0 5px 0;
+                            color: #1a365d;
+                            text-transform: uppercase;
+                            letter-spacing: 1px;
+                        }
+
+                        .hospital-info .address {
+                            font-size: 15px; 
+                            color: #333;
+                            margin-bottom: 5px;
+                            font-weight: 500;
+                        }
+
+                        .hospital-info .contact {
+                            font-size: 14px;
+                            color: #555;
+                            margin-bottom: 5px;
+                        }
+                        
+                        .statement-title-section {
+                            margin-top: 25px;
+                            border-top: 1px solid #eee;
+                            padding-top: 15px;
+                        }
+
+                        .statement-title-section h2 {
+                            font-size: 24px;
+                            font-weight: 700;
+                            color: #333;
+                            margin: 0 0 10px 0;
+                            text-transform: uppercase;
+                        }
+
+                        .statement-meta {
+                            font-size: 14px;
+                            color: #333;
+                            font-weight: 500;
+                        }
+
+                        .spacer { margin: 0 5px; color: #ccc; }
+
+                        .hospital-info img { 
+                            height: 80px; 
+                            width: auto; 
+                            object-fit: contain; 
+                            margin-bottom: 10px;
+                        }
+
+                        .hospital-info h1 {
+                            font-size: 22px;
+                            font-weight: 700;
+                            margin: 0;
+                            color: #1a365d;
+                            text-transform: uppercase;
+                        }
+
+                        .hospital-info p {
+                            margin: 4px 0;
+                            font-size: 12px;
+                            color: #555;
+                        }
+
+                        .statement-title { 
+                            text-align: right; 
+                        }
+
+                        .statement-title h2 {
+                            font-size: 28px;
+                            font-weight: 300;
+                            color: #1a365d;
+                            margin: 0 0 10px 0;
+                            text-transform: uppercase;
+                            letter-spacing: 1px;
+                        }
+
+                        .statement-meta {
+                            text-align: right;
+                            font-size: 13px;
+                            color: #555;
+                        }
+
+                        .statement-meta div {
+                            margin-bottom: 5px;
+                        }
+
+                        .patient-section {
+                            background-color: #f8f9fa;
+                            border-left: 5px solid #1a365d;
+                            padding: 20px;
+                            border-radius: 4px;
+                            margin-bottom: 40px;
+                            display: flex;
+                            justify-content: space-between;
+                        }
+
+                        .patient-details h3 {
+                            font-size: 14px;
+                            text-transform: uppercase;
+                            color: #666;
+                            margin: 0 0 15px 0;
+                            border-bottom: 1px solid #ddd;
+                            padding-bottom: 5px;
+                            width: 100%;
+                        }
+
+                        .info-grid {
+                            display: grid;
+                            grid-template-columns: auto 1fr;
+                            gap: 8px 20px;
+                        }
+
+                        .info-label {
+                            font-weight: 600;
+                            color: #555;
+                        }
+
+                        .info-value {
+                            color: #000;
+                            font-weight: 500;
+                        }
+
+                        table {
+                            width: 100%;
+                            border-collapse: collapse;
+                            margin-bottom: 30px;
+                        }
+
+                        th {
+                            background-color: #1a365d;
+                            color: white;
+                            text-align: left;
+                            padding: 12px 15px;
+                            font-weight: 500;
+                            font-size: 13px;
+                            text-transform: uppercase;
+                        }
+
+                        td {
+                            padding: 12px 15px;
+                            border-bottom: 1px solid #eee;
+                            color: #444;
+                        }
+
+                        tr:nth-child(even) {
+                            background-color: #f8f9fa;
+                        }
+
+                        .text-right { text-align: right; }
+                        .text-center { text-align: center; }
+                        .font-bold { font-weight: 700; }
+
+                        .summary-section {
+                            display: flex;
+                            justify-content: flex-end;
+                            margin-top: 20px;
+                        }
+
+                        .summary-box {
+                            width: 300px;
+                            background-color: #fdfdfd;
+                            border: 1px solid #eee;
+                            border-radius: 4px;
+                            padding: 20px;
+                        }
+
+                        .summary-row {
+                            display: flex;
+                            justify-content: space-between;
+                            margin-bottom: 10px;
+                            font-size: 14px;
+                        }
+
+                        .summary-row.total {
+                            border-top: 2px solid #333;
+                            padding-top: 15px;
+                            margin-top: 15px;
+                            font-weight: 700;
+                            font-size: 16px;
+                            color: #1a365d;
+                        }
+
+                        .footer {
+                            margin-top: 60px;
+                            text-align: center;
+                            font-size: 11px;
+                            color: #888;
+                            border-top: 1px solid #eee;
+                            padding-top: 20px;
+                        }
                     </style>
                 </head>
                 <body>
                     <div class="header">
-                        <div class="logo">
-                            ${systemSettings?.hospitalLogo ? `<img src="${systemSettings.hospitalLogo}" style="height: 150px; max-width: 250px; object-fit: contain; margin-bottom: 0;" />` : ''}
-                            <div style="font-size: 24px; font-weight: bold; margin-top: 0;">${systemSettings?.reportHeader || 'SUD EMR'}</div>
+                        <div class="hospital-info">
+                            ${systemSettings?.hospitalLogo ? `<img src="${systemSettings.hospitalLogo}" alt="Logo" />` : ''}
+                            <h1>SUD GENERAL HOSPITAL</h1>
+                            <div class="address">No 234 Hadejia Road</div>
+                            <div class="contact">
+                                Tel: 07035400899 <span class="spacer">|</span> Email: info@sud.com
+                            </div>
                         </div>
-                        <div>
-                            <h1 class="statement-title">PATIENT STATEMENT</h1>
-                            <p>Date: ${new Date().toLocaleDateString()}</p>
+                        
+                        <div class="statement-title-section">
+                            <h2>Statement of Account</h2>
+                            <div class="statement-meta">
+                                <div>Date: ${new Date().toLocaleDateString()}</div>
+                                <div>Generated By: Cashier ${user.name}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="patient-section">
+                        <div style="flex: 1; padding-right: 40px;">
+                            <div class="patient-details">
+                                <h3>Patient Information</h3>
+                                <div class="info-grid">
+                                    <span class="info-label">Name:</span>
+                                    <span class="info-value" style="font-size: 16px;">${patient.name}</span>
+                                    
+                                    <span class="info-label">MRN:</span>
+                                    <span class="info-value">${patient.mrn}</span>
+                                    
+                                    <span class="info-label">Gender / Age:</span>
+                                    <span class="info-value" style="text-transform: capitalize;">${patient.gender} / ${patient.age} years</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div style="flex: 1;">
+                            <div class="patient-details">
+                                <h3>Account Summary</h3>
+                                <div class="info-grid">
+                                    <span class="info-label">Wallet Balance:</span>
+                                    <span class="info-value" style="color: ${(patient.depositBalance || 0) < 0 ? '#e53e3e' : '#2f855a'}; font-size: 16px;">
+                                        ₦${(patient.depositBalance || 0).toLocaleString()}
+                                    </span>
+
+                                    <span class="info-label">Last Activity:</span>
+                                    <span class="info-value">${patientReceipts.length > 0 ? new Date(patientReceipts[0].createdAt).toLocaleDateString() : 'N/A'}</span>
+                                    
+                                    <span class="info-label">Contact:</span>
+                                    <span class="info-value">${patient.contact || 'N/A'}</span>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="patient-info">
-                        <h3 style="margin-top: 0;">Patient Information</h3>
-                        <div class="info-row"><span><strong>Name:</strong></span> <span>${patient.name}</span></div>
-                        <div class="info-row"><span><strong>MRN:</strong></span> <span>${patient.mrn}</span></div>
-                        <div class="info-row"><span><strong>Contact:</strong></span> <span>${patient.contact || 'N/A'}</span></div>
-                        <div class="info-row"><span><strong>Deposit Balance:</strong></span> <span style="color: #28a745; font-weight: bold;">₦${(patient.depositBalance || 0).toLocaleString()}</span></div>
-                    </div>
-
-                    <h3>Transaction History</h3>
-                    <table class="table">
+                    <table>
                         <thead>
                             <tr>
                                 <th>Date</th>
                                 <th>Receipt #</th>
-                                <th>Services</th>
-                                <th>Amount</th>
-                                <th>Payment Method</th>
+                                <th>Description / Services</th>
+                                <th>Method</th>
+                                <th class="text-right">Amount Paid</th>
                             </tr>
                         </thead>
                         <tbody>
                             ${patientReceipts.map(r => `
                                 <tr>
                                     <td>${new Date(r.createdAt).toLocaleDateString()}</td>
-                                    <td>${r.receiptNumber}</td>
-                                    <td>${r.charges?.map(c => c.charge?.name || 'Service').join(', ') || 'N/A'}</td>
-                                    <td>₦${r.amountPaid.toLocaleString()}</td>
+                                    <td><span style="font-family: monospace; background: #eee; padding: 2px 5px; border-radius: 3px;">${r.receiptNumber}</span></td>
+                                    <td>
+                                        ${r.charges?.map(c => c.charge?.name || 'Service').join(', ') || 'Payment on Account'}
+                                    </td>
                                     <td style="text-transform: capitalize;">${r.paymentMethod}</td>
+                                    <td class="text-right font-bold">₦${r.amountPaid.toLocaleString()}</td>
                                 </tr>
                             `).join('')}
-                            ${patientReceipts.length === 0 ? '<tr><td colspan="5" style="text-align: center; color: #999;">No transactions found</td></tr>' : ''}
+                            ${patientReceipts.length === 0 ? '<tr><td colspan="5" class="text-center" style="padding: 30px; color: #888;">No transaction history found for this patient.</td></tr>' : ''}
                         </tbody>
                     </table>
 
-                    <div class="summary">
-                        <h3 style="margin-top: 0;">Summary</h3>
-                        <div class="summary-row"><span>Total Paid:</span> <span style="color: #28a745;">₦${totalSpent.toLocaleString()}</span></div>
-                        <div class="summary-row"><span>Total Receipts:</span> <span>${patientReceipts.length}</span></div>
-                        <div class="summary-row"><span>Current Deposit:</span> <span style="color: #17a2b8;">₦${(patient.depositBalance || 0).toLocaleString()}</span></div>
+                    <div class="summary-section">
+                        <div class="summary-box">
+                            <div class="summary-row">
+                                <span>Total Transactions:</span>
+                                <span>${patientReceipts.length}</span>
+                            </div>
+                            <div class="summary-row">
+                                <span>Total Paid:</span>
+                                <span style="color: #2f855a;">₦${totalSpent.toLocaleString()}</span>
+                            </div>
+                            <!-- 
+                            <div class="summary-row">
+                                <span>Total Billed:</span>
+                                <span>₦0.00</span>
+                            </div> 
+                            -->
+                            <div class="summary-row total">
+                                <span>Current Wallet Balance:</span>
+                                <span>₦${(patient.depositBalance || 0).toLocaleString()}</span>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="footer">
-                        <p>${systemSettings?.hospitalName || 'SUD EMR Hospital'} | ${systemSettings?.address || ''} 
-                           ${systemSettings?.phone ? ` | Phone: ${systemSettings.phone}` : ''}
-                           ${systemSettings?.email ? ` | Email: ${systemSettings.email}` : ''}</p>
-                        ${systemSettings?.reportFooter ? `<p style="font-size: 10px;">${systemSettings.reportFooter}</p>` : ''}
-                        <p>This is a computer-generated statement</p>
+                        <p>Thank you for choosing ${systemSettings?.hospitalName || 'SUD EMR Medical Center'}.</p>
+                        <p>For billing inquiries, please contact our accounts department.</p>
+                        <p style="margin-top: 10px; font-style: italic;">This is a computer-generated document and does not require a signature.</p>
                     </div>
+
+                    <script>
+                        window.onload = function() { window.print(); }
+                    </script>
                 </body>
             </html>
         `);
         printWindow.document.close();
-        printWindow.print();
     };
 
     const handleReverseReceipt = async (receiptId) => {
