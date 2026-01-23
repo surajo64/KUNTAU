@@ -19,7 +19,8 @@ const Settings = () => {
         systemVersion: '',
         reportHeader: '',
         reportFooter: '',
-        currencySymbol: '₦'
+        currencySymbol: '₦',
+        idPrefix: 'PAT'
     });
 
     useEffect(() => {
@@ -262,6 +263,22 @@ const Settings = () => {
                                     className="w-full border p-2 rounded bg-gray-50 font-mono"
                                     placeholder="1.0.0"
                                 />
+                            </div>
+                            <div className="mt-4">
+                                <label className="block text-sm font-semibold mb-1 text-gray-700">MRN ID Prefix</label>
+                                <input
+                                    type="text"
+                                    name="idPrefix"
+                                    value={settings.idPrefix}
+                                    onChange={handleInputChange}
+                                    className="w-full border p-2 rounded bg-gray-50 font-mono uppercase"
+                                    placeholder="PAT"
+                                    maxLength="10"
+                                    style={{ textTransform: 'uppercase' }}
+                                />
+                                <p className="text-xs text-gray-500 mt-1">
+                                    Format: {settings.idPrefix || 'PAT'}-{new Date().getFullYear()}-0001
+                                </p>
                             </div>
                             <div className="mt-6 flex flex-col gap-2">
                                 <button

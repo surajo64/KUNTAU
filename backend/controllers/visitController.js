@@ -118,7 +118,20 @@ const updateVisit = async (req, res) => {
     const {
         chiefComplaint, historyOfIllness, diagnosis, status, dischargeDate,
         encounterStatus, paymentValidated, receiptNumber, consultingPhysician, nursingNotes,
-        subjective, objective, assessment, plan
+        subjective, objective, assessment, plan,
+        // New structured clinical documentation fields
+        presentingComplaints,
+        historyOfPresentingComplaint,
+        systemReview,
+        pastMedicalSurgicalHistory,
+        socialFamilyHistory,
+        drugsHistory,
+        functionalCognitiveStatus,
+        menstruationGynecologicalObstetricsHistory,
+        pregnancyHistory,
+        immunization,
+        nutritional,
+        developmentalMilestones
     } = req.body;
 
     const visit = await Visit.findById(req.params.id);
@@ -155,7 +168,21 @@ const updateVisit = async (req, res) => {
         if (consultingPhysician) visit.consultingPhysician = consultingPhysician;
         if (nursingNotes) visit.nursingNotes = nursingNotes;
 
-        // SOAP Notes
+        // Structured Clinical Documentation Fields
+        if (presentingComplaints !== undefined) visit.presentingComplaints = presentingComplaints;
+        if (historyOfPresentingComplaint !== undefined) visit.historyOfPresentingComplaint = historyOfPresentingComplaint;
+        if (systemReview !== undefined) visit.systemReview = systemReview;
+        if (pastMedicalSurgicalHistory !== undefined) visit.pastMedicalSurgicalHistory = pastMedicalSurgicalHistory;
+        if (socialFamilyHistory !== undefined) visit.socialFamilyHistory = socialFamilyHistory;
+        if (drugsHistory !== undefined) visit.drugsHistory = drugsHistory;
+        if (functionalCognitiveStatus !== undefined) visit.functionalCognitiveStatus = functionalCognitiveStatus;
+        if (menstruationGynecologicalObstetricsHistory !== undefined) visit.menstruationGynecologicalObstetricsHistory = menstruationGynecologicalObstetricsHistory;
+        if (pregnancyHistory !== undefined) visit.pregnancyHistory = pregnancyHistory;
+        if (immunization !== undefined) visit.immunization = immunization;
+        if (nutritional !== undefined) visit.nutritional = nutritional;
+        if (developmentalMilestones !== undefined) visit.developmentalMilestones = developmentalMilestones;
+
+        // Legacy SOAP Notes (for backward compatibility)
         if (subjective) visit.subjective = subjective;
         if (objective) visit.objective = objective;
         if (assessment) visit.assessment = assessment;
@@ -179,6 +206,7 @@ const getVisitById = async (req, res) => {
     const visit = await Visit.findById(req.params.id)
         .populate('patient', 'name age gender')
         .populate('doctor', 'name')
+        .populate('consultingPhysician', 'name')
         .populate('clinic', 'name department')
         .populate('ward', 'name dailyRate');
 

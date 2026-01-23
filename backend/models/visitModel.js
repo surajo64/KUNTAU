@@ -7,12 +7,28 @@ const visitSchema = mongoose.Schema({
     type: { type: String, enum: ['Outpatient', 'Inpatient', 'Emergency', 'External Investigation'], required: true },
     status: { type: String, enum: ['Admitted', 'Discharged', 'In Progress'], default: 'In Progress' },
 
-    // SOAP Notes (V3)
-    subjective: { type: String }, // Chief Complaint, History of Present Illness
-    objective: { type: String }, // Physical Exam Findings
-    assessment: { type: String }, // Diagnosis/Analysis
+    // Structured Clinical Documentation (replaces traditional SOAP S/O)
+    presentingComplaints: { type: String },
+    historyOfPresentingComplaint: { type: String },
+    systemReview: { type: String },
+    pastMedicalSurgicalHistory: { type: String },
+    socialFamilyHistory: { type: String },
+    drugsHistory: { type: String },
+    functionalCognitiveStatus: { type: String },
+    menstruationGynecologicalObstetricsHistory: { type: String },
+    pregnancyHistory: { type: String },
+    immunization: { type: String },
+    nutritional: { type: String },
+    developmentalMilestones: { type: String },
+
+    // Assessment and Plan (retained from SOAP)
+    assessment: { type: String }, // Clinical impression/analysis
     plan: { type: String }, // Treatment Plan
     reasonForVisit: { type: String }, // Reason for visit
+
+    // Legacy fields for backward compatibility
+    subjective: { type: String }, // Deprecated - use structured fields above
+    objective: { type: String }, // Deprecated - use structured fields above
 
     // Legacy/Simple fields (optional)
     diagnosis: [{

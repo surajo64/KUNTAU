@@ -2,6 +2,7 @@ import { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
 import AuthContext from '../context/AuthContext';
 import LoadingOverlay from '../components/loadingOverlay';
+import useHospitalSettings from '../hooks/useHospitalSettings';
 
 const Login = () => {
     const [email, setEmail] = useState('');
@@ -10,6 +11,7 @@ const Login = () => {
     const { login } = useContext(AuthContext);
     const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
+    const { settings } = useHospitalSettings();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -28,7 +30,23 @@ const Login = () => {
         <div className="min-h-screen flex items-center justify-center bg-gray-100">
             {loading && <LoadingOverlay />}
             <div className="bg-white p-8 rounded shadow-md w-96">
-                <h2 className="text-2xl font-bold mb-6 text-center">EMR Login</h2>
+                {/* Hospital Branding */}
+                <div className="text-center mb-6">
+                    {settings.hospitalLogo && (
+                        <img
+                            src={settings.hospitalLogo}
+                            alt="Hospital Logo"
+                            className="h-20 w-auto mx-auto mb-3 object-contain"
+                        />
+                    )}
+                    {settings.hospitalName && (
+                        <h1 className="text-xl font-bold text-gray-800 mb-2">
+                            {settings.hospitalName}
+                        </h1>
+                    )}
+                </div>
+
+
                 {error && <p className="text-red-500 mb-4">{error}</p>}
                 <form onSubmit={handleSubmit}>
                     <div className="mb-4">

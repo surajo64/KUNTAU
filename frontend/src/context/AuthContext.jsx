@@ -1,6 +1,7 @@
 import { createContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import LoadingOverlay from '../components/loadingOverlay';
+import useInactivityTimeout from '../hooks/useInactivityTimeout';
 
 const AuthContext = createContext();
 
@@ -43,6 +44,12 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('userInfo');
         setUser(null);
     };
+
+    // Enable inactivity timeout only when user is logged in
+    useInactivityTimeout(
+        user ? logout : null,
+        5 * 60 * 1000 // 5 minutes in milliseconds
+    );
 
     return (
         <AuthContext.Provider value={{ user, login, logout, loading }}>

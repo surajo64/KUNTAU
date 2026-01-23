@@ -6,10 +6,17 @@ const EncounterCharge = require('./models/encounterChargeModel');
 const setupCronJobs = () => {
     // Run every day at midnight (00:00)
     cron.schedule('0 0 * * *', async () => {
-        console.log('Running daily ward charges job...');
+        console.log('========================================');
+        console.log('Running daily ward charges job at:', new Date().toLocaleString());
+        console.log('========================================');
         try {
-            // Find all currently admitted patients
-            const admittedVisits = await Visit.find({ encounterStatus: 'admitted' }).populate('ward');
+            // Find all currently admitted patients (check both 'admitted' and 'in_ward' statuses)
+            const admittedVisits = await Visit.find({
+                encounterStatus: { $in: ['admitted', 'in_ward'] },
+                ward: { $exists: true, $ne: null }
+            }).populate('ward').populate('patient', 'name mrn');
+
+            console.log(`Found ${admittedVisits.length} admitted/in-ward visits`);
 
             for (const visit of admittedVisits) {
                 if (visit.ward && visit.ward.dailyRate > 0) {
@@ -26,10 +33,9 @@ const setupCronJobs = () => {
                     });
 
                     if (!existingCharge) {
-                        // Create a charge for the day
                         await EncounterCharge.create({
                             encounter: visit._id,
-                            patient: visit.patient,
+                            patient: visit.patient._id,
                             itemType: 'Daily Bed Fee',
                             itemName: `Daily Ward Charge - ${visit.ward.name}`,
                             cost: visit.ward.dailyRate,
@@ -37,7 +43,7 @@ const setupCronJobs = () => {
                             totalAmount: visit.ward.dailyRate,
                             status: 'pending'
                         });
-                        console.log(`Charged ${visit.ward.dailyRate} to visit ${visit._id}`);
+                        console.log(`✓ Charged ${visit.ward.dailyRate} to patient ${visit.patient?.name} (MRN: ${visit.patient?.mrn}) - Ward: ${visit.ward.name}`);
                     } else {
                         console.log(`Skipping charge for visit ${visit._id} - already charged today.`);
                     }

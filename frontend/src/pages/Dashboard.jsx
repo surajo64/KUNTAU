@@ -8,9 +8,9 @@ const Dashboard = () => {
     const { user } = useContext(AuthContext);
     const navigate = useNavigate();
 
-    if (!user) {
-        return <p>Loading...</p>;
-    }
+
+
+    // Manual check removed as ProtectedRoute handles this.
 
     // Show AdminDashboard for admin users
     if (user.role === 'admin') {

@@ -6,7 +6,7 @@ import AuthContext from '../context/AuthContext';
 import Layout from '../components/Layout';
 import LoadingOverlay from '../components/loadingOverlay';
 import AppointmentModal from '../components/AppointmentModal';
-import { FaTimes, FaFileMedical, FaPills, FaChevronDown, FaHeartbeat, FaNotesMedical, FaProcedures, FaXRay, FaVial, FaUserMd, FaCalendarPlus, FaPlus, FaTrash, FaEdit, FaSearch } from 'react-icons/fa';
+import { FaTimes, FaFileMedical, FaPills, FaChevronDown, FaChevronUp, FaHeartbeat, FaNotesMedical, FaProcedures, FaXRay, FaVial, FaUserMd, FaCalendarPlus, FaPlus, FaTrash, FaEdit, FaSearch } from 'react-icons/fa';
 import icd11Data from '../data/icd11.json';
 
 const PatientDetails = () => {
@@ -21,10 +21,26 @@ const PatientDetails = () => {
     const [inventoryDrugs, setInventoryDrugs] = useState([]);
     const [expandedDays, setExpandedDays] = useState({});
 
-    // SOAP Note
+    // State for collapsible clinical notes sections
+    const [expandedSections, setExpandedSections] = useState({
+        history: true, // History section expanded by default
+        assessment: true // Assessment & Plan expanded by default
+    });
+
+    // SOAP Note - Structured Clinical Documentation
     const [soapNote, setSoapNote] = useState({
-        subjective: '',
-        objective: '',
+        presentingComplaints: '',
+        historyOfPresentingComplaint: '',
+        systemReview: '',
+        pastMedicalSurgicalHistory: '',
+        socialFamilyHistory: '',
+        drugsHistory: '',
+        functionalCognitiveStatus: '',
+        menstruationGynecologicalObstetricsHistory: '',
+        pregnancyHistory: '',
+        immunization: '',
+        nutritional: '',
+        developmentalMilestones: '',
         assessment: '',
         plan: '',
         diagnosis: [] // Array of {code, description}
@@ -37,8 +53,18 @@ const PatientDetails = () => {
     useEffect(() => {
         if (showSoapModal && encounter) {
             setSoapNote({
-                subjective: encounter.subjective || '',
-                objective: encounter.objective || '',
+                presentingComplaints: encounter.presentingComplaints || '',
+                historyOfPresentingComplaint: encounter.historyOfPresentingComplaint || '',
+                systemReview: encounter.systemReview || '',
+                pastMedicalSurgicalHistory: encounter.pastMedicalSurgicalHistory || '',
+                socialFamilyHistory: encounter.socialFamilyHistory || '',
+                drugsHistory: encounter.drugsHistory || '',
+                functionalCognitiveStatus: encounter.functionalCognitiveStatus || '',
+                menstruationGynecologicalObstetricsHistory: encounter.menstruationGynecologicalObstetricsHistory || '',
+                pregnancyHistory: encounter.pregnancyHistory || '',
+                immunization: encounter.immunization || '',
+                nutritional: encounter.nutritional || '',
+                developmentalMilestones: encounter.developmentalMilestones || '',
                 assessment: encounter.assessment || '',
                 plan: encounter.plan || '',
                 diagnosis: encounter.diagnosis || []
@@ -304,7 +330,7 @@ const PatientDetails = () => {
                     ...soapNote,
                     assessment: soapNote.assessment,
                     diagnosis: soapNote.diagnosis, // Pass the array of objects
-                    consultingPhysician: encounter.consultingPhysician || (user.role === 'doctor' ? user._id : undefined)
+                    consultingPhysician: user.role === 'doctor' ? user._id : (encounter.consultingPhysician || user._id)
                 },
                 config
             );
@@ -317,8 +343,18 @@ const PatientDetails = () => {
 
             // Clear form
             setSoapNote({
-                subjective: '',
-                objective: '',
+                presentingComplaints: '',
+                historyOfPresentingComplaint: '',
+                systemReview: '',
+                pastMedicalSurgicalHistory: '',
+                socialFamilyHistory: '',
+                drugsHistory: '',
+                functionalCognitiveStatus: '',
+                menstruationGynecologicalObstetricsHistory: '',
+                pregnancyHistory: '',
+                immunization: '',
+                nutritional: '',
+                developmentalMilestones: '',
                 assessment: '',
                 plan: '',
                 diagnosis: []
@@ -1220,44 +1256,212 @@ const PatientDetails = () => {
                                                 <FaPlus /> Add Clinical Note
                                             </button>
                                         </div>
-                                        {encounter.subjective || encounter.objective || encounter.assessment || encounter.plan ? (
+                                        {/* Check if any clinical documentation exists */}
+                                        {(encounter.presentingComplaints || encounter.historyOfPresentingComplaint ||
+                                            encounter.systemReview || encounter.pastMedicalSurgicalHistory ||
+                                            encounter.socialFamilyHistory || encounter.drugsHistory ||
+                                            encounter.functionalCognitiveStatus || encounter.menstruationGynecologicalObstetricsHistory ||
+                                            encounter.pregnancyHistory || encounter.immunization ||
+                                            encounter.nutritional || encounter.developmentalMilestones ||
+                                            encounter.assessment || encounter.plan ||
+                                            (encounter.diagnosis && encounter.diagnosis.length > 0) ||
+                                            encounter.subjective || encounter.objective) ? (
                                             <div className="space-y-4">
-                                                {encounter.subjective && (
-                                                    <div className="bg-gray-50 p-4 rounded">
-                                                        <p className="font-semibold text-gray-700 mb-2">Subjective:</p>
-                                                        <p className="text-gray-800">{encounter.subjective}</p>
-                                                    </div>
-                                                )}
-                                                {encounter.objective && (
-                                                    <div className="bg-gray-50 p-4 rounded">
-                                                        <p className="font-semibold text-gray-700 mb-2">Objective:</p>
-                                                        <p className="text-gray-800">{encounter.objective}</p>
-                                                    </div>
-                                                )}
-                                                {(encounter.assessment || (encounter.diagnosis && encounter.diagnosis.length > 0)) && (
-                                                    <div className="bg-gray-50 p-4 rounded">
-                                                        <p className="font-semibold text-gray-700 mb-2">Assessment (Diagnosis):</p>
-                                                        {encounter.diagnosis && encounter.diagnosis.length > 0 && (
-                                                            <div className="mb-2 flex flex-wrap gap-2">
-                                                                {encounter.diagnosis.map((d, i) => (
-                                                                    <span key={i} className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm font-medium border border-blue-200">
-                                                                        {d.code} - {d.description}
-                                                                    </span>
-                                                                ))}
+                                                {/* Doctor and Timestamp Info */}
+                                                <div className="bg-blue-50 border-l-4 border-blue-600 p-4 rounded">
+                                                    <p className="text-sm text-gray-700">
+                                                        <span className="font-semibold">Documented by:</span>{encounter.consultingPhysician?.name || user?.name || 'Unknown'}
+                                                        {encounter.updatedAt && (
+                                                            <span className="ml-4 text-gray-600">
+                                                                on {new Date(encounter.updatedAt).toLocaleString()}
+                                                            </span>
+                                                        )}
+                                                    </p>
+                                                </div>
+
+                                                {/* Structured Clinical History Fields - Collapsible */}
+                                                {(encounter.presentingComplaints || encounter.historyOfPresentingComplaint ||
+                                                    encounter.systemReview || encounter.pastMedicalSurgicalHistory ||
+                                                    encounter.socialFamilyHistory || encounter.drugsHistory ||
+                                                    encounter.functionalCognitiveStatus || encounter.menstruationGynecologicalObstetricsHistory ||
+                                                    encounter.pregnancyHistory || encounter.immunization ||
+                                                    encounter.nutritional || encounter.developmentalMilestones ||
+                                                    encounter.subjective || encounter.objective) && (
+                                                        <div className="border rounded-lg overflow-hidden">
+                                                            {/* Collapsible Header */}
+                                                            <button
+                                                                onClick={() => setExpandedSections(prev => ({ ...prev, history: !prev.history }))}
+                                                                className="w-full bg-gradient-to-r from-gray-100 to-gray-50 hover:from-gray-200 hover:to-gray-100 p-4 flex justify-between items-center transition-colors"
+                                                            >
+                                                                <h4 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                                                    <FaNotesMedical className="text-blue-600" />
+                                                                    Clinical History
+                                                                </h4>
+                                                                {expandedSections.history ? (
+                                                                    <FaChevronUp className="text-gray-600" />
+                                                                ) : (
+                                                                    <FaChevronDown className="text-gray-600" />
+                                                                )}
+                                                            </button>
+
+                                                            {/* Collapsible Content */}
+                                                            {expandedSections.history && (
+                                                                <div className="p-4 space-y-4 bg-white">
+                                                                    {encounter.presentingComplaints && (
+                                                                        <div className="bg-gray-50 p-4 rounded border-l-4 border-gray-400">
+                                                                            <p className="font-semibold text-gray-700 mb-2">01. Presenting Complaints</p>
+                                                                            <p className="text-gray-800 whitespace-pre-wrap">{encounter.presentingComplaints}</p>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {encounter.historyOfPresentingComplaint && (
+                                                                        <div className="bg-gray-50 p-4 rounded border-l-4 border-gray-400">
+                                                                            <p className="font-semibold text-gray-700 mb-2">02. History of Presenting Complaint</p>
+                                                                            <p className="text-gray-800 whitespace-pre-wrap">{encounter.historyOfPresentingComplaint}</p>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {encounter.systemReview && (
+                                                                        <div className="bg-gray-50 p-4 rounded border-l-4 border-gray-400">
+                                                                            <p className="font-semibold text-gray-700 mb-2">03. System Review</p>
+                                                                            <p className="text-gray-800 whitespace-pre-wrap">{encounter.systemReview}</p>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {encounter.pastMedicalSurgicalHistory && (
+                                                                        <div className="bg-gray-50 p-4 rounded border-l-4 border-gray-400">
+                                                                            <p className="font-semibold text-gray-700 mb-2">04. Past Medical / Surgical History</p>
+                                                                            <p className="text-gray-800 whitespace-pre-wrap">{encounter.pastMedicalSurgicalHistory}</p>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {encounter.socialFamilyHistory && (
+                                                                        <div className="bg-gray-50 p-4 rounded border-l-4 border-gray-400">
+                                                                            <p className="font-semibold text-gray-700 mb-2">05. Social and Family History</p>
+                                                                            <p className="text-gray-800 whitespace-pre-wrap">{encounter.socialFamilyHistory}</p>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {encounter.drugsHistory && (
+                                                                        <div className="bg-gray-50 p-4 rounded border-l-4 border-gray-400">
+                                                                            <p className="font-semibold text-gray-700 mb-2">06. Drugs History</p>
+                                                                            <p className="text-gray-800 whitespace-pre-wrap">{encounter.drugsHistory}</p>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {encounter.functionalCognitiveStatus && (
+                                                                        <div className="bg-gray-50 p-4 rounded border-l-4 border-gray-400">
+                                                                            <p className="font-semibold text-gray-700 mb-2">07. Functional Cognitive Status</p>
+                                                                            <p className="text-gray-800 whitespace-pre-wrap">{encounter.functionalCognitiveStatus}</p>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {encounter.menstruationGynecologicalObstetricsHistory && (
+                                                                        <div className="bg-gray-50 p-4 rounded border-l-4 border-gray-400">
+                                                                            <p className="font-semibold text-gray-700 mb-2">08. Menstruation / Gynecological / Obstetrics History</p>
+                                                                            <p className="text-gray-800 whitespace-pre-wrap">{encounter.menstruationGynecologicalObstetricsHistory}</p>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {encounter.pregnancyHistory && (
+                                                                        <div className="bg-gray-50 p-4 rounded border-l-4 border-gray-400">
+                                                                            <p className="font-semibold text-gray-700 mb-2">09. Pregnancy History</p>
+                                                                            <p className="text-gray-800 whitespace-pre-wrap">{encounter.pregnancyHistory}</p>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {encounter.immunization && (
+                                                                        <div className="bg-gray-50 p-4 rounded border-l-4 border-gray-400">
+                                                                            <p className="font-semibold text-gray-700 mb-2">10. Immunization</p>
+                                                                            <p className="text-gray-800 whitespace-pre-wrap">{encounter.immunization}</p>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {encounter.nutritional && (
+                                                                        <div className="bg-gray-50 p-4 rounded border-l-4 border-gray-400">
+                                                                            <p className="font-semibold text-gray-700 mb-2">11. Nutritional</p>
+                                                                            <p className="text-gray-800 whitespace-pre-wrap">{encounter.nutritional}</p>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {encounter.developmentalMilestones && (
+                                                                        <div className="bg-gray-50 p-4 rounded border-l-4 border-gray-400">
+                                                                            <p className="font-semibold text-gray-700 mb-2">12. Developmental Milestones</p>
+                                                                            <p className="text-gray-800 whitespace-pre-wrap">{encounter.developmentalMilestones}</p>
+                                                                        </div>
+                                                                    )}
+
+                                                                    {/* Legacy SOAP fields (for backward compatibility) */}
+                                                                    {encounter.subjective && (
+                                                                        <div className="bg-gray-50 p-4 rounded border-l-4 border-yellow-400">
+                                                                            <p className="font-semibold text-gray-700 mb-2">Subjective (Legacy):</p>
+                                                                            <p className="text-gray-800 whitespace-pre-wrap">{encounter.subjective}</p>
+                                                                        </div>
+                                                                    )}
+                                                                    {encounter.objective && (
+                                                                        <div className="bg-gray-50 p-4 rounded border-l-4 border-yellow-400">
+                                                                            <p className="font-semibold text-gray-700 mb-2">Objective (Legacy):</p>
+                                                                            <p className="text-gray-800 whitespace-pre-wrap">{encounter.objective}</p>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+
+                                                {/* Assessment & Plan Section - Collapsible */}
+                                                {(encounter.assessment || (encounter.diagnosis && encounter.diagnosis.length > 0) || encounter.plan) && (
+                                                    <div className="border rounded-lg overflow-hidden mt-4">
+                                                        {/* Collapsible Header */}
+                                                        <button
+                                                            onClick={() => setExpandedSections(prev => ({ ...prev, assessment: !prev.assessment }))}
+                                                            className="w-full bg-gradient-to-r from-blue-100 to-blue-50 hover:from-blue-200 hover:to-blue-100 p-4 flex justify-between items-center transition-colors"
+                                                        >
+                                                            <h4 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                                                <FaFileMedical className="text-green-600" />
+                                                                Assessment & Plan
+                                                            </h4>
+                                                            {expandedSections.assessment ? (
+                                                                <FaChevronUp className="text-gray-600" />
+                                                            ) : (
+                                                                <FaChevronDown className="text-gray-600" />
+                                                            )}
+                                                        </button>
+
+                                                        {/* Collapsible Content */}
+                                                        {expandedSections.assessment && (
+                                                            <div className="p-4 space-y-4 bg-white">
+                                                                {(encounter.assessment || (encounter.diagnosis && encounter.diagnosis.length > 0)) && (
+                                                                    <div className="bg-blue-50 p-4 rounded border-l-4 border-blue-600">
+                                                                        <p className="font-semibold text-gray-700 mb-2">Assessment (Diagnosis):</p>
+                                                                        {encounter.diagnosis && encounter.diagnosis.length > 0 && (
+                                                                            <div className="mb-2 flex flex-wrap gap-2">
+                                                                                {encounter.diagnosis.map((d, i) => (
+                                                                                    <span key={i} className="bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-sm font-medium border border-blue-300">
+                                                                                        {d.code} - {d.description}
+                                                                                    </span>
+                                                                                ))}
+                                                                            </div>
+                                                                        )}
+                                                                        {encounter.assessment && (
+                                                                            <p className="text-gray-800 whitespace-pre-wrap">{encounter.assessment}</p>
+                                                                        )}
+                                                                    </div>
+                                                                )}
+
+                                                                {encounter.plan && (
+                                                                    <div className="bg-green-50 p-4 rounded border-l-4 border-green-600">
+                                                                        <p className="font-semibold text-gray-700 mb-2">Plan:</p>
+                                                                        <p className="text-gray-800 whitespace-pre-wrap">{encounter.plan}</p>
+                                                                    </div>
+                                                                )}
                                                             </div>
                                                         )}
-                                                        <p className="text-gray-800">{encounter.assessment}</p>
-                                                    </div>
-                                                )}
-                                                {encounter.plan && (
-                                                    <div className="bg-gray-50 p-4 rounded">
-                                                        <p className="font-semibold text-gray-700 mb-2">Plan:</p>
-                                                        <p className="text-gray-800">{encounter.plan}</p>
                                                     </div>
                                                 )}
                                             </div>
                                         ) : (
-                                            <p className="text-gray-500">No Clinical notes recorded yet. Click "Add Clinical Note" to begin documentation.</p>
+                                            <p className="text-gray-500">No clinical notes recorded yet. Click "Add Clinical Note" to begin documentation.</p>
                                         )}
                                     </div>
                                 )}
@@ -1353,10 +1557,36 @@ const PatientDetails = () => {
                                                                         <div className="mt-2 p-3 bg-white rounded border text-sm whitespace-pre-wrap font-mono">
                                                                             {order.report}
                                                                         </div>
+
+                                                                        {/* Display uploaded images */}
+                                                                        {order.images && order.images.length > 0 && (
+                                                                            <div className="mt-3">
+                                                                                <p className="font-semibold text-sm mb-2 text-indigo-700">Attached Images:</p>
+                                                                                <div className="grid grid-cols-2 gap-3">
+                                                                                    {order.images.map((img, index) => (
+                                                                                        <div key={index} className="border rounded p-2 bg-gray-50">
+                                                                                            <p className="font-semibold text-xs mb-1 text-blue-600">{img.name}</p>
+                                                                                            <img
+                                                                                                src={`http://localhost:5000/${img.path}`}
+                                                                                                alt={img.name}
+                                                                                                className="w-full h-32 object-contain bg-white rounded cursor-pointer hover:opacity-80 border"
+                                                                                                onClick={() => window.open(`http://localhost:5000/${img.path}`, '_blank')}
+                                                                                                title="Click to view full size"
+                                                                                            />
+                                                                                            <p className="text-xs text-gray-500 mt-1">
+                                                                                                {new Date(img.uploadedAt).toLocaleString()}
+                                                                                            </p>
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            </div>
+                                                                        )}
+
+                                                                        {/* Legacy image URL support */}
                                                                         {order.resultImage && (
                                                                             <div className="mt-2">
                                                                                 <a href={order.resultImage} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline text-sm">
-                                                                                    View Image
+                                                                                    View Image (Legacy)
                                                                                 </a>
                                                                             </div>
                                                                         )}
@@ -1715,126 +1945,244 @@ const PatientDetails = () => {
                                 </button>
                             </div>
                             <div className="space-y-4">
+                                {/* Structured History Fields */}
                                 <div>
-                                    <label className="block text-gray-700 mb-2 font-semibold">S - Subjective (Chief Complaint)</label>
+                                    <label className="block text-gray-700 mb-2 font-semibold">01. Presenting Complaints</label>
                                     <textarea
                                         className="w-full border p-3 rounded"
-                                        rows="3"
-                                        value={soapNote.subjective}
-                                        onChange={(e) => setSoapNote({ ...soapNote, subjective: e.target.value })}
-                                        placeholder="Patient's complaints, symptoms, history..."
+                                        rows="2"
+                                        value={soapNote.presentingComplaints}
+                                        onChange={(e) => setSoapNote({ ...soapNote, presentingComplaints: e.target.value })}
+                                        placeholder="Chief complaints..."
                                     ></textarea>
                                 </div>
-                                <div>
-                                    <label className="block text-gray-700 mb-2 font-semibold">O - Objective (Physical Exam Findings)</label>
-                                    <textarea
-                                        className="w-full border p-3 rounded"
-                                        rows="3"
-                                        value={soapNote.objective}
-                                        onChange={(e) => setSoapNote({ ...soapNote, objective: e.target.value })}
-                                        placeholder="Physical examination findings, observations..."
-                                    ></textarea>
-                                </div>
-                                <div>
-                                    <label className="block text-gray-700 mb-2 font-semibold">A - Assessment (Diagnosis)</label>
 
-                                    {/* ICD11 Search and Add */}
-                                    <div className="space-y-3 p-3 border rounded bg-gray-50 mb-3">
-                                        <div className="relative">
-                                            <div className="flex gap-2">
-                                                <div className="relative flex-1">
-                                                    <FaSearch className="absolute left-3 top-3 text-gray-400" />
-                                                    <input
-                                                        type="text"
-                                                        className="w-full border p-2 pl-10 rounded text-sm shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                        placeholder="Search ICD-11 by code or diagnosis name..."
-                                                        value={diagSearchTerm}
-                                                        onChange={(e) => {
-                                                            setDiagSearchTerm(e.target.value);
-                                                            setShowDiagDropdown(true);
-                                                        }}
-                                                        onFocus={() => setShowDiagDropdown(true)}
-                                                    />
+                                <div>
+                                    <label className="block text-gray-700 mb-2 font-semibold">02. History of Presenting Complaint</label>
+                                    <textarea
+                                        className="w-full border p-3 rounded"
+                                        rows="2"
+                                        value={soapNote.historyOfPresentingComplaint}
+                                        onChange={(e) => setSoapNote({ ...soapNote, historyOfPresentingComplaint: e.target.value })}
+                                        placeholder="Detailed history of the presenting complaint..."
+                                    ></textarea>
+                                </div>
+
+                                <div>
+                                    <label className="block text-gray-700 mb-2 font-semibold">03. System Review</label>
+                                    <textarea
+                                        className="w-full border p-3 rounded"
+                                        rows="2"
+                                        value={soapNote.systemReview}
+                                        onChange={(e) => setSoapNote({ ...soapNote, systemReview: e.target.value })}
+                                        placeholder="Review of systems..."
+                                    ></textarea>
+                                </div>
+
+                                <div>
+                                    <label className="block text-gray-700 mb-2 font-semibold">04. Past Medical / Surgical History</label>
+                                    <textarea
+                                        className="w-full border p-3 rounded"
+                                        rows="2"
+                                        value={soapNote.pastMedicalSurgicalHistory}
+                                        onChange={(e) => setSoapNote({ ...soapNote, pastMedicalSurgicalHistory: e.target.value })}
+                                        placeholder="Past medical and surgical history..."
+                                    ></textarea>
+                                </div>
+
+                                <div>
+                                    <label className="block text-gray-700 mb-2 font-semibold">05. Social and Family History</label>
+                                    <textarea
+                                        className="w-full border p-3 rounded"
+                                        rows="2"
+                                        value={soapNote.socialFamilyHistory}
+                                        onChange={(e) => setSoapNote({ ...soapNote, socialFamilyHistory: e.target.value })}
+                                        placeholder="Social and family history..."
+                                    ></textarea>
+                                </div>
+
+                                <div>
+                                    <label className="block text-gray-700 mb-2 font-semibold">06. Drugs History</label>
+                                    <textarea
+                                        className="w-full border p-3 rounded"
+                                        rows="2"
+                                        value={soapNote.drugsHistory}
+                                        onChange={(e) => setSoapNote({ ...soapNote, drugsHistory: e.target.value })}
+                                        placeholder="Current and past medications..."
+                                    ></textarea>
+                                </div>
+
+                                <div>
+                                    <label className="block text-gray-700 mb-2 font-semibold">07. Functional Cognitive Status</label>
+                                    <textarea
+                                        className="w-full border p-3 rounded"
+                                        rows="2"
+                                        value={soapNote.functionalCognitiveStatus}
+                                        onChange={(e) => setSoapNote({ ...soapNote, functionalCognitiveStatus: e.target.value })}
+                                        placeholder="Functional and cognitive assessment..."
+                                    ></textarea>
+                                </div>
+
+                                <div>
+                                    <label className="block text-gray-700 mb-2 font-semibold">08. Menstruation / Gynecological / Obstetrics History</label>
+                                    <textarea
+                                        className="w-full border p-3 rounded"
+                                        rows="2"
+                                        value={soapNote.menstruationGynecologicalObstetricsHistory}
+                                        onChange={(e) => setSoapNote({ ...soapNote, menstruationGynecologicalObstetricsHistory: e.target.value })}
+                                        placeholder="Menstrual, gynecological, and obstetric history..."
+                                    ></textarea>
+                                </div>
+
+                                <div>
+                                    <label className="block text-gray-700 mb-2 font-semibold">09. Pregnancy History</label>
+                                    <textarea
+                                        className="w-full border p-3 rounded"
+                                        rows="2"
+                                        value={soapNote.pregnancyHistory}
+                                        onChange={(e) => setSoapNote({ ...soapNote, pregnancyHistory: e.target.value })}
+                                        placeholder="Pregnancy history..."
+                                    ></textarea>
+                                </div>
+
+                                <div>
+                                    <label className="block text-gray-700 mb-2 font-semibold">10. Immunization</label>
+                                    <textarea
+                                        className="w-full border p-3 rounded"
+                                        rows="2"
+                                        value={soapNote.immunization}
+                                        onChange={(e) => setSoapNote({ ...soapNote, immunization: e.target.value })}
+                                        placeholder="Immunization history..."
+                                    ></textarea>
+                                </div>
+
+                                <div>
+                                    <label className="block text-gray-700 mb-2 font-semibold">11. Nutritional</label>
+                                    <textarea
+                                        className="w-full border p-3 rounded"
+                                        rows="2"
+                                        value={soapNote.nutritional}
+                                        onChange={(e) => setSoapNote({ ...soapNote, nutritional: e.target.value })}
+                                        placeholder="Nutritional assessment..."
+                                    ></textarea>
+                                </div>
+
+                                <div>
+                                    <label className="block text-gray-700 mb-2 font-semibold">12. Developmental Milestones</label>
+                                    <textarea
+                                        className="w-full border p-3 rounded"
+                                        rows="2"
+                                        value={soapNote.developmentalMilestones}
+                                        onChange={(e) => setSoapNote({ ...soapNote, developmentalMilestones: e.target.value })}
+                                        placeholder="Developmental milestones (for pediatric patients)..."
+                                    ></textarea>
+                                </div>
+
+                                <div className="border-t pt-4 mt-4">
+                                    <h4 className="font-bold text-lg mb-3 text-gray-800">Assessment & Plan</h4>
+                                    <div>
+                                        <label className="block text-gray-700 mb-2 font-semibold">A - Assessment (Diagnosis)</label>
+
+                                        {/* ICD11 Search and Add */}
+                                        <div className="space-y-3 p-3 border rounded bg-gray-50 mb-3">
+                                            <div className="relative">
+                                                <div className="flex gap-2">
+                                                    <div className="relative flex-1">
+                                                        <FaSearch className="absolute left-3 top-3 text-gray-400" />
+                                                        <input
+                                                            type="text"
+                                                            className="w-full border p-2 pl-10 rounded text-sm shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                            placeholder="Search ICD-11 by code or diagnosis name..."
+                                                            value={diagSearchTerm}
+                                                            onChange={(e) => {
+                                                                setDiagSearchTerm(e.target.value);
+                                                                setShowDiagDropdown(true);
+                                                            }}
+                                                            onFocus={() => setShowDiagDropdown(true)}
+                                                        />
+                                                    </div>
                                                 </div>
-                                            </div>
 
-                                            {showDiagDropdown && diagSearchTerm && (
-                                                <div className="absolute z-20 w-full bg-white border rounded shadow-xl max-h-60 overflow-y-auto mt-1 border-gray-200">
-                                                    {icd11Data.filter(d =>
-                                                        d.code.toLowerCase().includes(diagSearchTerm.toLowerCase()) ||
-                                                        d.description.toLowerCase().includes(diagSearchTerm.toLowerCase())
-                                                    ).length > 0 ? (
-                                                        icd11Data.filter(d =>
+                                                {showDiagDropdown && diagSearchTerm && (
+                                                    <div className="absolute z-20 w-full bg-white border rounded shadow-xl max-h-60 overflow-y-auto mt-1 border-gray-200">
+                                                        {icd11Data.filter(d =>
                                                             d.code.toLowerCase().includes(diagSearchTerm.toLowerCase()) ||
                                                             d.description.toLowerCase().includes(diagSearchTerm.toLowerCase())
-                                                        ).map((diag, idx) => (
-                                                            <div
-                                                                key={idx}
-                                                                className="p-3 hover:bg-blue-50 cursor-pointer text-sm border-b last:border-0 flex justify-between items-center transition-colors"
-                                                                onClick={() => {
-                                                                    if (!soapNote.diagnosis.find(d => d.code === diag.code)) {
-                                                                        setSoapNote({
-                                                                            ...soapNote,
-                                                                            diagnosis: [...soapNote.diagnosis, diag]
-                                                                        });
-                                                                    }
-                                                                    setDiagSearchTerm('');
-                                                                    setShowDiagDropdown(false);
-                                                                }}
-                                                            >
-                                                                <div>
-                                                                    <span className="font-bold text-blue-700 mr-2">{diag.code}</span>
-                                                                    <span className="text-gray-700">{diag.description}</span>
+                                                        ).length > 0 ? (
+                                                            icd11Data.filter(d =>
+                                                                d.code.toLowerCase().includes(diagSearchTerm.toLowerCase()) ||
+                                                                d.description.toLowerCase().includes(diagSearchTerm.toLowerCase())
+                                                            ).map((diag, idx) => (
+                                                                <div
+                                                                    key={idx}
+                                                                    className="p-3 hover:bg-blue-50 cursor-pointer text-sm border-b last:border-0 flex justify-between items-center transition-colors"
+                                                                    onClick={() => {
+                                                                        if (!soapNote.diagnosis.find(d => d.code === diag.code)) {
+                                                                            setSoapNote({
+                                                                                ...soapNote,
+                                                                                diagnosis: [...soapNote.diagnosis, diag]
+                                                                            });
+                                                                        }
+                                                                        setDiagSearchTerm('');
+                                                                        setShowDiagDropdown(false);
+                                                                    }}
+                                                                >
+                                                                    <div>
+                                                                        <span className="font-bold text-blue-700 mr-2">{diag.code}</span>
+                                                                        <span className="text-gray-700">{diag.description}</span>
+                                                                    </div>
+                                                                    <FaPlus className="text-blue-500" />
                                                                 </div>
-                                                                <FaPlus className="text-blue-500" />
-                                                            </div>
-                                                        ))
-                                                    ) : (
-                                                        <div className="p-4 text-gray-500 text-sm text-center">No matching ICD-11 codes found</div>
-                                                    )}
+                                                            ))
+                                                        ) : (
+                                                            <div className="p-4 text-gray-500 text-sm text-center">No matching ICD-11 codes found</div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+
+                                            {/* Selected Diagnoses Tokens */}
+                                            {soapNote.diagnosis.length > 0 && (
+                                                <div className="flex flex-wrap gap-2 mt-2">
+                                                    {soapNote.diagnosis.map((diag, i) => (
+                                                        <span key={i} className="bg-blue-600 text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2 shadow-sm">
+                                                            <span>{diag.code}: {diag.description}</span>
+                                                            <button
+                                                                onClick={() => setSoapNote({
+                                                                    ...soapNote,
+                                                                    diagnosis: soapNote.diagnosis.filter((_, idx) => idx !== i)
+                                                                })}
+                                                                className="hover:text-red-200 transition-colors"
+                                                            >
+                                                                <FaTimes />
+                                                            </button>
+                                                        </span>
+                                                    ))}
                                                 </div>
                                             )}
                                         </div>
 
-                                        {/* Selected Diagnoses Tokens */}
-                                        {soapNote.diagnosis.length > 0 && (
-                                            <div className="flex flex-wrap gap-2 mt-2">
-                                                {soapNote.diagnosis.map((diag, i) => (
-                                                    <span key={i} className="bg-blue-600 text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2 shadow-sm">
-                                                        <span>{diag.code}: {diag.description}</span>
-                                                        <button
-                                                            onClick={() => setSoapNote({
-                                                                ...soapNote,
-                                                                diagnosis: soapNote.diagnosis.filter((_, idx) => idx !== i)
-                                                            })}
-                                                            className="hover:text-red-200 transition-colors"
-                                                        >
-                                                            <FaTimes />
-                                                        </button>
-                                                    </span>
-                                                ))}
-                                            </div>
-                                        )}
+                                        <textarea
+                                            className="w-full border p-3 rounded"
+                                            rows="2"
+                                            value={soapNote.assessment}
+                                            onChange={(e) => setSoapNote({ ...soapNote, assessment: e.target.value })}
+                                            placeholder="Additional assessment comments, clinical impression..."
+                                        ></textarea>
                                     </div>
+                                    <div>
+                                        <label className="block text-gray-700 mb-2 font-semibold">P - Plan (Treatment Plan)</label>
+                                        <textarea
+                                            className="w-full border p-3 rounded"
+                                            rows="3"
+                                            value={soapNote.plan}
+                                            onChange={(e) => setSoapNote({ ...soapNote, plan: e.target.value })}
+                                            placeholder="Treatment plan, follow-up instructions..."
+                                        ></textarea>
+                                    </div>
+                                </div>
+                                {/* End of Assessment & Plan section */}
 
-                                    <textarea
-                                        className="w-full border p-3 rounded"
-                                        rows="2"
-                                        value={soapNote.assessment}
-                                        onChange={(e) => setSoapNote({ ...soapNote, assessment: e.target.value })}
-                                        placeholder="Additional assessment comments, clinical impression..."
-                                    ></textarea>
-                                </div>
-                                <div>
-                                    <label className="block text-gray-700 mb-2 font-semibold">P - Plan (Treatment Plan)</label>
-                                    <textarea
-                                        className="w-full border p-3 rounded"
-                                        rows="3"
-                                        value={soapNote.plan}
-                                        onChange={(e) => setSoapNote({ ...soapNote, plan: e.target.value })}
-                                        placeholder="Treatment plan, follow-up instructions..."
-                                    ></textarea>
-                                </div>
                                 <div className="flex gap-2">
                                     <button
                                         onClick={handleSaveSOAP}

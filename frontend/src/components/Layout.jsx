@@ -4,9 +4,12 @@ import 'react-toastify/dist/ReactToastify.css';
 import { useEffect, useContext } from 'react';
 import AuthContext from '../context/AuthContext';
 import axios from 'axios';
+import useHospitalSettings from '../hooks/useHospitalSettings';
+
 
 const Layout = ({ children }) => {
     const { user } = useContext(AuthContext);
+    const { settings } = useHospitalSettings();
 
     useEffect(() => {
         // Simple polling for new visits (mock notification)
@@ -35,7 +38,18 @@ const Layout = ({ children }) => {
             <Sidebar />
             <div className="flex-1 flex flex-col">
                 <header className="bg-white shadow-sm p-4 flex justify-between items-center">
-                    <h2 className="text-xl font-semibold text-gray-800">SUD Electronic Medical Records</h2>
+                    <div className="flex items-center gap-3">
+                        {settings.hospitalLogo && (
+                            <img
+                                src={settings.hospitalLogo}
+                                alt="Hospital Logo"
+                                className="h-10 w-auto object-contain"
+                            />
+                        )}
+                        <h2 className="text-xl font-semibold text-gray-800">
+                            {settings.hospitalName || 'SUD Electronic Medical Records'}
+                        </h2>
+                    </div>
                     <div className="text-sm text-gray-500">
                         {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     </div>

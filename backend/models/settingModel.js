@@ -11,6 +11,8 @@ const settingSchema = mongoose.Schema({
     reportHeader: { type: String, default: '' },
     reportFooter: { type: String, default: '' },
     currencySymbol: { type: String, default: '₦' },
+    idPrefix: { type: String, default: 'PAT' }, // Prefix for MRN generation (e.g., 'SUD', 'HOSP')
+    mrnCounter: { type: Number, default: 0 }, // Auto-incrementing counter for MRN
     lastUpdatedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
 }, {
     timestamps: true

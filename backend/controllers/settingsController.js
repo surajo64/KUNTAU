@@ -37,6 +37,7 @@ const updateSettings = async (req, res) => {
             settings.reportHeader = req.body.reportHeader || settings.reportHeader;
             settings.reportFooter = req.body.reportFooter || settings.reportFooter;
             settings.currencySymbol = req.body.currencySymbol || settings.currencySymbol;
+            settings.idPrefix = req.body.idPrefix || settings.idPrefix;
             settings.lastUpdatedBy = req.user._id;
 
             const updatedSettings = await settings.save();

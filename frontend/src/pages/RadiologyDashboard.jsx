@@ -2,7 +2,7 @@ import { useState, useEffect, useContext, useRef } from 'react';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import Layout from '../components/Layout';
-import { FaXRay, FaSearch, FaCheckCircle, FaUpload, FaSave, FaImage, FaEdit, FaTimes } from 'react-icons/fa';
+import { FaXRay, FaSearch, FaCheckCircle, FaUpload, FaSave, FaImage, FaEdit, FaTimes, FaTrash } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 
 import LoadingOverlay from '../components/loadingOverlay';
@@ -16,7 +16,8 @@ const RadiologyDashboard = () => {
     const [receiptNumber, setReceiptNumber] = useState('');
     const [receiptValidated, setReceiptValidated] = useState(false);
     const [notes, setNotes] = useState('');
-    const [imageUrl, setImageUrl] = useState('');
+    const [imageUrl, setImageUrl] = useState(''); // Keep for backward compatibility
+    const [uploadedImages, setUploadedImages] = useState([]); // New: Array of {file, name, preview}
     const [systemSettings, setSystemSettings] = useState(null);
     const { user } = useContext(AuthContext);
 
@@ -72,6 +73,8 @@ const RadiologyDashboard = () => {
         // Check for report in 'report' field (from backend) or 'notes' (legacy/frontend state)
         setNotes(order.report || order.notes || '');
         setImageUrl(order.resultImage || '');
+        // Load existing images if any
+        setUploadedImages(order.images || []);
     };
 
     const handleValidateReceipt = async () => {
@@ -222,6 +225,22 @@ const RadiologyDashboard = () => {
                     <div class="results-section">
                         <h3>Findings & Impression:</h3>
                         <div class="results-content">${order.report || order.notes || 'No report available'}</div>
+                        
+                        ${order.images && order.images.length > 0 ? `
+                            <div style="margin-top: 30px;">
+                                <h4 style="font-weight: bold; margin-bottom: 15px;">Attached Images:</h4>
+                                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                                    ${order.images.map(img => `
+                                        <div style="border: 1px solid #ddd; padding: 10px; border-radius: 4px;">
+                                            <p style="font-weight: bold; color: #2563eb; margin-bottom: 8px;">${img.name}</p>
+                                            <img src="http://localhost:5000/${img.path}" alt="${img.name}" style="width: 100%; max-height: 300px; object-fit: contain; background: #f3f4f6; border-radius: 4px;" />
+                                            <p style="font-size: 11px; color: #666; margin-top: 5px;">Uploaded: ${new Date(img.uploadedAt).toLocaleString()}</p>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        ` : ''}
+                        
                         ${order.resultImage ? `<div style="margin-top: 20px;"><p><strong>Image Reference:</strong> ${order.resultImage}</p></div>` : ''}
                     </div>
                     
@@ -402,17 +421,134 @@ const RadiologyDashboard = () => {
                             {/* Image Upload */}
                             <div className="mb-6">
                                 <label className="block text-gray-700 mb-2 font-semibold flex items-center gap-2">
-                                    <FaImage /> Image URL (Optional)
+                                    <FaImage /> Upload Images
                                 </label>
+
+                                {/* File Input */}
                                 <input
-                                    type="text"
-                                    className="w-full border p-3 rounded"
-                                    value={imageUrl}
-                                    onChange={(e) => setImageUrl(e.target.value)}
-                                    placeholder="Enter image URL or path..."
+                                    type="file"
+                                    accept="image/*"
+                                    multiple
+                                    onChange={(e) => {
+                                        const files = Array.from(e.target.files);
+                                        const newImages = files.map(file => ({
+                                            file,
+                                            name: '',
+                                            preview: URL.createObjectURL(file)
+                                        }));
+                                        setUploadedImages([...uploadedImages, ...newImages]);
+                                    }}
+                                    className="w-full border p-2 rounded mb-3"
                                 />
-                                <p className="text-xs text-gray-500 mt-1">
-                                    In production, this would integrate with PACS or file upload system
+
+                                {/* Image Previews with Custom Names */}
+                                {uploadedImages.length > 0 && (
+                                    <div className="space-y-3 mt-3">
+                                        {uploadedImages.map((img, index) => (
+                                            <div key={index} className="flex items-center gap-3 p-3 border rounded bg-gray-50">
+                                                {/* Preview Thumbnail */}
+                                                {img.preview ? (
+                                                    <img
+                                                        src={img.preview}
+                                                        alt={img.name || 'Preview'}
+                                                        className="w-16 h-16 object-cover rounded"
+                                                    />
+                                                ) : img.path ? (
+                                                    <img
+                                                        src={`http://localhost:5000/${img.path}`}
+                                                        alt={img.name}
+                                                        className="w-16 h-16 object-cover rounded"
+                                                    />
+                                                ) : null}
+
+                                                {/* Custom Name Input */}
+                                                <input
+                                                    type="text"
+                                                    placeholder={`Image name (e.g., "AP View", "Lateral View")`}
+                                                    value={img.name}
+                                                    onChange={(e) => {
+                                                        const updated = [...uploadedImages];
+                                                        updated[index].name = e.target.value;
+                                                        setUploadedImages(updated);
+                                                    }}
+                                                    className="flex-1 border p-2 rounded"
+                                                    disabled={!img.file} // Disable for already uploaded images
+                                                />
+
+                                                {/* Remove Button */}
+                                                <button
+                                                    onClick={async () => {
+                                                        if (img._id) {
+                                                            // Delete from server
+                                                            try {
+                                                                const config = { headers: { Authorization: `Bearer ${user.token}` } };
+                                                                await axios.delete(
+                                                                    `http://localhost:5000/api/radiology/${selectedOrder._id}/images/${img._id}`,
+                                                                    config
+                                                                );
+                                                                toast.success('Image deleted');
+                                                            } catch (error) {
+                                                                toast.error('Error deleting image');
+                                                                return;
+                                                            }
+                                                        }
+                                                        // Remove from state
+                                                        const updated = uploadedImages.filter((_, i) => i !== index);
+                                                        setUploadedImages(updated);
+                                                    }}
+                                                    className="bg-red-500 text-white px-3 py-2 rounded hover:bg-red-600"
+                                                >
+                                                    <FaTrash />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+
+                                {/* Upload Button for new images */}
+                                {uploadedImages.some(img => img.file) && (
+                                    <button
+                                        onClick={async () => {
+                                            try {
+                                                setLoading(true);
+                                                const config = { headers: { Authorization: `Bearer ${user.token}`, 'Content-Type': 'multipart/form-data' } };
+
+                                                const formData = new FormData();
+                                                const imageNames = [];
+
+                                                uploadedImages.forEach((img, index) => {
+                                                    if (img.file) {
+                                                        formData.append('images', img.file);
+                                                        imageNames.push(img.name || `Image ${index + 1}`);
+                                                    }
+                                                });
+
+                                                formData.append('imageNames', JSON.stringify(imageNames));
+
+                                                const { data } = await axios.post(
+                                                    `http://localhost:5000/api/radiology/${selectedOrder._id}/upload-images`,
+                                                    formData,
+                                                    config
+                                                );
+
+                                                toast.success('Images uploaded successfully!');
+                                                // Update with server response
+                                                setUploadedImages(data.order.images || []);
+                                            } catch (error) {
+                                                console.error(error);
+                                                toast.error('Error uploading images');
+                                            } finally {
+                                                setLoading(false);
+                                            }
+                                        }}
+                                        className="mt-3 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-2"
+                                    >
+                                        <FaUpload /> Upload Images
+                                    </button>
+                                )}
+
+                                <p className="text-xs text-gray-500 mt-2">
+                                    Upload multiple images and assign custom names for better organization
                                 </p>
                             </div>
 
@@ -610,6 +746,31 @@ Normal chest X-ray. No acute cardiopulmonary disease.
                                 <pre className="whitespace-pre-wrap font-mono text-sm bg-gray-50 p-4 rounded">
                                     {viewResultModal.report || viewResultModal.notes || 'No report available'}
                                 </pre>
+
+                                {/* Display uploaded images */}
+                                {viewResultModal.images && viewResultModal.images.length > 0 && (
+                                    <div className="mt-6">
+                                        <h4 className="font-bold text-md mb-3">Attached Images:</h4>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            {viewResultModal.images.map((img, index) => (
+                                                <div key={index} className="border rounded p-2">
+                                                    <p className="font-semibold text-sm mb-2 text-blue-700">{img.name}</p>
+                                                    <img
+                                                        src={`http://localhost:5000/${img.path}`}
+                                                        alt={img.name}
+                                                        className="w-full h-48 object-contain bg-gray-100 rounded cursor-pointer hover:opacity-80"
+                                                        onClick={() => window.open(`http://localhost:5000/${img.path}`, '_blank')}
+                                                    />
+                                                    <p className="text-xs text-gray-500 mt-1">
+                                                        Uploaded: {new Date(img.uploadedAt).toLocaleString()}
+                                                    </p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Legacy image URL support */}
                                 {viewResultModal.resultImage && (
                                     <div className="mt-4">
                                         <p className="font-bold text-sm mb-2">Image Reference:</p>

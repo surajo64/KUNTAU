@@ -14,6 +14,10 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Serve uploaded files
+app.use('/uploads', express.static('uploads'));
+
+
 app.use('/api/users', require('./routes/userRoutes'));
 app.use('/api/patients', require('./routes/patientRoutes'));
 app.use('/api/prescriptions', require('./routes/prescriptionRoutes'));

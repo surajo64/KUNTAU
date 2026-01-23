@@ -1,4 +1,6 @@
 const Patient = require('../models/patientModel');
+const { generateMRN } = require('../utils/mrnGenerator');
+
 
 // @desc    Register new patient
 // @route   POST /api/patients
@@ -6,8 +8,8 @@ const Patient = require('../models/patientModel');
 const registerPatient = async (req, res) => {
     const { name, age, gender, contact, address, medicalHistory, provider, hmo, insuranceNumber, emergencyContactName, emergencyContactPhone } = req.body;
 
-    // Generate MRN: PAT-Timestamp-Random
-    const mrn = `PAT-${Date.now().toString().slice(-6)}-${Math.floor(1000 + Math.random() * 9000)}`;
+    // Generate MRN using new format: PREFIX-YEAR-0001
+    const mrn = await generateMRN();
 
     const patient = await Patient.create({
         mrn,
