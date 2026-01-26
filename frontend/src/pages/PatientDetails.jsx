@@ -50,6 +50,13 @@ const PatientDetails = () => {
     const [showDiagDropdown, setShowDiagDropdown] = useState(false);
     const [showSoapModal, setShowSoapModal] = useState(false);
 
+    // Inpatient Conversion State
+    const [showConvertModal, setShowConvertModal] = useState(false);
+    const [wards, setWards] = useState([]);
+    const [selectedWard, setSelectedWard] = useState('');
+    const [selectedBed, setSelectedBed] = useState('');
+    const [availableBeds, setAvailableBeds] = useState([]);
+
     useEffect(() => {
         if (showSoapModal && encounter) {
             setSoapNote({
@@ -70,7 +77,12 @@ const PatientDetails = () => {
                 diagnosis: encounter.diagnosis || []
             });
         }
-    }, [showSoapModal, encounter]);
+        // Reset conversion state when modal closes
+        if (!showConvertModal) {
+            setSelectedWard('');
+            setSelectedBed('');
+        }
+    }, [showSoapModal, encounter, showConvertModal]);
 
     // Orders
     const [selectedLabTest, setSelectedLabTest] = useState('');
@@ -163,6 +175,8 @@ const PatientDetails = () => {
         weight: '',
         height: ''
     });
+
+
 
 
     useEffect(() => {
@@ -312,6 +326,60 @@ const PatientDetails = () => {
             setInventoryDrugs(inventoryRes.data.filter(item => item.quantity > 0));
         } catch (error) {
             console.error(error);
+        }
+    };
+
+    const fetchWards = async () => {
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const { data } = await axios.get('http://localhost:5000/api/wards', config);
+            setWards(data);
+        } catch (error) {
+            console.error('Error fetching wards:', error);
+            toast.error('Error fetching wards');
+        }
+    };
+
+    useEffect(() => {
+        if (showConvertModal) {
+            fetchWards();
+        }
+    }, [showConvertModal]);
+
+    useEffect(() => {
+        if (selectedWard && wards.length > 0) {
+            const ward = wards.find(w => w._id === selectedWard);
+            if (ward) {
+                setAvailableBeds(ward.beds.filter(b => !b.isOccupied));
+            }
+        } else {
+            setAvailableBeds([]);
+        }
+    }, [selectedWard, wards]);
+
+    const handleConvertToInpatient = async () => {
+        if (!selectedWard || !selectedBed) {
+            toast.error('Please select both Ward and Bed');
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            await axios.put(
+                `http://localhost:5000/api/visits/${encounter._id}/convert-to-inpatient`,
+                { ward: selectedWard, bed: selectedBed },
+                config
+            );
+
+            toast.success('Patient converted to Inpatient successfully');
+            setShowConvertModal(false);
+            fetchPatient(); // Refresh data
+        } catch (error) {
+            console.error(error);
+            toast.error(error.response?.data?.message || 'Error converting encounter');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -1835,7 +1903,17 @@ const PatientDetails = () => {
                                         )}
 
 
-                                        {/* Edit Encounter Modal */}
+                                        {/* Convert to Inpatient Button - Nurse/Receptionist Only */}
+                                        {['nurse', 'receptionist', 'admin'].includes(user.role) && encounter?.type === 'Outpatient' && isEncounterActive() && !viewingPastEncounter && (
+                                            <button
+                                                onClick={() => setShowConvertModal(true)}
+                                                className="bg-purple-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-purple-700 transition"
+                                            >
+                                                <FaProcedures /> Convert to Inpatient
+                                            </button>
+                                        )}
+
+                                        {/* End Visit Button - Admins only */}
                                         {showEditEncounterModal && (
                                             <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                                                 <div className="bg-white p-6 rounded shadow-lg w-96">
@@ -2626,6 +2704,80 @@ const PatientDetails = () => {
                 doctorId={user._id} // Pre-fill current doctor
                 user={user}
             />
+            {/* Convert to Inpatient Modal */}
+            {showConvertModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                    <div className="bg-white p-6 rounded-lg shadow-lg w-96">
+                        <h3 className="text-xl font-bold mb-4">Convert to Inpatient</h3>
+
+                        <div className="mb-4">
+                            <label className="block text-gray-700 font-bold mb-2">Select Ward</label>
+                            <select
+                                className="w-full border p-2 rounded"
+                                value={selectedWard}
+                                onChange={(e) => setSelectedWard(e.target.value)}
+                            >
+                                <option value="">-- Select Ward --</option>
+                                {wards.map(ward => (
+                                    <option key={ward._id} value={ward._id}>
+                                        {ward.name} ({ward.type})
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+
+                        <div className="mb-4">
+                            <label className="block text-gray-700 font-bold mb-2">Select Bed</label>
+                            <select
+                                className="w-full border p-2 rounded"
+                                value={selectedBed}
+                                onChange={(e) => setSelectedBed(e.target.value)}
+                                disabled={!selectedWard}
+                            >
+                                <option value="">-- Select Bed --</option>
+                                {availableBeds.map(bed => (
+                                    <option key={bed._id} value={bed.number}>
+                                        {bed.number}
+                                    </option>
+                                ))}
+                            </select>
+                            {selectedWard && availableBeds.length === 0 && (
+                                <p className="text-red-500 text-sm mt-1">No beds available in this ward.</p>
+                            )}
+                        </div>
+
+                        {selectedWard && patient?.provider && (
+                            <div className="mb-4 p-3 bg-blue-50 rounded text-sm text-blue-800">
+                                <p className="font-bold">Provider: {patient.provider}</p>
+                                <p>
+                                    Rate: ₦{wards.find(w => w._id === selectedWard)?.rates?.[patient.provider] ||
+                                        wards.find(w => w._id === selectedWard)?.rates?.Standard ||
+                                        wards.find(w => w._id === selectedWard)?.dailyRate || 0}
+                                </p>
+                            </div>
+                        )}
+
+                        <div className="flex justify-end gap-2">
+                            <button
+                                onClick={() => setShowConvertModal(false)}
+                                className="bg-gray-300 px-4 py-2 rounded hover:bg-gray-400"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleConvertToInpatient}
+                                disabled={!selectedWard || !selectedBed}
+                                className={`px-4 py-2 rounded text-white ${!selectedWard || !selectedBed
+                                    ? 'bg-blue-300 cursor-not-allowed'
+                                    : 'bg-blue-600 hover:bg-blue-700'
+                                    }`}
+                            >
+                                Convert
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             {/* Referral Modal */}
             {
                 showReferralModal && (

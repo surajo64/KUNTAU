@@ -30,6 +30,10 @@ const FrontDeskDashboard = () => {
     const [wards, setWards] = useState([]);
     const [availableBeds, setAvailableBeds] = useState([]);
 
+    // Convert/Edit Modal State
+    const [showConvertModal, setShowConvertModal] = useState(false);
+    const [selectedEncounterId, setSelectedEncounterId] = useState(null);
+
     const { user } = useContext(AuthContext);
 
     // New Patient Form
@@ -341,6 +345,66 @@ const FrontDeskDashboard = () => {
         other: 'Other'
     };
 
+
+    const handleEditClick = (patient) => {
+        const encounters = patientEncounters[patient._id];
+        if (!encounters || encounters.length === 0) {
+            toast.error('No checks found for this patient');
+            return;
+        }
+
+        // Find active encounter (should be one created today or active outpatient)
+        const today = new Date().toDateString();
+        const activeEncounter = encounters.find(e => {
+            const eDate = new Date(e.createdAt).toDateString();
+            return eDate === today || (e.type === 'Outpatient' && e.encounterStatus !== 'completed');
+        });
+
+        if (!activeEncounter) {
+            toast.error('No active encounter found to edit');
+            return;
+        }
+
+        if (activeEncounter.type === 'Inpatient') {
+            toast.info('This encounter is already Inpatient (Admitted).');
+            return;
+        }
+
+        setSelectedPatient(patient);
+        setSelectedEncounterId(activeEncounter._id);
+        setSelectedWard('');
+        setSelectedBed('');
+        setShowConvertModal(true);
+    };
+
+    const handleConvertFromFrontDesk = async () => {
+        if (!selectedWard || !selectedBed) {
+            toast.error('Please select Ward and Bed');
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            await axios.put(
+                `http://localhost:5000/api/visits/${selectedEncounterId}/convert-to-inpatient`,
+                { ward: selectedWard, bed: selectedBed },
+                config
+            );
+
+            toast.success('Encounter converted to Inpatient!');
+            setShowConvertModal(false);
+            setSelectedEncounterId(null);
+            setSelectedPatient(null);
+            fetchRecentPatients(); // Refresh lists
+        } catch (error) {
+            console.error(error);
+            toast.error(error.response?.data?.message || 'Error converting encounter');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <Layout>
             {loading && <LoadingOverlay />}
@@ -485,13 +549,32 @@ const FrontDeskDashboard = () => {
                                         onClick={() => !hasTodayEncounter && openEncounterModal(patient)}
                                         disabled={hasTodayEncounter}
                                         className={`px-4 py-2 rounded flex items-center gap-2 ${hasTodayEncounter
-                                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                            ? 'hidden'
                                             : 'bg-blue-600 text-white hover:bg-blue-700'
                                             }`}
                                         title={hasTodayEncounter ? 'Patient already has an encounter today' : 'Create new encounter'}
                                     >
                                         <FaCalendarCheck /> Create Encounter
                                     </button>
+                                    {hasTodayEncounter && (
+                                        <>
+                                            {hasActiveInpatientEncounter(patient._id) ? (
+                                                <button
+                                                    onClick={() => window.location.href = `/patient/${patient._id}`}
+                                                    className="bg-red-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-red-700"
+                                                >
+                                                    <FaBed /> Discharge
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={() => handleEditClick(patient)}
+                                                    className="bg-purple-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-purple-700"
+                                                >
+                                                    <FaBed /> Edit / Admit
+                                                </button>
+                                            )}
+                                        </>
+                                    )}
                                 </div>
                             );
                         })}
@@ -533,13 +616,32 @@ const FrontDeskDashboard = () => {
                                         onClick={() => !hasTodayEncounter && openEncounterModal(patient)}
                                         disabled={hasTodayEncounter}
                                         className={`px-4 py-2 rounded flex items-center gap-2 ${hasTodayEncounter
-                                            ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                            ? 'hidden'
                                             : 'bg-blue-600 text-white hover:bg-blue-700'
                                             }`}
                                         title={hasTodayEncounter ? 'Patient already has an encounter today' : 'Create new encounter'}
                                     >
                                         <FaCalendarCheck /> Create Encounter
                                     </button>
+                                    {hasTodayEncounter && (
+                                        <>
+                                            {hasActiveInpatientEncounter(patient._id) ? (
+                                                <button
+                                                    onClick={() => window.location.href = `/patient/${patient._id}`}
+                                                    className="bg-red-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-red-700"
+                                                >
+                                                    <FaBed /> Discharge
+                                                </button>
+                                            ) : (
+                                                <button
+                                                    onClick={() => handleEditClick(patient)}
+                                                    className="bg-purple-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-purple-700"
+                                                >
+                                                    <FaBed /> Edit / Admit
+                                                </button>
+                                            )}
+                                        </>
+                                    )}
                                 </div>
                             );
                         })}
@@ -804,6 +906,92 @@ const FrontDeskDashboard = () => {
                             >
                                 <FaPlus /> Create Encounter
                             </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Inpatient Conversion Modal (Front Desk) */}
+            {showConvertModal && selectedPatient && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+                        <div className="bg-purple-700 text-white p-4 rounded-t-lg flex justify-between items-center">
+                            <h3 className="text-xl font-bold flex items-center gap-2">
+                                <FaBed /> Convert to Inpatient
+                            </h3>
+                            <button onClick={() => setShowConvertModal(false)} className="text-white hover:text-gray-200">
+                                <FaTimes />
+                            </button>
+                        </div>
+
+                        <div className="p-6">
+                            <div className="mb-4 bg-purple-50 p-3 rounded">
+                                <p className="font-bold">{selectedPatient.name}</p>
+                                <p className="text-sm">Converting active encounter to Inpatient admission.</p>
+                            </div>
+
+                            <div className="mb-4">
+                                <label className="block text-gray-700 font-bold mb-2">Select Ward</label>
+                                <select
+                                    className="w-full border p-2 rounded"
+                                    value={selectedWard}
+                                    onChange={(e) => setSelectedWard(e.target.value)}
+                                >
+                                    <option value="">-- Select Ward --</option>
+                                    {wards.map(ward => (
+                                        <option key={ward._id} value={ward._id}>
+                                            {ward.name} ({ward.type})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="mb-6">
+                                <label className="block text-gray-700 font-bold mb-2">Select Bed</label>
+                                <select
+                                    className="w-full border p-2 rounded"
+                                    value={selectedBed}
+                                    onChange={(e) => setSelectedBed(e.target.value)}
+                                    disabled={!selectedWard}
+                                >
+                                    <option value="">-- Select Bed --</option>
+                                    {availableBeds.map(bed => (
+                                        <option key={bed._id} value={bed.number}>
+                                            {bed.number}
+                                        </option>
+                                    ))}
+                                </select>
+                                {selectedWard && availableBeds.length === 0 && (
+                                    <p className="text-red-500 text-sm mt-1">No beds available in this ward.</p>
+                                )}
+                            </div>
+
+                            {selectedWard && selectedPatient?.provider && (
+                                <div className="mb-6 p-3 bg-blue-50 rounded text-sm text-blue-800 border border-blue-100">
+                                    <p className="font-bold">Provider Scheme: {selectedPatient.provider}</p>
+                                    <p>
+                                        Daily Rate: ₦{wards.find(w => w._id === selectedWard)?.rates?.[selectedPatient.provider] ||
+                                            wards.find(w => w._id === selectedWard)?.rates?.Standard ||
+                                            wards.find(w => w._id === selectedWard)?.dailyRate || 0}
+                                    </p>
+                                </div>
+                            )}
+
+                            <div className="flex justify-end gap-3">
+                                <button
+                                    onClick={() => setShowConvertModal(false)}
+                                    className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleConvertFromFrontDesk}
+                                    disabled={!selectedWard || !selectedBed}
+                                    className={`px-4 py-2 rounded text-white ${!selectedWard || !selectedBed ? 'bg-purple-300 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'}`}
+                                >
+                                    Convert & Admit
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

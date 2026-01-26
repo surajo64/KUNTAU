@@ -61,6 +61,14 @@ const NurseTriage = () => {
     const [showChargesModal, setShowChargesModal] = useState(false);
     const [showNurseNoteModal, setShowNurseNoteModal] = useState(false);
 
+    // Inpatient Conversion State (Nurse)
+    const [showConvertModal, setShowConvertModal] = useState(false);
+    const [wards, setWards] = useState([]);
+    const [selectedWard, setSelectedWard] = useState('');
+    const [selectedBed, setSelectedBed] = useState('');
+    const [availableBeds, setAvailableBeds] = useState([]);
+    const [encounterToConvert, setEncounterToConvert] = useState(null);
+
     const { user } = useContext(AuthContext);
 
     useEffect(() => {
@@ -89,6 +97,68 @@ const NurseTriage = () => {
             setDoctors(data);
         } catch (error) {
             console.error(error);
+        }
+    };
+
+    const fetchWards = async () => {
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const { data } = await axios.get('http://localhost:5000/api/wards', config);
+            setWards(data);
+        } catch (error) {
+            console.error('Error fetching wards:', error);
+        }
+    };
+
+    useEffect(() => {
+        if (showConvertModal) {
+            fetchWards();
+        }
+    }, [showConvertModal]);
+
+    useEffect(() => {
+        if (selectedWard && wards.length > 0) {
+            const ward = wards.find(w => w._id === selectedWard);
+            if (ward) {
+                setAvailableBeds(ward.beds.filter(b => !b.isOccupied));
+            }
+        } else {
+            setAvailableBeds([]);
+        }
+    }, [selectedWard, wards]);
+
+    const handleOpenConvertModal = (e, encounter) => {
+        e.stopPropagation(); // Prevent selecting the encounter row
+        setEncounterToConvert(encounter);
+        setSelectedWard('');
+        setSelectedBed('');
+        setShowConvertModal(true);
+    };
+
+    const handleConvertFromNurse = async () => {
+        if (!selectedWard || !selectedBed) {
+            toast.error('Please select Ward and Bed');
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            await axios.put(
+                `http://localhost:5000/api/visits/${encounterToConvert._id}/convert-to-inpatient`,
+                { ward: selectedWard, bed: selectedBed },
+                config
+            );
+
+            toast.success('Patient admitted to Inpatient!');
+            setShowConvertModal(false);
+            setEncounterToConvert(null);
+            handleSelectPatient(selectedPatient); // Refresh encounters
+        } catch (error) {
+            console.error(error);
+            toast.error(error.response?.data?.message || 'Error converting encounter');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -671,21 +741,46 @@ const NurseTriage = () => {
                                     <div
                                         key={encounter._id}
                                         onClick={() => handleSelectEncounter(encounter)}
-                                        className="p-3 border rounded hover:bg-gray-50 cursor-pointer"
+                                        className="p-3 border rounded hover:bg-gray-50 cursor-pointer relative"
                                     >
-                                        <div className="flex justify-between">
+                                        <div className="flex justify-between items-start">
                                             <div>
                                                 <p className="font-semibold">{encounter.type} Visit</p>
                                                 <p className="text-sm text-gray-600">
                                                     {new Date(encounter.createdAt).toLocaleDateString()} - Status: {encounter.encounterStatus}
                                                 </p>
                                             </div>
-                                            <span className={`px-3 py-1 rounded text-sm ${encounter.paymentValidated
-                                                ? 'bg-green-100 text-green-800'
-                                                : 'bg-yellow-100 text-yellow-800'
-                                                }`}>
-                                                {encounter.paymentValidated ? 'Paid' : 'Pending'}
-                                            </span>
+                                            <div className="flex flex-col items-end gap-2">
+                                                <span className={`px-3 py-1 rounded text-sm ${encounter.paymentValidated
+                                                    ? 'bg-green-100 text-green-800'
+                                                    : 'bg-yellow-100 text-yellow-800'
+                                                    }`}>
+                                                    {encounter.paymentValidated ? 'Paid' : 'Pending'}
+                                                </span>
+
+                                                {/* Admit Button (Outpatient -> Inpatient) */}
+                                                {encounter.type === 'Outpatient' && encounter.encounterStatus !== 'completed' && (
+                                                    <button
+                                                        onClick={(e) => handleOpenConvertModal(e, encounter)}
+                                                        className="text-xs bg-purple-600 text-white px-2 py-1 rounded hover:bg-purple-700 z-10"
+                                                    >
+                                                        Admit
+                                                    </button>
+                                                )}
+
+                                                {/* Discharge Button (Inpatient/Admitted -> Discharge) */}
+                                                {encounter.type === 'Inpatient' && encounter.encounterStatus === 'admitted' && (
+                                                    <button
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            window.location.href = `/patient/${encounter.patient._id || encounter.patient}`;
+                                                        }}
+                                                        className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700 z-10"
+                                                    >
+                                                        Discharge
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     </div>
                                 ))}
@@ -1327,6 +1422,92 @@ const NurseTriage = () => {
                     </div>
                 )
             }
+
+            {/* Inpatient Conversion Modal (Nurse) */}
+            {showConvertModal && encounterToConvert && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md">
+                        <div className="bg-purple-700 text-white p-4 rounded-t-lg flex justify-between items-center">
+                            <h3 className="text-xl font-bold flex items-center gap-2">
+                                <FaCheckCircle /> Admit Patient
+                            </h3>
+                            <button onClick={() => setShowConvertModal(false)} className="text-white hover:text-gray-200">
+                                <FaTrash size={16} />
+                            </button>
+                        </div>
+
+                        <div className="p-6">
+                            <div className="mb-4 bg-purple-50 p-3 rounded">
+                                <p className="font-bold">{selectedPatient?.name}</p>
+                                <p className="text-sm">Converting Outpatient encounter to Inpatient admission.</p>
+                            </div>
+
+                            <div className="mb-4">
+                                <label className="block text-gray-700 font-bold mb-2">Select Ward</label>
+                                <select
+                                    className="w-full border p-2 rounded"
+                                    value={selectedWard}
+                                    onChange={(e) => setSelectedWard(e.target.value)}
+                                >
+                                    <option value="">-- Select Ward --</option>
+                                    {wards.map(ward => (
+                                        <option key={ward._id} value={ward._id}>
+                                            {ward.name} ({ward.type})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div className="mb-6">
+                                <label className="block text-gray-700 font-bold mb-2">Select Bed</label>
+                                <select
+                                    className="w-full border p-2 rounded"
+                                    value={selectedBed}
+                                    onChange={(e) => setSelectedBed(e.target.value)}
+                                    disabled={!selectedWard}
+                                >
+                                    <option value="">-- Select Bed --</option>
+                                    {availableBeds.map(bed => (
+                                        <option key={bed._id} value={bed.number}>
+                                            {bed.number}
+                                        </option>
+                                    ))}
+                                </select>
+                                {selectedWard && availableBeds.length === 0 && (
+                                    <p className="text-red-500 text-sm mt-1">No beds available in this ward.</p>
+                                )}
+                            </div>
+
+                            {selectedWard && selectedPatient?.provider && (
+                                <div className="mb-6 p-3 bg-blue-50 rounded text-sm text-blue-800 border border-blue-100">
+                                    <p className="font-bold">Provider Scheme: {selectedPatient.provider}</p>
+                                    <p>
+                                        Daily Rate: ₦{wards.find(w => w._id === selectedWard)?.rates?.[selectedPatient.provider] ||
+                                            wards.find(w => w._id === selectedWard)?.rates?.Standard ||
+                                            wards.find(w => w._id === selectedWard)?.dailyRate || 0}
+                                    </p>
+                                </div>
+                            )}
+
+                            <div className="flex justify-end gap-3">
+                                <button
+                                    onClick={() => setShowConvertModal(false)}
+                                    className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleConvertFromNurse}
+                                    disabled={!selectedWard || !selectedBed}
+                                    className={`px-4 py-2 rounded text-white ${!selectedWard || !selectedBed ? 'bg-purple-300 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'}`}
+                                >
+                                    Admit Patient
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </Layout >
     );
 };

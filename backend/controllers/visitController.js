@@ -279,6 +279,92 @@ const addNote = async (req, res) => {
     }
 };
 
+// @desc    Convert Outpatient to Inpatient
+// @route   PUT /api/visits/:id/convert-to-inpatient
+// @access  Private (Nurse/Receptionist/Admin)
+const convertToInpatient = async (req, res) => {
+    const { ward, bed } = req.body;
+
+    try {
+        const visit = await Visit.findById(req.params.id);
+
+        if (!visit) {
+            return res.status(404).json({ message: 'Visit not found' });
+        }
+
+        if (visit.type === 'Inpatient') {
+            return res.status(400).json({ message: 'Encounter is already Inpatient' });
+        }
+
+        if (!ward || !bed) {
+            return res.status(400).json({ message: 'Ward and Bed are required for conversion' });
+        }
+
+        const Ward = require('../models/wardModel');
+        const wardDoc = await Ward.findById(ward);
+
+        if (!wardDoc) {
+            return res.status(404).json({ message: 'Ward not found' });
+        }
+
+        const bedIndex = wardDoc.beds.findIndex(b => b.number === bed);
+        if (bedIndex === -1) {
+            return res.status(404).json({ message: 'Bed not found in ward' });
+        }
+
+        if (wardDoc.beds[bedIndex].isOccupied) {
+            return res.status(400).json({ message: 'Selected bed is already occupied' });
+        }
+
+        // 1. Update Ward/Bed (Occupy Bed)
+        wardDoc.beds[bedIndex].isOccupied = true;
+        wardDoc.beds[bedIndex].occupiedBy = visit.patient;
+        await wardDoc.save();
+
+        // 2. Update Visit
+        visit.type = 'Inpatient';
+        visit.encounterType = 'Inpatient';
+        visit.ward = ward;
+        visit.bed = bed;
+        visit.admissionDate = new Date();
+        visit.encounterStatus = 'admitted';
+
+        const updatedVisit = await visit.save();
+
+        // 3. Generate Initial Bed Charge
+        const Patient = require('../models/patientModel');
+        const patient = await Patient.findById(visit.patient);
+
+        let dailyFee = wardDoc.dailyRate; // Default fallback
+
+        if (patient && patient.provider && wardDoc.rates && wardDoc.rates[patient.provider]) {
+            dailyFee = wardDoc.rates[patient.provider];
+        } else if (wardDoc.rates && wardDoc.rates.Standard) {
+            dailyFee = wardDoc.rates.Standard;
+        }
+
+        if (dailyFee > 0) {
+            const EncounterCharge = require('../models/encounterChargeModel');
+            await EncounterCharge.create({
+                encounter: visit._id,
+                patient: visit.patient,
+                itemType: 'Daily Bed Fee',
+                itemName: `Initial Ward Charge - ${wardDoc.name} (${patient.provider || 'Standard'})`,
+                cost: dailyFee,
+                quantity: 1,
+                totalAmount: dailyFee,
+                status: 'pending',
+                addedBy: req.user._id
+            });
+        }
+
+        res.json(updatedVisit);
+
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     createVisit,
     getVisits,
@@ -286,5 +372,6 @@ module.exports = {
     getVisitById,
     deleteVisit,
     getVisitsByPatient,
-    addNote
+    addNote,
+    convertToInpatient
 };

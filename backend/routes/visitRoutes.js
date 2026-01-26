@@ -16,5 +16,6 @@ router.route('/:id')
     .delete(protect, admin, deleteVisit);
 
 router.route('/:id/notes').post(protect, require('../controllers/visitController').addNote);
+router.route('/:id/convert-to-inpatient').put(protect, require('../controllers/visitController').convertToInpatient);
 
 module.exports = router;
