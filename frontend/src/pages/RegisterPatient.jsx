@@ -19,7 +19,15 @@ const RegisterPatient = () => {
     const navigate = useNavigate();
 
     const handleChange = (e) => {
-        setFormData({ ...formData, [e.target.name]: e.target.value });
+        const { name, value } = e.target;
+
+        if (name === 'state') {
+            const selectedState = nigeriaData.find(item => item.state === value);
+            setAvailableLgas(selectedState ? selectedState.lgas : []);
+            setFormData({ ...formData, state: value, lga: '' });
+        } else {
+            setFormData({ ...formData, [name]: value });
+        }
     };
 
     const handleSubmit = async (e) => {

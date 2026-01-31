@@ -6,7 +6,7 @@ const { generateMRN } = require('../utils/mrnGenerator');
 // @route   POST /api/patients
 // @access  Private
 const registerPatient = async (req, res) => {
-    const { name, age, gender, contact, address, medicalHistory, provider, hmo, insuranceNumber, emergencyContactName, emergencyContactPhone } = req.body;
+    const { name, age, gender, contact, address, state, lga, medicalHistory, provider, hmo, insuranceNumber, emergencyContactName, emergencyContactPhone } = req.body;
 
     // Generate MRN using new format: PREFIX-YEAR-0001
     const mrn = await generateMRN();
@@ -18,6 +18,8 @@ const registerPatient = async (req, res) => {
         gender,
         contact,
         address,
+        state,
+        lga,
         medicalHistory,
         provider,
         hmo,
@@ -50,6 +52,8 @@ const updatePatient = async (req, res) => {
         patient.gender = req.body.gender || patient.gender;
         patient.contact = req.body.contact || req.body.phoneNumber || patient.contact;
         patient.address = req.body.address || patient.address;
+        patient.state = req.body.state || patient.state;
+        patient.lga = req.body.lga || patient.lga;
         patient.mrn = req.body.mrn || patient.mrn;
 
         // Backfill MRN if missing

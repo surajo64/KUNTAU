@@ -222,41 +222,53 @@ const PatientDetails = () => {
 
     const fetchEncounterDetails = async (encounterId, config) => {
         try {
+            const [vitalsRes, labRes, radRes, rxRes, visitRes, referralsRes] = await Promise.all([
+                axios.get(`http://localhost:5000/api/vitals/visit/${encounterId}`, config),
+                axios.get(`http://localhost:5000/api/lab/visit/${encounterId}`, config),
+                axios.get(`http://localhost:5000/api/radiology/visit/${encounterId}`, config),
+                axios.get(`http://localhost:5000/api/prescriptions/visit/${encounterId}`, config),
+                axios.get(`http://localhost:5000/api/visits/${encounterId}`, config),
+                axios.get(`http://localhost:5000/api/referrals/visit/${encounterId}`, config)
+            ]);
+
             // Vitals
-            const vitalsRes = await axios.get(`http://localhost:5000/api/vitals/visit/${encounterId}`, config);
-            if (vitalsRes.data.length > 0) setVitals(vitalsRes.data[0]); // Get latest
-            else setVitals(null); // Clear if none
+            if (vitalsRes.data.length > 0) setVitals(vitalsRes.data[0]);
+            else setVitals(null);
 
             // Lab Orders
-            const labRes = await axios.get(`http://localhost:5000/api/lab/visit/${encounterId}`, config);
             setCurrentLabOrders(labRes.data);
 
             // Radiology Orders
-            const radRes = await axios.get(`http://localhost:5000/api/radiology/visit/${encounterId}`, config);
             setCurrentRadOrders(radRes.data);
 
             // Prescriptions
-            const rxRes = await axios.get(`http://localhost:5000/api/prescriptions/visit/${encounterId}`, config);
             setCurrentPrescriptions(rxRes.data);
 
-            // Clinical Notes (from visit object)
-            const visitRes = await axios.get(`http://localhost:5000/api/visits/${encounterId}`, config);
+            // Clinical Notes
             setClinicalNotes(visitRes.data.notes || []);
 
             // Referrals
-            const referralsRes = await axios.get(`http://localhost:5000/api/referrals/visit/${encounterId}`, config);
             setReferrals(referralsRes.data);
 
         } catch (error) {
             console.error('Error fetching encounter details', error);
+            toast.error('Error fetching data');
         }
     };
 
-    const handleViewPastEncounter = (visit) => {
-        setEncounter(visit);
-        setViewingPastEncounter(true);
-        const config = { headers: { Authorization: `Bearer ${user.token}` } };
-        fetchEncounterDetails(visit._id, config);
+    const handleViewPastEncounter = async (visit) => {
+        try {
+            setLoading(true);
+            setEncounter(visit);
+            setViewingPastEncounter(true);
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            await fetchEncounterDetails(visit._id, config);
+        } catch (error) {
+            console.error(error);
+            toast.error('Error loading encounter details');
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleBackToActive = () => {
@@ -1027,21 +1039,47 @@ const PatientDetails = () => {
     return (
         <Layout>
             {loading && <LoadingOverlay />}
-            <div className="mb-6">
-                <h2 className="text-2xl font-bold text-gray-800">{patient.name}</h2>
-                <p className="text-gray-600">MRN: {patient.mrn} | Age: {patient.age} | {patient.gender}</p>
-                {encounter && (
-                    <div className="flex items-center gap-4 mt-2">
-                        <p className="text-sm text-blue-600">
-                            {viewingPastEncounter ? 'Viewing Past Encounter' : 'Active Encounter'}: {encounter.type} - {new Date(encounter.createdAt).toLocaleDateString()}
-                        </p>
-                        {viewingPastEncounter && (
-                            <button onClick={handleBackToActive} className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded">
-                                Back to Active
-                            </button>
-                        )}
-                    </div>
-                )}
+            <div className="mb-6 flex justify-between items-start">
+                <div>
+                    <h2 className="text-2xl font-bold text-gray-800">{patient.name}</h2>
+                    <p className="text-gray-600">MRN: {patient.mrn} | Age: {patient.age} | {patient.gender}</p>
+                    {encounter && (
+                        <div className="flex items-center gap-4 mt-2">
+                            <p className="text-sm text-blue-600">
+                                {viewingPastEncounter ? 'Viewing Past Encounter' : 'Active Encounter'}: {encounter.type} - {new Date(encounter.createdAt).toLocaleDateString()}
+                            </p>
+                            {viewingPastEncounter && (
+                                <button onClick={handleBackToActive} className="text-xs bg-gray-200 hover:bg-gray-300 px-2 py-1 rounded">
+                                    Back to Active
+                                </button>
+                            )}
+                        </div>
+                    )}
+                </div>
+
+                {/* Encounter History Dropdown */}
+                <div className="flex items-center gap-2">
+                    <label className="text-sm font-semibold text-gray-700">Medical History:</label>
+                    <select
+                        className="border p-2 rounded text-sm bg-white shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        onChange={(e) => {
+                            if (e.target.value === 'active') {
+                                handleBackToActive();
+                            } else {
+                                const selected = pastEncounters.find(p => p._id === e.target.value);
+                                if (selected) handleViewPastEncounter(selected);
+                            }
+                        }}
+                        value={viewingPastEncounter && encounter ? encounter._id : 'active'}
+                    >
+                        <option value="active">Current Active Visit</option>
+                        {pastEncounters.map(visit => (
+                            <option key={visit._id} value={visit._id}>
+                                {new Date(visit.createdAt).toLocaleDateString()} - {visit.type} ({visit.encounterStatus})
+                            </option>
+                        ))}
+                    </select>
+                </div>
             </div>
             {
                 user.role === 'doctor' && (
@@ -1062,31 +1100,11 @@ const PatientDetails = () => {
                 )
             }
 
-            <div className="flex gap-6">
-                {/* History Sidebar */}
-                <div className="w-1/4 bg-white p-4 rounded shadow h-fit">
-                    <h3 className="font-bold text-gray-700 mb-4 border-b pb-2">Visit History</h3>
-                    {pastEncounters.length === 0 ? (
-                        <p className="text-sm text-gray-500">No previous visits.</p>
-                    ) : (
-                        <div className="space-y-3">
-                            {pastEncounters.map(visit => (
-                                <div
-                                    key={visit._id}
-                                    onClick={() => handleViewPastEncounter(visit)}
-                                    className={`p-3 rounded border cursor-pointer ${visit._id === encounter?._id ? 'bg-blue-50 border-blue-300' : 'hover:bg-gray-50'}`}
-                                >
-                                    <p className="font-semibold text-sm">{new Date(visit.createdAt).toLocaleDateString()}</p>
-                                    <p className="text-xs text-gray-600">{visit.type}</p>
-                                    <p className="text-xs text-gray-500 capitalize">{visit.encounterStatus}</p>
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </div>
+            {/* Main Content Info - Full Width */}
+            <div className="flex flex-col">
 
                 {/* Main Content */}
-                <div className="flex-1">
+                <div className="w-full">
                     {!encounter && (
                         <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 mb-6">
                             <p className="text-yellow-700">

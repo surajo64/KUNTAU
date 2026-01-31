@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { FaTimes, FaUserPlus } from 'react-icons/fa';
 import { toast } from 'react-toastify';
+import { nigeriaData } from '../data/nigeriaData';
 
 const RegisterPatientModal = ({ isOpen, onClose, onSuccess, userToken }) => {
     const [formData, setFormData] = useState({
@@ -10,6 +11,8 @@ const RegisterPatientModal = ({ isOpen, onClose, onSuccess, userToken }) => {
         gender: 'male',
         contact: '',
         address: '',
+        state: '',
+        lga: '',
         provider: 'Standard',
         hmo: '',
         insuranceNumber: '',
@@ -18,13 +21,25 @@ const RegisterPatientModal = ({ isOpen, onClose, onSuccess, userToken }) => {
     });
     const [loading, setLoading] = useState(false);
     const [hmos, setHmos] = useState([]);
+    const [availableLgas, setAvailableLgas] = useState([]);
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setFormData(prev => ({
-            ...prev,
-            [name]: value
-        }));
+
+        if (name === 'state') {
+            const selectedState = nigeriaData.find(item => item.state === value);
+            setAvailableLgas(selectedState ? selectedState.lgas : []);
+            setFormData(prev => ({
+                ...prev,
+                state: value,
+                lga: ''
+            }));
+        } else {
+            setFormData(prev => ({
+                ...prev,
+                [name]: value
+            }));
+        }
     };
 
     // Fetch active HMOs when component mounts
@@ -75,12 +90,15 @@ const RegisterPatientModal = ({ isOpen, onClose, onSuccess, userToken }) => {
                 gender: 'male',
                 contact: '',
                 address: '',
+                state: '',
+                lga: '',
                 provider: 'Standard',
                 hmo: '',
                 insuranceNumber: '',
                 emergencyContactName: '',
                 emergencyContactPhone: ''
             });
+            setAvailableLgas([]);
 
             if (onSuccess) onSuccess();
             onClose();
@@ -189,6 +207,39 @@ const RegisterPatientModal = ({ isOpen, onClose, onSuccess, userToken }) => {
                                 onChange={handleChange}
                                 className="w-full border p-2 rounded"
                             />
+                        </div>
+
+                        {/* State and LGA */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label className="block text-sm font-semibold mb-1">State</label>
+                                <select
+                                    name="state"
+                                    value={formData.state}
+                                    onChange={handleChange}
+                                    className="w-full border p-2 rounded"
+                                >
+                                    <option value="">Select State</option>
+                                    {nigeriaData.map((item) => (
+                                        <option key={item.state} value={item.state}>{item.state}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-semibold mb-1">LGA</label>
+                                <select
+                                    name="lga"
+                                    value={formData.lga}
+                                    onChange={handleChange}
+                                    className="w-full border p-2 rounded"
+                                    disabled={!formData.state}
+                                >
+                                    <option value="">Select LGA</option>
+                                    {availableLgas.map((lga) => (
+                                        <option key={lga} value={lga}>{lga}</option>
+                                    ))}
+                                </select>
+                            </div>
                         </div>
 
                         {/* Provider & Insurance Section */}

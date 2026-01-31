@@ -7,6 +7,8 @@ const patientSchema = mongoose.Schema({
     gender: { type: String, required: true },
     contact: { type: String, required: true },
     address: { type: String },
+    state: { type: String },
+    lga: { type: String },
     medicalHistory: [{ type: String }],
 
     // Insurance/Provider Details
