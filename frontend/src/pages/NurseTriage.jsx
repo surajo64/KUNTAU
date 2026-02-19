@@ -891,11 +891,20 @@ const NurseTriage = () => {
                                                             <td className={`p-2 font-semibold ${bmi ? (
                                                                 parseFloat(bmi) < 18.5 ? 'text-yellow-600' :
                                                                     parseFloat(bmi) < 25 ? 'text-green-600' :
-                                                                        parseFloat(bmi) < 30 ? 'text-orange-600' :
-                                                                            'text-red-600'
+                                                                        parseFloat(bmi) < 30 ? 'text-orange-500' :
+                                                                            parseFloat(bmi) < 35 ? 'text-orange-700' :
+                                                                                parseFloat(bmi) < 40 ? 'text-red-500' :
+                                                                                    parseFloat(bmi) < 50 ? 'text-red-700' :
+                                                                                        'text-purple-700'
                                                             ) : ''
                                                                 }`}>
-                                                                {bmi || '-'}
+                                                                {bmi ? `${bmi} ${parseFloat(bmi) < 18.5 ? '(Underweight)' :
+                                                                    parseFloat(bmi) < 25 ? '(Normal)' :
+                                                                        parseFloat(bmi) < 30 ? '(Overweight)' :
+                                                                            parseFloat(bmi) < 35 ? '(Grade I Obese)' :
+                                                                                parseFloat(bmi) < 40 ? '(Grade II Obese)' :
+                                                                                    parseFloat(bmi) < 50 ? '(Morbidly Obese)' :
+                                                                                        '(Super Obese)'}` : '-'}
                                                             </td>
                                                             <td className="p-2">{v.nurse?.name || 'Unknown'}</td>
                                                             <td className="p-2">
@@ -1045,14 +1054,20 @@ const NurseTriage = () => {
                                             className={`w-full border p-2 rounded font-semibold ${vitals.bmi ? (
                                                 parseFloat(vitals.bmi) < 18.5 ? 'bg-yellow-50 text-yellow-700 border-yellow-300' :
                                                     parseFloat(vitals.bmi) < 25 ? 'bg-green-50 text-green-700 border-green-300' :
-                                                        parseFloat(vitals.bmi) < 30 ? 'bg-orange-50 text-orange-700 border-orange-300' :
-                                                            'bg-red-50 text-red-700 border-red-300'
+                                                        parseFloat(vitals.bmi) < 30 ? 'bg-orange-50 text-orange-600 border-orange-300' :
+                                                            parseFloat(vitals.bmi) < 35 ? 'bg-orange-100 text-orange-800 border-orange-400' :
+                                                                parseFloat(vitals.bmi) < 40 ? 'bg-red-50 text-red-600 border-red-300' :
+                                                                    parseFloat(vitals.bmi) < 50 ? 'bg-red-100 text-red-800 border-red-400' :
+                                                                        'bg-purple-100 text-purple-800 border-purple-400'
                                             ) : ''
                                                 }`}
                                             value={vitals.bmi ? `${vitals.bmi} ${parseFloat(vitals.bmi) < 18.5 ? '(Underweight)' :
                                                 parseFloat(vitals.bmi) < 25 ? '(Normal)' :
                                                     parseFloat(vitals.bmi) < 30 ? '(Overweight)' :
-                                                        '(Obese)'
+                                                        parseFloat(vitals.bmi) < 35 ? '(Grade I Obese)' :
+                                                            parseFloat(vitals.bmi) < 40 ? '(Grade II Obese)' :
+                                                                parseFloat(vitals.bmi) < 50 ? '(Morbidly Obese)' :
+                                                                    '(Super Obese)'
                                                 }` : ''}
                                             placeholder="Auto-calculated"
                                             disabled

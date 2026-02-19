@@ -21,6 +21,17 @@ const visitSchema = mongoose.Schema({
     nutritional: { type: String },
     developmentalMilestones: { type: String },
 
+    // Physical Examination
+    generalAppearance: { type: String },
+    heent: { type: String },
+    neck: { type: String },
+    cvs: { type: String },
+    resp: { type: String },
+    abd: { type: String },
+    neuro: { type: String },
+    msk: { type: String },
+    skin: { type: String },
+
     // Assessment and Plan (retained from SOAP)
     assessment: { type: String }, // Clinical impression/analysis
     plan: { type: String }, // Treatment Plan

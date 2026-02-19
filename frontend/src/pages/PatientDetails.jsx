@@ -24,6 +24,7 @@ const PatientDetails = () => {
     // State for collapsible clinical notes sections
     const [expandedSections, setExpandedSections] = useState({
         history: true, // History section expanded by default
+        physicalExam: true, // Physical Examination expanded by default
         assessment: true // Assessment & Plan expanded by default
     });
 
@@ -41,6 +42,16 @@ const PatientDetails = () => {
         immunization: '',
         nutritional: '',
         developmentalMilestones: '',
+        // Physical Examination
+        generalAppearance: '',
+        heent: '',
+        neck: '',
+        cvs: '',
+        resp: '',
+        abd: '',
+        neuro: '',
+        msk: '',
+        skin: '',
         assessment: '',
         plan: '',
         diagnosis: [] // Array of {code, description}
@@ -72,6 +83,16 @@ const PatientDetails = () => {
                 immunization: encounter.immunization || '',
                 nutritional: encounter.nutritional || '',
                 developmentalMilestones: encounter.developmentalMilestones || '',
+                // Physical Examination
+                generalAppearance: encounter.generalAppearance || '',
+                heent: encounter.heent || '',
+                neck: encounter.neck || '',
+                cvs: encounter.cvs || '',
+                resp: encounter.resp || '',
+                abd: encounter.abd || '',
+                neuro: encounter.neuro || '',
+                msk: encounter.msk || '',
+                skin: encounter.skin || '',
                 assessment: encounter.assessment || '',
                 plan: encounter.plan || '',
                 diagnosis: encounter.diagnosis || []
@@ -435,6 +456,15 @@ const PatientDetails = () => {
                 immunization: '',
                 nutritional: '',
                 developmentalMilestones: '',
+                generalAppearance: '',
+                heent: '',
+                neck: '',
+                cvs: '',
+                resp: '',
+                abd: '',
+                neuro: '',
+                msk: '',
+                skin: '',
                 assessment: '',
                 plan: '',
                 diagnosis: []
@@ -1334,13 +1364,24 @@ const PatientDetails = () => {
                                     <div>
                                         <div className="flex justify-between items-center mb-4">
                                             <h3 className="text-xl font-bold">Clinical Documentation</h3>
-                                            <button
-                                                onClick={() => setShowSoapModal(true)}
-                                                disabled={!canEdit}
-                                                className={`px-4 py-2 rounded flex items-center gap-2 ${!canEdit ? 'bg-gray-300 cursor-not-allowed text-gray-500' : 'bg-green-600 text-white hover:bg-green-700'}`}
-                                            >
-                                                <FaPlus /> Add Clinical Note
-                                            </button>
+                                            {(() => {
+                                                const hasNote = !!(encounter.presentingComplaints || encounter.historyOfPresentingComplaint ||
+                                                    encounter.assessment || encounter.plan ||
+                                                    (encounter.diagnosis && encounter.diagnosis.length > 0) ||
+                                                    encounter.generalAppearance || encounter.heent);
+                                                const isAuthor = encounter.consultingPhysician?._id === user?._id ||
+                                                    encounter.consultingPhysician === user?._id;
+                                                const isEditMode = hasNote && isAuthor;
+                                                return (
+                                                    <button
+                                                        onClick={() => setShowSoapModal(true)}
+                                                        disabled={!canEdit}
+                                                        className={`px-4 py-2 rounded flex items-center gap-2 ${!canEdit ? 'bg-gray-300 cursor-not-allowed text-gray-500' : isEditMode ? 'bg-blue-600 text-white hover:bg-blue-700' : 'bg-green-600 text-white hover:bg-green-700'}`}
+                                                    >
+                                                        {isEditMode ? <><FaEdit /> Edit Clinical Note</> : <><FaPlus /> Add Clinical Note</>}
+                                                    </button>
+                                                );
+                                            })()}
                                         </div>
                                         {/* Check if any clinical documentation exists */}
                                         {(encounter.presentingComplaints || encounter.historyOfPresentingComplaint ||
@@ -1494,6 +1535,54 @@ const PatientDetails = () => {
                                                             )}
                                                         </div>
                                                     )}
+
+                                                {/* Physical Examination Section - Collapsible */}
+                                                {(encounter.generalAppearance || encounter.heent || encounter.neck || encounter.cvs || encounter.resp || encounter.abd || encounter.neuro || encounter.msk || encounter.skin) && (
+                                                    <div className="border rounded-lg overflow-hidden mt-4">
+                                                        <button
+                                                            onClick={() => setExpandedSections(prev => ({ ...prev, physicalExam: !prev.physicalExam }))}
+                                                            className="w-full bg-gradient-to-r from-teal-100 to-teal-50 hover:from-teal-200 hover:to-teal-100 p-4 flex justify-between items-center transition-colors"
+                                                        >
+                                                            <h4 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                                                                <FaHeartbeat className="text-teal-600" />
+                                                                Physical Examination
+                                                            </h4>
+                                                            {expandedSections.physicalExam ? (
+                                                                <FaChevronUp className="text-gray-600" />
+                                                            ) : (
+                                                                <FaChevronDown className="text-gray-600" />
+                                                            )}
+                                                        </button>
+                                                        {expandedSections.physicalExam && (
+                                                            <div className="p-4 space-y-3 bg-white">
+                                                                {/* A. General Appearance */}
+                                                                {encounter.generalAppearance && (
+                                                                    <div className="bg-teal-50 p-4 rounded border-l-4 border-teal-500">
+                                                                        <p className="font-semibold text-gray-700 mb-1">A. General Appearance</p>
+                                                                        <p className="text-sm text-gray-500 mb-1">General:</p>
+                                                                        <p className="text-gray-800 whitespace-pre-wrap">{encounter.generalAppearance}</p>
+                                                                    </div>
+                                                                )}
+                                                                {/* B. Systemic Examination */}
+                                                                {(encounter.heent || encounter.neck || encounter.cvs || encounter.resp || encounter.abd || encounter.neuro || encounter.msk || encounter.skin) && (
+                                                                    <div className="bg-teal-50 p-4 rounded border-l-4 border-teal-400">
+                                                                        <p className="font-semibold text-gray-700 mb-3">B. Systemic Examination</p>
+                                                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                                                            {encounter.heent && <div><span className="font-semibold text-gray-600">HEENT: </span><span className="text-gray-800">{encounter.heent}</span></div>}
+                                                                            {encounter.neck && <div><span className="font-semibold text-gray-600">Neck: </span><span className="text-gray-800">{encounter.neck}</span></div>}
+                                                                            {encounter.cvs && <div><span className="font-semibold text-gray-600">CVS: </span><span className="text-gray-800">{encounter.cvs}</span></div>}
+                                                                            {encounter.resp && <div><span className="font-semibold text-gray-600">Resp: </span><span className="text-gray-800">{encounter.resp}</span></div>}
+                                                                            {encounter.abd && <div><span className="font-semibold text-gray-600">Abd: </span><span className="text-gray-800">{encounter.abd}</span></div>}
+                                                                            {encounter.neuro && <div><span className="font-semibold text-gray-600">Neuro: </span><span className="text-gray-800">{encounter.neuro}</span></div>}
+                                                                            {encounter.msk && <div><span className="font-semibold text-gray-600">MSK: </span><span className="text-gray-800">{encounter.msk}</span></div>}
+                                                                            {encounter.skin && <div><span className="font-semibold text-gray-600">Skin: </span><span className="text-gray-800">{encounter.skin}</span></div>}
+                                                                        </div>
+                                                                    </div>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
 
                                                 {/* Assessment & Plan Section - Collapsible */}
                                                 {(encounter.assessment || (encounter.diagnosis && encounter.diagnosis.length > 0) || encounter.plan) && (
@@ -2041,240 +2130,291 @@ const PatientDetails = () => {
                                 </button>
                             </div>
                             <div className="space-y-4">
-                                {/* Structured History Fields */}
-                                <div>
-                                    <label className="block text-gray-700 mb-2 font-semibold">01. Presenting Complaints</label>
-                                    <textarea
-                                        className="w-full border p-3 rounded"
-                                        rows="2"
-                                        value={soapNote.presentingComplaints}
-                                        onChange={(e) => setSoapNote({ ...soapNote, presentingComplaints: e.target.value })}
-                                        placeholder="Chief complaints..."
-                                    ></textarea>
+                                {/* Structured History Fields - 2 columns */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-gray-700 mb-2 font-semibold">01. Presenting Complaints</label>
+                                        <textarea
+                                            className="w-full border p-3 rounded"
+                                            rows="3"
+                                            value={soapNote.presentingComplaints}
+                                            onChange={(e) => setSoapNote({ ...soapNote, presentingComplaints: e.target.value })}
+                                            placeholder="Chief complaints..."
+                                        ></textarea>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-gray-700 mb-2 font-semibold">02. History of Presenting Complaint</label>
+                                        <textarea
+                                            className="w-full border p-3 rounded"
+                                            rows="3"
+                                            value={soapNote.historyOfPresentingComplaint}
+                                            onChange={(e) => setSoapNote({ ...soapNote, historyOfPresentingComplaint: e.target.value })}
+                                            placeholder="Detailed history of the presenting complaint..."
+                                        ></textarea>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-gray-700 mb-2 font-semibold">03. System Review</label>
+                                        <textarea
+                                            className="w-full border p-3 rounded"
+                                            rows="3"
+                                            value={soapNote.systemReview}
+                                            onChange={(e) => setSoapNote({ ...soapNote, systemReview: e.target.value })}
+                                            placeholder="Review of systems..."
+                                        ></textarea>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-gray-700 mb-2 font-semibold">04. Past Medical / Surgical History</label>
+                                        <textarea
+                                            className="w-full border p-3 rounded"
+                                            rows="3"
+                                            value={soapNote.pastMedicalSurgicalHistory}
+                                            onChange={(e) => setSoapNote({ ...soapNote, pastMedicalSurgicalHistory: e.target.value })}
+                                            placeholder="Past medical and surgical history..."
+                                        ></textarea>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-gray-700 mb-2 font-semibold">05. Social and Family History</label>
+                                        <textarea
+                                            className="w-full border p-3 rounded"
+                                            rows="3"
+                                            value={soapNote.socialFamilyHistory}
+                                            onChange={(e) => setSoapNote({ ...soapNote, socialFamilyHistory: e.target.value })}
+                                            placeholder="Social and family history..."
+                                        ></textarea>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-gray-700 mb-2 font-semibold">06. Drugs History</label>
+                                        <textarea
+                                            className="w-full border p-3 rounded"
+                                            rows="3"
+                                            value={soapNote.drugsHistory}
+                                            onChange={(e) => setSoapNote({ ...soapNote, drugsHistory: e.target.value })}
+                                            placeholder="Current and past medications..."
+                                        ></textarea>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-gray-700 mb-2 font-semibold">07. Functional Cognitive Status</label>
+                                        <textarea
+                                            className="w-full border p-3 rounded"
+                                            rows="3"
+                                            value={soapNote.functionalCognitiveStatus}
+                                            onChange={(e) => setSoapNote({ ...soapNote, functionalCognitiveStatus: e.target.value })}
+                                            placeholder="Functional and cognitive assessment..."
+                                        ></textarea>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-gray-700 mb-2 font-semibold">08. Menstruation / Gynecological / Obstetrics History</label>
+                                        <textarea
+                                            className="w-full border p-3 rounded"
+                                            rows="3"
+                                            value={soapNote.menstruationGynecologicalObstetricsHistory}
+                                            onChange={(e) => setSoapNote({ ...soapNote, menstruationGynecologicalObstetricsHistory: e.target.value })}
+                                            placeholder="Menstrual, gynecological, and obstetric history..."
+                                        ></textarea>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-gray-700 mb-2 font-semibold">09. Pregnancy History</label>
+                                        <textarea
+                                            className="w-full border p-3 rounded"
+                                            rows="3"
+                                            value={soapNote.pregnancyHistory}
+                                            onChange={(e) => setSoapNote({ ...soapNote, pregnancyHistory: e.target.value })}
+                                            placeholder="Pregnancy history..."
+                                        ></textarea>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-gray-700 mb-2 font-semibold">10. Immunization</label>
+                                        <textarea
+                                            className="w-full border p-3 rounded"
+                                            rows="3"
+                                            value={soapNote.immunization}
+                                            onChange={(e) => setSoapNote({ ...soapNote, immunization: e.target.value })}
+                                            placeholder="Immunization history..."
+                                        ></textarea>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-gray-700 mb-2 font-semibold">11. Nutritional</label>
+                                        <textarea
+                                            className="w-full border p-3 rounded"
+                                            rows="3"
+                                            value={soapNote.nutritional}
+                                            onChange={(e) => setSoapNote({ ...soapNote, nutritional: e.target.value })}
+                                            placeholder="Nutritional assessment..."
+                                        ></textarea>
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-gray-700 mb-2 font-semibold">12. Developmental Milestones</label>
+                                        <textarea
+                                            className="w-full border p-3 rounded"
+                                            rows="3"
+                                            value={soapNote.developmentalMilestones}
+                                            onChange={(e) => setSoapNote({ ...soapNote, developmentalMilestones: e.target.value })}
+                                            placeholder="Developmental milestones (for pediatric patients)..."
+                                        ></textarea>
+                                    </div>
                                 </div>
 
-                                <div>
-                                    <label className="block text-gray-700 mb-2 font-semibold">02. History of Presenting Complaint</label>
-                                    <textarea
-                                        className="w-full border p-3 rounded"
-                                        rows="2"
-                                        value={soapNote.historyOfPresentingComplaint}
-                                        onChange={(e) => setSoapNote({ ...soapNote, historyOfPresentingComplaint: e.target.value })}
-                                        placeholder="Detailed history of the presenting complaint..."
-                                    ></textarea>
-                                </div>
+                                {/* Physical Examination Section in Modal */}
+                                <div className="border-t pt-4 mt-4">
+                                    <h4 className="font-bold text-lg mb-3 text-teal-700">Physical Examination</h4>
 
-                                <div>
-                                    <label className="block text-gray-700 mb-2 font-semibold">03. System Review</label>
-                                    <textarea
-                                        className="w-full border p-3 rounded"
-                                        rows="2"
-                                        value={soapNote.systemReview}
-                                        onChange={(e) => setSoapNote({ ...soapNote, systemReview: e.target.value })}
-                                        placeholder="Review of systems..."
-                                    ></textarea>
-                                </div>
+                                    <div className="mb-3">
+                                        <p className="font-semibold text-gray-700 mb-2">A. General Appearance</p>
+                                        <label className="block text-gray-600 text-sm mb-1">General:</label>
+                                        <textarea
+                                            className="w-full border p-3 rounded"
+                                            rows="2"
+                                            value={soapNote.generalAppearance}
+                                            onChange={(e) => setSoapNote({ ...soapNote, generalAppearance: e.target.value })}
+                                            placeholder="General appearance of patient..."
+                                        ></textarea>
+                                    </div>
 
-                                <div>
-                                    <label className="block text-gray-700 mb-2 font-semibold">04. Past Medical / Surgical History</label>
-                                    <textarea
-                                        className="w-full border p-3 rounded"
-                                        rows="2"
-                                        value={soapNote.pastMedicalSurgicalHistory}
-                                        onChange={(e) => setSoapNote({ ...soapNote, pastMedicalSurgicalHistory: e.target.value })}
-                                        placeholder="Past medical and surgical history..."
-                                    ></textarea>
-                                </div>
-
-                                <div>
-                                    <label className="block text-gray-700 mb-2 font-semibold">05. Social and Family History</label>
-                                    <textarea
-                                        className="w-full border p-3 rounded"
-                                        rows="2"
-                                        value={soapNote.socialFamilyHistory}
-                                        onChange={(e) => setSoapNote({ ...soapNote, socialFamilyHistory: e.target.value })}
-                                        placeholder="Social and family history..."
-                                    ></textarea>
-                                </div>
-
-                                <div>
-                                    <label className="block text-gray-700 mb-2 font-semibold">06. Drugs History</label>
-                                    <textarea
-                                        className="w-full border p-3 rounded"
-                                        rows="2"
-                                        value={soapNote.drugsHistory}
-                                        onChange={(e) => setSoapNote({ ...soapNote, drugsHistory: e.target.value })}
-                                        placeholder="Current and past medications..."
-                                    ></textarea>
-                                </div>
-
-                                <div>
-                                    <label className="block text-gray-700 mb-2 font-semibold">07. Functional Cognitive Status</label>
-                                    <textarea
-                                        className="w-full border p-3 rounded"
-                                        rows="2"
-                                        value={soapNote.functionalCognitiveStatus}
-                                        onChange={(e) => setSoapNote({ ...soapNote, functionalCognitiveStatus: e.target.value })}
-                                        placeholder="Functional and cognitive assessment..."
-                                    ></textarea>
-                                </div>
-
-                                <div>
-                                    <label className="block text-gray-700 mb-2 font-semibold">08. Menstruation / Gynecological / Obstetrics History</label>
-                                    <textarea
-                                        className="w-full border p-3 rounded"
-                                        rows="2"
-                                        value={soapNote.menstruationGynecologicalObstetricsHistory}
-                                        onChange={(e) => setSoapNote({ ...soapNote, menstruationGynecologicalObstetricsHistory: e.target.value })}
-                                        placeholder="Menstrual, gynecological, and obstetric history..."
-                                    ></textarea>
-                                </div>
-
-                                <div>
-                                    <label className="block text-gray-700 mb-2 font-semibold">09. Pregnancy History</label>
-                                    <textarea
-                                        className="w-full border p-3 rounded"
-                                        rows="2"
-                                        value={soapNote.pregnancyHistory}
-                                        onChange={(e) => setSoapNote({ ...soapNote, pregnancyHistory: e.target.value })}
-                                        placeholder="Pregnancy history..."
-                                    ></textarea>
-                                </div>
-
-                                <div>
-                                    <label className="block text-gray-700 mb-2 font-semibold">10. Immunization</label>
-                                    <textarea
-                                        className="w-full border p-3 rounded"
-                                        rows="2"
-                                        value={soapNote.immunization}
-                                        onChange={(e) => setSoapNote({ ...soapNote, immunization: e.target.value })}
-                                        placeholder="Immunization history..."
-                                    ></textarea>
-                                </div>
-
-                                <div>
-                                    <label className="block text-gray-700 mb-2 font-semibold">11. Nutritional</label>
-                                    <textarea
-                                        className="w-full border p-3 rounded"
-                                        rows="2"
-                                        value={soapNote.nutritional}
-                                        onChange={(e) => setSoapNote({ ...soapNote, nutritional: e.target.value })}
-                                        placeholder="Nutritional assessment..."
-                                    ></textarea>
-                                </div>
-
-                                <div>
-                                    <label className="block text-gray-700 mb-2 font-semibold">12. Developmental Milestones</label>
-                                    <textarea
-                                        className="w-full border p-3 rounded"
-                                        rows="2"
-                                        value={soapNote.developmentalMilestones}
-                                        onChange={(e) => setSoapNote({ ...soapNote, developmentalMilestones: e.target.value })}
-                                        placeholder="Developmental milestones (for pediatric patients)..."
-                                    ></textarea>
+                                    <div>
+                                        <p className="font-semibold text-gray-700 mb-2">B. Systemic Examination</p>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="block text-gray-600 text-sm mb-1">HEENT:</label>
+                                                <textarea className="w-full border p-2 rounded text-sm" rows="2" placeholder="No pallor, no jaundice. Pupils PERRLA." value={soapNote.heent} onChange={(e) => setSoapNote({ ...soapNote, heent: e.target.value })} />
+                                            </div>
+                                            <div>
+                                                <label className="block text-gray-600 text-sm mb-1">Neck:</label>
+                                                <textarea className="w-full border p-2 rounded text-sm" rows="2" placeholder="No lymphadenopathy, no JVD." value={soapNote.neck} onChange={(e) => setSoapNote({ ...soapNote, neck: e.target.value })} />
+                                            </div>
+                                            <div>
+                                                <label className="block text-gray-600 text-sm mb-1">CVS:</label>
+                                                <textarea className="w-full border p-2 rounded text-sm" rows="2" placeholder="S1, S2 normal, no murmurs." value={soapNote.cvs} onChange={(e) => setSoapNote({ ...soapNote, cvs: e.target.value })} />
+                                            </div>
+                                            <div>
+                                                <label className="block text-gray-600 text-sm mb-1">Resp:</label>
+                                                <textarea className="w-full border p-2 rounded text-sm" rows="2" placeholder="Clear breath sounds bilaterally." value={soapNote.resp} onChange={(e) => setSoapNote({ ...soapNote, resp: e.target.value })} />
+                                            </div>
+                                            <div>
+                                                <label className="block text-gray-600 text-sm mb-1">Abd:</label>
+                                                <textarea className="w-full border p-2 rounded text-sm" rows="2" placeholder="Soft, non-tender, no organomegaly." value={soapNote.abd} onChange={(e) => setSoapNote({ ...soapNote, abd: e.target.value })} />
+                                            </div>
+                                            <div>
+                                                <label className="block text-gray-600 text-sm mb-1">Neuro:</label>
+                                                <textarea className="w-full border p-2 rounded text-sm" rows="2" placeholder="Grossly intact." value={soapNote.neuro} onChange={(e) => setSoapNote({ ...soapNote, neuro: e.target.value })} />
+                                            </div>
+                                            <div>
+                                                <label className="block text-gray-600 text-sm mb-1">MSK:</label>
+                                                <textarea className="w-full border p-2 rounded text-sm" rows="2" placeholder="Full ROM, no deformities." value={soapNote.msk} onChange={(e) => setSoapNote({ ...soapNote, msk: e.target.value })} />
+                                            </div>
+                                            <div>
+                                                <label className="block text-gray-600 text-sm mb-1">Skin:</label>
+                                                <textarea className="w-full border p-2 rounded text-sm" rows="2" placeholder="Intact, no rashes." value={soapNote.skin} onChange={(e) => setSoapNote({ ...soapNote, skin: e.target.value })} />
+                                            </div>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 <div className="border-t pt-4 mt-4">
                                     <h4 className="font-bold text-lg mb-3 text-gray-800">Assessment & Plan</h4>
-                                    <div>
-                                        <label className="block text-gray-700 mb-2 font-semibold">A - Assessment (Diagnosis)</label>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-gray-700 mb-2 font-semibold">A - Assessment (Diagnosis)</label>
 
-                                        {/* ICD11 Search and Add */}
-                                        <div className="space-y-3 p-3 border rounded bg-gray-50 mb-3">
-                                            <div className="relative">
-                                                <div className="flex gap-2">
-                                                    <div className="relative flex-1">
-                                                        <FaSearch className="absolute left-3 top-3 text-gray-400" />
-                                                        <input
-                                                            type="text"
-                                                            className="w-full border p-2 pl-10 rounded text-sm shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                                            placeholder="Search ICD-11 by code or diagnosis name..."
-                                                            value={diagSearchTerm}
-                                                            onChange={(e) => {
-                                                                setDiagSearchTerm(e.target.value);
-                                                                setShowDiagDropdown(true);
-                                                            }}
-                                                            onFocus={() => setShowDiagDropdown(true)}
-                                                        />
+                                            {/* ICD11 Search and Add */}
+                                            <div className="space-y-3 p-3 border rounded bg-gray-50 mb-3">
+                                                <div className="relative">
+                                                    <div className="flex gap-2">
+                                                        <div className="relative flex-1">
+                                                            <FaSearch className="absolute left-3 top-3 text-gray-400" />
+                                                            <input
+                                                                type="text"
+                                                                className="w-full border p-2 pl-10 rounded text-sm shadow-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                                                placeholder="Search ICD-11 by code or diagnosis name..."
+                                                                value={diagSearchTerm}
+                                                                onChange={(e) => {
+                                                                    setDiagSearchTerm(e.target.value);
+                                                                    setShowDiagDropdown(true);
+                                                                }}
+                                                                onFocus={() => setShowDiagDropdown(true)}
+                                                            />
+                                                        </div>
                                                     </div>
-                                                </div>
 
-                                                {showDiagDropdown && diagSearchTerm && (
-                                                    <div className="absolute z-20 w-full bg-white border rounded shadow-xl max-h-60 overflow-y-auto mt-1 border-gray-200">
-                                                        {icd11Data.filter(d =>
-                                                            d.code.toLowerCase().includes(diagSearchTerm.toLowerCase()) ||
-                                                            d.description.toLowerCase().includes(diagSearchTerm.toLowerCase())
-                                                        ).length > 0 ? (
-                                                            icd11Data.filter(d =>
+                                                    {showDiagDropdown && diagSearchTerm && (
+                                                        <div className="absolute z-20 w-full bg-white border rounded shadow-xl max-h-60 overflow-y-auto mt-1 border-gray-200">
+                                                            {icd11Data.filter(d =>
                                                                 d.code.toLowerCase().includes(diagSearchTerm.toLowerCase()) ||
                                                                 d.description.toLowerCase().includes(diagSearchTerm.toLowerCase())
-                                                            ).map((diag, idx) => (
-                                                                <div
-                                                                    key={idx}
-                                                                    className="p-3 hover:bg-blue-50 cursor-pointer text-sm border-b last:border-0 flex justify-between items-center transition-colors"
-                                                                    onClick={() => {
-                                                                        if (!soapNote.diagnosis.find(d => d.code === diag.code)) {
-                                                                            setSoapNote({
-                                                                                ...soapNote,
-                                                                                diagnosis: [...soapNote.diagnosis, diag]
-                                                                            });
-                                                                        }
-                                                                        setDiagSearchTerm('');
-                                                                        setShowDiagDropdown(false);
-                                                                    }}
-                                                                >
-                                                                    <div>
-                                                                        <span className="font-bold text-blue-700 mr-2">{diag.code}</span>
-                                                                        <span className="text-gray-700">{diag.description}</span>
+                                                            ).length > 0 ? (
+                                                                icd11Data.filter(d =>
+                                                                    d.code.toLowerCase().includes(diagSearchTerm.toLowerCase()) ||
+                                                                    d.description.toLowerCase().includes(diagSearchTerm.toLowerCase())
+                                                                ).map((diag, idx) => (
+                                                                    <div
+                                                                        key={idx}
+                                                                        className="p-3 hover:bg-blue-50 cursor-pointer text-sm border-b last:border-0 flex justify-between items-center transition-colors"
+                                                                        onClick={() => {
+                                                                            if (!soapNote.diagnosis.find(d => d.code === diag.code)) {
+                                                                                setSoapNote({
+                                                                                    ...soapNote,
+                                                                                    diagnosis: [...soapNote.diagnosis, diag]
+                                                                                });
+                                                                            }
+                                                                            setDiagSearchTerm('');
+                                                                            setShowDiagDropdown(false);
+                                                                        }}
+                                                                    >
+                                                                        <div>
+                                                                            <span className="font-bold text-blue-700 mr-2">{diag.code}</span>
+                                                                            <span className="text-gray-700">{diag.description}</span>
+                                                                        </div>
+                                                                        <FaPlus className="text-blue-500" />
                                                                     </div>
-                                                                    <FaPlus className="text-blue-500" />
-                                                                </div>
-                                                            ))
-                                                        ) : (
-                                                            <div className="p-4 text-gray-500 text-sm text-center">No matching ICD-11 codes found</div>
-                                                        )}
+                                                                ))
+                                                            ) : (
+                                                                <div className="p-4 text-gray-500 text-sm text-center">No matching ICD-11 codes found</div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+
+                                                {/* Selected Diagnoses Tokens */}
+                                                {soapNote.diagnosis.length > 0 && (
+                                                    <div className="flex flex-wrap gap-2 mt-2">
+                                                        {soapNote.diagnosis.map((diag, i) => (
+                                                            <span key={i} className="bg-blue-600 text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2 shadow-sm">
+                                                                <span>{diag.code}: {diag.description}</span>
+                                                                <button
+                                                                    onClick={() => setSoapNote({
+                                                                        ...soapNote,
+                                                                        diagnosis: soapNote.diagnosis.filter((_, idx) => idx !== i)
+                                                                    })}
+                                                                    className="hover:text-red-200 transition-colors"
+                                                                >
+                                                                    <FaTimes />
+                                                                </button>
+                                                            </span>
+                                                        ))}
                                                     </div>
                                                 )}
                                             </div>
-
-                                            {/* Selected Diagnoses Tokens */}
-                                            {soapNote.diagnosis.length > 0 && (
-                                                <div className="flex flex-wrap gap-2 mt-2">
-                                                    {soapNote.diagnosis.map((diag, i) => (
-                                                        <span key={i} className="bg-blue-600 text-white px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-2 shadow-sm">
-                                                            <span>{diag.code}: {diag.description}</span>
-                                                            <button
-                                                                onClick={() => setSoapNote({
-                                                                    ...soapNote,
-                                                                    diagnosis: soapNote.diagnosis.filter((_, idx) => idx !== i)
-                                                                })}
-                                                                className="hover:text-red-200 transition-colors"
-                                                            >
-                                                                <FaTimes />
-                                                            </button>
-                                                        </span>
-                                                    ))}
-                                                </div>
-                                            )}
                                         </div>
-
-                                        <textarea
-                                            className="w-full border p-3 rounded"
-                                            rows="2"
-                                            value={soapNote.assessment}
-                                            onChange={(e) => setSoapNote({ ...soapNote, assessment: e.target.value })}
-                                            placeholder="Additional assessment comments, clinical impression..."
-                                        ></textarea>
-                                    </div>
-                                    <div>
-                                        <label className="block text-gray-700 mb-2 font-semibold">P - Plan (Treatment Plan)</label>
-                                        <textarea
-                                            className="w-full border p-3 rounded"
-                                            rows="3"
-                                            value={soapNote.plan}
-                                            onChange={(e) => setSoapNote({ ...soapNote, plan: e.target.value })}
-                                            placeholder="Treatment plan, follow-up instructions..."
-                                        ></textarea>
+                                        <div>
+                                            <label className="block text-gray-700 mb-2 font-semibold">P - Plan (Treatment Plan)</label>
+                                            <textarea
+                                                className="w-full border p-3 rounded"
+                                                rows="4"
+                                                value={soapNote.plan}
+                                                onChange={(e) => setSoapNote({ ...soapNote, plan: e.target.value })}
+                                                placeholder="Treatment plan, follow-up instructions..."
+                                            ></textarea>
+                                        </div>
                                     </div>
                                 </div>
                                 {/* End of Assessment & Plan section */}

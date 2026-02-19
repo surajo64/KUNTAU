@@ -131,7 +131,17 @@ const updateVisit = async (req, res) => {
         pregnancyHistory,
         immunization,
         nutritional,
-        developmentalMilestones
+        developmentalMilestones,
+        // Physical Examination fields
+        generalAppearance,
+        heent,
+        neck,
+        cvs,
+        resp,
+        abd,
+        neuro,
+        msk,
+        skin
     } = req.body;
 
     const visit = await Visit.findById(req.params.id);
@@ -181,6 +191,17 @@ const updateVisit = async (req, res) => {
         if (immunization !== undefined) visit.immunization = immunization;
         if (nutritional !== undefined) visit.nutritional = nutritional;
         if (developmentalMilestones !== undefined) visit.developmentalMilestones = developmentalMilestones;
+
+        // Physical Examination fields
+        if (generalAppearance !== undefined) visit.generalAppearance = generalAppearance;
+        if (heent !== undefined) visit.heent = heent;
+        if (neck !== undefined) visit.neck = neck;
+        if (cvs !== undefined) visit.cvs = cvs;
+        if (resp !== undefined) visit.resp = resp;
+        if (abd !== undefined) visit.abd = abd;
+        if (neuro !== undefined) visit.neuro = neuro;
+        if (msk !== undefined) visit.msk = msk;
+        if (skin !== undefined) visit.skin = skin;
 
         // Legacy SOAP Notes (for backward compatibility)
         if (subjective) visit.subjective = subjective;
