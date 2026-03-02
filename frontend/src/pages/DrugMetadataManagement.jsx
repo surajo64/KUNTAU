@@ -1,11 +1,13 @@
 import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
+import { AppContext } from '../context/AppContext';
 import AuthContext from '../context/AuthContext';
 import Layout from '../components/Layout';
 import { FaPlus, FaEdit, FaTrash, FaPills, FaSyringe, FaClock, FaWeight } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 
 const DrugMetadataManagement = () => {
+    const { backendUrl } = useContext(AppContext);
     const { user } = useContext(AuthContext);
     const [activeTab, setActiveTab] = useState('route'); // route, form, dosage, frequency
     const [metadataList, setMetadataList] = useState([]);
@@ -27,7 +29,7 @@ const DrugMetadataManagement = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get(`http://localhost:5000/api/drug-metadata?type=${activeTab}`, config);
+            const { data } = await axios.get(`${backendUrl}/api/drug-metadata?type=${activeTab}`, config);
             setMetadataList(data);
         } catch (error) {
             console.error(error);
@@ -43,10 +45,10 @@ const DrugMetadataManagement = () => {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
 
             if (editItem) {
-                await axios.put(`http://localhost:5000/api/drug-metadata/${editItem._id}`, formData, config);
+                await axios.put(`${backendUrl}/api/drug-metadata/${editItem._id}`, formData, config);
                 toast.success('Updated successfully');
             } else {
-                await axios.post('http://localhost:5000/api/drug-metadata', {
+                await axios.post(`${backendUrl}/api/drug-metadata`, {
                     ...formData,
                     type: activeTab
                 }, config);
@@ -67,7 +69,7 @@ const DrugMetadataManagement = () => {
         if (window.confirm('Are you sure you want to delete this item?')) {
             try {
                 const config = { headers: { Authorization: `Bearer ${user.token}` } };
-                await axios.delete(`http://localhost:5000/api/drug-metadata/${id}`, config);
+                await axios.delete(`${backendUrl}/api/drug-metadata/${id}`, config);
                 toast.success('Deleted successfully');
                 fetchMetadata();
             } catch (error) {
@@ -124,8 +126,8 @@ const DrugMetadataManagement = () => {
                         <button
                             key={tab.id}
                             className={`flex-1 p-4 font-semibold flex items-center justify-center gap-2 ${activeTab === tab.id
-                                    ? 'bg-green-50 text-green-600 border-b-2 border-green-600'
-                                    : 'text-gray-500 hover:bg-gray-50'
+                                ? 'bg-green-50 text-green-600 border-b-2 border-green-600'
+                                : 'text-gray-500 hover:bg-gray-50'
                                 }`}
                             onClick={() => setActiveTab(tab.id)}
                         >

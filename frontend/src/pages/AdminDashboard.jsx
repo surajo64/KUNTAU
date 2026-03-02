@@ -1,6 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
+import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
 import {
     FaUsers, FaUserMd, FaDollarSign, FaFileInvoiceDollar,
@@ -14,6 +15,7 @@ import RegisterPatientModal from '../components/RegisterPatientModal';
 
 const AdminDashboard = () => {
     const { user } = useContext(AuthContext);
+    const { backendUrl } = useContext(AppContext);
     const [stats, setStats] = useState({
         totalPatients: 0,
         totalUsers: 0,
@@ -40,7 +42,7 @@ const AdminDashboard = () => {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
 
             // Fetch dashboard stats from new API
-            const { data } = await axios.get('http://localhost:5000/api/reports/dashboard-stats', config);
+            const { data } = await axios.get(`${backendUrl}/api/reports/dashboard-stats`, config);
 
             setStats({
                 totalPatients: data.patients.total,

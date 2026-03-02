@@ -1,11 +1,13 @@
 import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
+import { AppContext } from '../context/AppContext';
 import AuthContext from '../context/AuthContext';
 import Layout from '../components/Layout';
 import { FaUniversity, FaPlus, FaEdit, FaTrash, FaStar } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 
 const BankManagement = () => {
+    const { backendUrl } = useContext(AppContext);
     const { user } = useContext(AuthContext);
     const [banks, setBanks] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -30,7 +32,7 @@ const BankManagement = () => {
         setLoading(true);
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/banks', config);
+            const { data } = await axios.get(`${backendUrl}/api/banks`, config);
             setBanks(data);
         } catch (error) {
             console.error(error);
@@ -47,13 +49,13 @@ const BankManagement = () => {
 
             if (editingBank) {
                 await axios.put(
-                    `http://localhost:5000/api/banks/${editingBank._id}`,
+                    `${backendUrl}/api/banks/${editingBank._id}`,
                     formData,
                     config
                 );
                 toast.success('Bank updated successfully');
             } else {
-                await axios.post('http://localhost:5000/api/banks', formData, config);
+                await axios.post(`${backendUrl}/api/banks`, formData, config);
                 toast.success('Bank created successfully');
             }
 
@@ -70,7 +72,7 @@ const BankManagement = () => {
 
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.delete(`http://localhost:5000/api/banks/${id}`, config);
+            await axios.delete(`${backendUrl}/api/banks/${id}`, config);
             toast.success('Bank deleted successfully');
             fetchBanks();
         } catch (error) {
@@ -82,7 +84,7 @@ const BankManagement = () => {
     const handleSetDefault = async (id) => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.put(`http://localhost:5000/api/banks/${id}/set-default`, {}, config);
+            await axios.put(`${backendUrl}/api/banks/${id}/set-default`, {}, config);
             toast.success('Default bank updated');
             fetchBanks();
         } catch (error) {

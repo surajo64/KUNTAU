@@ -1,6 +1,7 @@
 ﻿import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
+import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
 import { FaUserMd, FaSearch, FaCheckCircle, FaNotesMedical, FaHeartbeat, FaMoneyBillWave, FaTrash, FaEdit } from 'react-icons/fa';
 import { toast } from 'react-toastify';
@@ -68,8 +69,8 @@ const NurseTriage = () => {
     const [selectedBed, setSelectedBed] = useState('');
     const [availableBeds, setAvailableBeds] = useState([]);
     const [encounterToConvert, setEncounterToConvert] = useState(null);
-
     const { user } = useContext(AuthContext);
+    const { backendUrl } = useContext(AppContext);
 
     useEffect(() => {
         if (user) {
@@ -82,7 +83,7 @@ const NurseTriage = () => {
         try {
             // setLoading(true); // Optional: might not want to block UI for background fetch
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/charges?type=nursing&active=true', config);
+            const { data } = await axios.get(`${backendUrl}/api/charges?type=nursing&active=true`, config);
             setNursingCharges(data);
         } catch (error) {
             console.error(error);
@@ -93,7 +94,7 @@ const NurseTriage = () => {
         if (!user) return;
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/users/doctors', config);
+            const { data } = await axios.get(`${backendUrl}/api/users/doctors`, config);
             setDoctors(data);
         } catch (error) {
             console.error(error);
@@ -103,7 +104,7 @@ const NurseTriage = () => {
     const fetchWards = async () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/wards', config);
+            const { data } = await axios.get(`${backendUrl}/api/wards`, config);
             setWards(data);
         } catch (error) {
             console.error('Error fetching wards:', error);
@@ -145,7 +146,7 @@ const NurseTriage = () => {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             await axios.put(
-                `http://localhost:5000/api/visits/${encounterToConvert._id}/convert-to-inpatient`,
+                `${backendUrl}/api/visits/${encounterToConvert._id}/convert-to-inpatient`,
                 { ward: selectedWard, bed: selectedBed },
                 config
             );
@@ -167,7 +168,7 @@ const NurseTriage = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/patients', config);
+            const { data } = await axios.get(`${backendUrl}/api/patients`, config);
             const filtered = data.filter(p =>
                 p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 (p.mrn && p.mrn.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -193,7 +194,7 @@ const NurseTriage = () => {
             if (!user) return;
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/visits', config);
+            const { data } = await axios.get(`${backendUrl}/api/visits`, config);
             const patientEncounters = data.filter(v =>
                 (v.patient._id === patient._id || v.patient === patient._id) &&
                 (v.encounterStatus === 'payment_pending' || v.encounterStatus === 'in_nursing' || v.encounterStatus === 'registered' || v.encounterStatus === 'with_doctor' ||
@@ -229,7 +230,7 @@ const NurseTriage = () => {
 
             // Fetch existing vitals
             try {
-                const { data } = await axios.get(`http://localhost:5000/api/vitals/visit/${encounter._id}`, config);
+                const { data } = await axios.get(`${backendUrl}/api/vitals/visit/${encounter._id}`, config);
                 setExistingVitals(data);
             } catch (error) {
                 console.error(error);
@@ -270,7 +271,7 @@ const NurseTriage = () => {
             if (!user) return;
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             const response = await axios.post(
-                'http://localhost:5000/api/receipts/validate',
+                `${backendUrl}/api/receipts/validate`,
                 { receiptNumber: receiptNumber.trim(), department: 'Nursing' },
                 config
             );
@@ -282,7 +283,7 @@ const NurseTriage = () => {
                 // Update encounter status
                 if (selectedEncounter) {
                     await axios.put(
-                        `http://localhost:5000/api/visits/${selectedEncounter._id}`,
+                        `${backendUrl}/api/visits/${selectedEncounter._id}`,
                         {
                             encounterStatus: 'in_nursing',
                             paymentValidated: true,
@@ -398,7 +399,7 @@ const NurseTriage = () => {
             if (editingVitalId) {
                 // Update existing vital
                 await axios.put(
-                    `http://localhost:5000/api/vitals/${editingVitalId}`,
+                    `${backendUrl}/api/vitals/${editingVitalId}`,
                     {
                         ...vitals,
                         pulseRate: vitals.heartRate // Map heartRate back to pulseRate
@@ -410,7 +411,7 @@ const NurseTriage = () => {
             } else {
                 // Create new vital
                 await axios.post(
-                    'http://localhost:5000/api/vitals',
+                    `${backendUrl}/api/vitals`,
                     {
                         patientId: selectedPatient._id,
                         encounterId: selectedEncounter._id,
@@ -423,7 +424,7 @@ const NurseTriage = () => {
             }
 
             // Refresh vitals list
-            const { data } = await axios.get(`http://localhost:5000/api/vitals/visit/${selectedEncounter._id}`, config);
+            const { data } = await axios.get(`${backendUrl}/api/vitals/visit/${selectedEncounter._id}`, config);
             setExistingVitals(data);
 
             // Clear form
@@ -444,7 +445,7 @@ const NurseTriage = () => {
     const fetchEncounterCharges = async (encounterId) => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get(`http://localhost:5000/api/encounter-charges/encounter/${encounterId}`, config);
+            const { data } = await axios.get(`${backendUrl}/api/encounter-charges/encounter/${encounterId}`, config);
             setEncounterCharges(data);
         } catch (error) {
             console.error(error);
@@ -463,7 +464,7 @@ const NurseTriage = () => {
 
             if (editingChargeId) {
                 await axios.put(
-                    `http://localhost:5000/api/encounter-charges/${editingChargeId}`,
+                    `${backendUrl}/api/encounter-charges/${editingChargeId}`,
                     {
                         quantity: chargeForm.quantity,
                         notes: chargeForm.notes
@@ -474,7 +475,7 @@ const NurseTriage = () => {
                 setEditingChargeId(null);
             } else {
                 await axios.post(
-                    'http://localhost:5000/api/encounter-charges',
+                    `${backendUrl}/api/encounter-charges`,
                     {
                         encounterId: selectedEncounter._id,
                         patientId: selectedPatient._id,
@@ -518,7 +519,7 @@ const NurseTriage = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.delete(`http://localhost:5000/api/encounter-charges/${id}`, config);
+            await axios.delete(`${backendUrl}/api/encounter-charges/${id}`, config);
             toast.success('Charge removed');
             fetchEncounterCharges(selectedEncounter._id);
         } catch (error) {
@@ -539,7 +540,7 @@ const NurseTriage = () => {
     const saveNotesToBackend = async (notes) => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.put(`http://localhost:5000/api/visits/${selectedEncounter._id}`, {
+            await axios.put(`${backendUrl}/api/visits/${selectedEncounter._id}`, {
                 nursingNotes: JSON.stringify(notes)
             }, config);
         } catch (error) {
@@ -632,7 +633,7 @@ const NurseTriage = () => {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
 
             // Update Visit Status to 'with_doctor' AND save Nursing Notes & Assigned Physician
-            await axios.put(`http://localhost:5000/api/visits/${selectedEncounter._id}`, {
+            await axios.put(`${backendUrl}/api/visits/${selectedEncounter._id}`, {
                 encounterStatus: 'with_doctor',
                 consultingPhysician: selectedDoctor, // Set the assigned doctor
                 nursingNotes: JSON.stringify(nursingNotesList) // Save structured notes

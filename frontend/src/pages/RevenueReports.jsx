@@ -1,6 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
+import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
 import LoadingOverlay from '../components/loadingOverlay';
 import { FaChartLine, FaDownload, FaCalendar } from 'react-icons/fa';
@@ -15,6 +16,7 @@ const RevenueReports = () => {
     const [reportData, setReportData] = useState(null);
     const [loading, setLoading] = useState(false);
     const { user } = useContext(AuthContext);
+    const { backendUrl } = useContext(AppContext);
 
     useEffect(() => {
         // Set default dates (last 30 days)
@@ -62,7 +64,7 @@ const RevenueReports = () => {
             }
 
             const { data } = await axios.get(
-                `http://localhost:5000/api/reports/${endpoint}?startDate=${startDate}&endDate=${endDate}`,
+                `${backendUrl}/api/reports/${endpoint}?startDate=${startDate}&endDate=${endDate}`,
                 config
             );
             setReportData(data);

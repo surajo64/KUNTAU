@@ -1,6 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
+import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
 import { FaBed, FaPlus, FaTrash, FaEdit, FaSave, FaTimes } from 'react-icons/fa';
 import { toast } from 'react-toastify';
@@ -13,6 +14,7 @@ const WardManagement = () => {
     const [showManageModal, setShowManageModal] = useState(false);
     const [selectedWard, setSelectedWard] = useState(null);
     const { user } = useContext(AuthContext);
+    const { backendUrl } = useContext(AppContext);
 
     // Form States
     const [newWard, setNewWard] = useState({
@@ -39,7 +41,7 @@ const WardManagement = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/wards', config);
+            const { data } = await axios.get(`${backendUrl}/api/wards`, config);
             setWards(data);
         } catch (error) {
             console.error(error);
@@ -61,7 +63,7 @@ const WardManagement = () => {
                 dailyRate: newWard.rates.Standard
             };
 
-            await axios.post('http://localhost:5000/api/wards', payload, config);
+            await axios.post(`${backendUrl}/api/wards`, payload, config);
             toast.success('Ward created successfully!');
             setShowModal(false);
             setNewWard({
@@ -87,7 +89,7 @@ const WardManagement = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.delete(`http://localhost:5000/api/wards/${id}`, config);
+            await axios.delete(`${backendUrl}/api/wards/${id}`, config);
             toast.success('Ward deleted successfully!');
             fetchWards();
         } catch (error) {
@@ -109,7 +111,7 @@ const WardManagement = () => {
                 dailyRate: selectedWard.rates?.Standard || selectedWard.dailyRate
             };
 
-            await axios.put(`http://localhost:5000/api/wards/${selectedWard._id}`, payload, config);
+            await axios.put(`${backendUrl}/api/wards/${selectedWard._id}`, payload, config);
             toast.success('Ward updated successfully!');
             setShowManageModal(false);
             fetchWards();

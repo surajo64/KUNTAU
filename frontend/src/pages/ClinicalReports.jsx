@@ -1,5 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
+import { AppContext } from '../context/AppContext';
 import AuthContext from '../context/AuthContext';
 import Layout from '../components/Layout';
 import LoadingOverlay from '../components/loadingOverlay';
@@ -20,6 +21,7 @@ const ClinicalReports = () => {
     const [reportData, setReportData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [expandedCategories, setExpandedCategories] = useState({});
+    const { backendUrl } = useContext(AppContext);
     const { user } = useContext(AuthContext);
 
     useEffect(() => {
@@ -36,7 +38,7 @@ const ClinicalReports = () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             const query = `reportType=${reportType}&searchTerm=${searchTerm}&gender=${gender}&minAge=${minAge}&maxAge=${maxAge}&startDate=${startDate}&endDate=${endDate}`;
-            const { data } = await axios.get(`http://localhost:5000/api/reports/clinical-report?${query}`, config);
+            const { data } = await axios.get(`${backendUrl}/api/reports/clinical-report?${query}`, config);
             setReportData(data);
             setExpandedCategories({}); // Reset expanded states on new search
         } catch (error) {
@@ -64,7 +66,7 @@ const ClinicalReports = () => {
 
         let hospitalName = 'SUD EMR';
         try {
-            const { data } = await axios.get('http://localhost:5000/api/settings');
+            const { data } = await axios.get(`${backendUrl}/api/settings`);
             hospitalName = data.hospitalName;
         } catch (e) {
             console.error('Settings fetch failed', e);

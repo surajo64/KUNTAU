@@ -1,11 +1,13 @@
 import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
+import { AppContext } from '../context/AppContext';
 import AuthContext from '../context/AuthContext';
 import Layout from '../components/Layout';
 import { FaDollarSign, FaPlus, FaEdit, FaSave, FaTimes } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 
 const FrontDeskChargeManagement = () => {
+    const { backendUrl } = useContext(AppContext);
     const { user } = useContext(AuthContext);
     const [charges, setCharges] = useState([]);
     const [showForm, setShowForm] = useState(false);
@@ -31,7 +33,7 @@ const FrontDeskChargeManagement = () => {
     const fetchCharges = async () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/charges', config);
+            const { data } = await axios.get(`${backendUrl}/api/charges`, config);
             // Filter to only show consultation charges
             const consultationCharges = data.filter(charge => charge.type === 'consultation');
             setCharges(consultationCharges);
@@ -74,13 +76,13 @@ const FrontDeskChargeManagement = () => {
 
             if (editingCharge) {
                 await axios.put(
-                    `http://localhost:5000/api/charges/${editingCharge._id}`,
+                    `${backendUrl}/api/charges/${editingCharge._id}`,
                     payload,
                     config
                 );
                 toast.success('Charge updated successfully!');
             } else {
-                await axios.post('http://localhost:5000/api/charges', payload, config);
+                await axios.post(`${backendUrl}/api/charges`, payload, config);
                 toast.success('Charge created successfully!');
             }
 
@@ -114,7 +116,7 @@ const FrontDeskChargeManagement = () => {
 
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.delete(`http://localhost:5000/api/charges/${chargeId}`, config);
+            await axios.delete(`${backendUrl}/api/charges/${chargeId}`, config);
             toast.success('Charge deactivated');
             fetchCharges();
         } catch (error) {
@@ -128,7 +130,7 @@ const FrontDeskChargeManagement = () => {
 
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.put(`http://localhost:5000/api/charges/${chargeId}`, { active: true }, config);
+            await axios.put(`${backendUrl}/api/charges/${chargeId}`, { active: true }, config);
             toast.success('Charge activated');
             fetchCharges();
         } catch (error) {

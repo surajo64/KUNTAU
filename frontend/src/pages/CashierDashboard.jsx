@@ -1,6 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
+import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
 import { FaDollarSign, FaReceipt, FaPrint, FaSearch, FaCheckCircle } from 'react-icons/fa';
 import { toast } from 'react-toastify';
@@ -29,11 +30,12 @@ const CashierDashboard = () => {
     const [systemSettings, setSystemSettings] = useState(null);
 
     const { user } = useContext(AuthContext);
+    const { backendUrl } = useContext(AppContext);
 
     useEffect(() => {
         const fetchSystemSettings = async () => {
             try {
-                const { data } = await axios.get('http://localhost:5000/api/settings');
+                const { data } = await axios.get(`${backendUrl}/api/settings`);
                 setSystemSettings(data);
             } catch (error) {
                 console.error('Error fetching system settings:', error);
@@ -49,7 +51,7 @@ const CashierDashboard = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/receipts/with-claim-status', config);
+            const { data } = await axios.get(`${backendUrl}/api/receipts/with-claim-status`, config);
             setReceipts(data);
         } catch (error) {
             console.error(error);
@@ -64,7 +66,7 @@ const CashierDashboard = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/patients', config);
+            const { data } = await axios.get(`${backendUrl}/api/patients`, config);
             const filtered = data.filter(p =>
                 p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
                 (p.mrn && p.mrn.toLowerCase().includes(searchTerm.toLowerCase()))
@@ -96,7 +98,7 @@ const CashierDashboard = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/visits', config);
+            const { data } = await axios.get(`${backendUrl}/api/visits`, config);
             const patientEncounters = data.filter(v => v.patient._id === patient._id || v.patient === patient._id);
             // Sort encounters by creation date - latest first
             patientEncounters.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -107,7 +109,7 @@ const CashierDashboard = () => {
             for (const encounter of patientEncounters) {
                 try {
                     const chargesResponse = await axios.get(
-                        `http://localhost:5000/api/encounter-charges/encounter/${encounter._id}`,
+                        `${backendUrl}/api/encounter-charges/encounter/${encounter._id}`,
                         config
                     );
                     const pending = chargesResponse.data.filter(c => c.status === 'pending');
@@ -138,7 +140,7 @@ const CashierDashboard = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get(`http://localhost:5000/api/encounter-charges/encounter/${encounter._id}`, config);
+            const { data } = await axios.get(`${backendUrl}/api/encounter-charges/encounter/${encounter._id}`, config);
             setEncounterCharges(data);
         } catch (error) {
             console.error(error);
@@ -166,7 +168,7 @@ const CashierDashboard = () => {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             const response = await axios.post(
-                'http://localhost:5000/api/receipts/encounter',
+                `${backendUrl}/api/receipts/encounter`,
                 {
                     encounterId: selectedEncounter._id,
                     chargeIds: selectedCharges,

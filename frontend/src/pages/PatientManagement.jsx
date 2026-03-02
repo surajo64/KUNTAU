@@ -1,6 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
+import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
 import { FaUserInjured, FaSearch, FaEdit, FaTrash, FaEye, FaCalendar, FaDownload, FaHospital, FaCalendarCheck, FaTimes, FaBed } from 'react-icons/fa';
 import { toast } from 'react-toastify';
@@ -27,6 +28,7 @@ const PatientManagement = () => {
     const [editPatient, setEditPatient] = useState(null);
     const [hmos, setHMOs] = useState([]);
     const { user } = useContext(AuthContext);
+    const { backendUrl } = useContext(AppContext);
     const navigate = useNavigate();
 
     // Create Encounter Modal State
@@ -86,7 +88,7 @@ const PatientManagement = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/patients', config);
+            const { data } = await axios.get(`${backendUrl}/api/patients`, config);
             setPatients(data);
             setFilteredPatients(data);
         } catch (error) {
@@ -100,7 +102,7 @@ const PatientManagement = () => {
     const fetchHMOs = async () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/hmos?active=true', config);
+            const { data } = await axios.get(`${backendUrl}/api/hmos?active=true`, config);
             setHMOs(data);
         } catch (error) {
             console.error('Error fetching HMOs:', error);
@@ -110,7 +112,7 @@ const PatientManagement = () => {
     const fetchClinics = async () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/clinics?active=true', config);
+            const { data } = await axios.get(`${backendUrl}/api/clinics?active=true`, config);
             setClinics(data);
         } catch (error) {
             console.error('Error fetching clinics:', error);
@@ -120,7 +122,7 @@ const PatientManagement = () => {
     const fetchCharges = async () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/charges?active=true', config);
+            const { data } = await axios.get(`${backendUrl}/api/charges?active=true`, config);
             setCharges(data.filter(c => c.type === 'consultation'));
         } catch (error) {
             console.error('Error fetching charges:', error);
@@ -130,7 +132,7 @@ const PatientManagement = () => {
     const fetchWards = async () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/wards', config);
+            const { data } = await axios.get(`${backendUrl}/api/wards`, config);
             setWards(data);
         } catch (error) {
             console.error('Error fetching wards:', error);
@@ -175,9 +177,9 @@ const PatientManagement = () => {
                 ward: encounterType === 'Inpatient' ? selectedWard : undefined,
                 bed: encounterType === 'Inpatient' ? selectedBed : undefined
             };
-            const visitResponse = await axios.post('http://localhost:5000/api/visits', visitData, config);
+            const visitResponse = await axios.post(`${backendUrl}/api/visits`, visitData, config);
             for (const chargeId of selectedCharges) {
-                await axios.post('http://localhost:5000/api/encounter-charges', {
+                await axios.post(`${backendUrl}/api/encounter-charges`, {
                     encounterId: visitResponse.data._id,
                     patientId: encounterPatient._id,
                     chargeId,
@@ -187,7 +189,7 @@ const PatientManagement = () => {
             }
             const total = charges.filter(c => selectedCharges.includes(c._id)).reduce((s, c) => s + c.basePrice, 0);
             if (encounterType !== 'External Investigation' && encounterType !== 'Inpatient') {
-                await axios.put(`http://localhost:5000/api/visits/${visitResponse.data._id}`,
+                await axios.put(`${backendUrl}/api/visits/${visitResponse.data._id}`,
                     { encounterStatus: total > 0 ? 'payment_pending' : 'in_nursing' }, config);
             }
             toast.success('Encounter created successfully!');
@@ -232,7 +234,7 @@ const PatientManagement = () => {
     const fetchPatientEncounters = async (patientId) => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get(`http://localhost:5000/api/visits/patient/${patientId}`, config);
+            const { data } = await axios.get(`${backendUrl}/api/visits/patient/${patientId}`, config);
             setEncounters(data);
             setShowEncountersModal(true);
         } catch (error) {
@@ -248,7 +250,7 @@ const PatientManagement = () => {
 
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.delete(`http://localhost:5000/api/visits/${encounterId}`, config);
+            await axios.delete(`${backendUrl}/api/visits/${encounterId}`, config);
             toast.success('Encounter deleted successfully!');
             // Refresh encounters
             fetchPatientEncounters(selectedPatient._id);
@@ -261,7 +263,7 @@ const PatientManagement = () => {
     const handleUpdateEncounterStatus = async (encounterId, newStatus) => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.put(`http://localhost:5000/api/visits/${encounterId}`,
+            await axios.put(`${backendUrl}/api/visits/${encounterId}`,
                 { encounterStatus: newStatus },
                 config
             );
@@ -277,7 +279,7 @@ const PatientManagement = () => {
         e.preventDefault();
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.put(`http://localhost:5000/api/patients/${editPatient._id}`, editPatient, config);
+            await axios.put(`${backendUrl}/api/patients/${editPatient._id}`, editPatient, config);
             toast.success('Patient updated successfully!');
             setShowEditPatientModal(false);
             setEditPatient(null);
@@ -295,7 +297,7 @@ const PatientManagement = () => {
 
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.delete(`http://localhost:5000/api/patients/${patientId}`, config);
+            await axios.delete(`${backendUrl}/api/patients/${patientId}`, config);
             toast.success('Patient deleted successfully!');
             fetchPatients();
         } catch (error) {

@@ -1,5 +1,6 @@
 import { useState, useContext } from 'react';
 import axios from 'axios';
+import { AppContext } from '../context/AppContext';
 import AuthContext from '../context/AuthContext';
 import Layout from '../components/Layout';
 import { FaSearch, FaXRay, FaPlus } from 'react-icons/fa';
@@ -7,6 +8,7 @@ import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 
 const ExternalRadiology = () => {
+    const { backendUrl } = useContext(AppContext);
     const [searchTerm, setSearchTerm] = useState('');
     const [encounters, setEncounters] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -25,7 +27,7 @@ const ExternalRadiology = () => {
 
             // Search for the specific patient
             const { data: patients } = await axios.get(
-                `http://localhost:5000/api/patients?search=${searchTerm}`,
+                `${backendUrl}/api/patients?search=${searchTerm}`,
                 config
             );
 
@@ -44,7 +46,7 @@ const ExternalRadiology = () => {
 
             // Get External Investigation encounters for this specific patient only
             const { data: visits } = await axios.get(
-                `http://localhost:5000/api/visits/patient/${patient._id}`,
+                `${backendUrl}/api/visits/patient/${patient._id}`,
                 config
             );
 
@@ -144,8 +146,8 @@ const ExternalRadiology = () => {
                                             <div>
                                                 <p><strong>Status:</strong>
                                                     <span className={`ml-2 px-2 py-1 rounded text-xs ${encounter.encounterStatus === 'completed' ? 'bg-green-100 text-green-800' :
-                                                            encounter.encounterStatus === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                                                                'bg-yellow-100 text-yellow-800'
+                                                        encounter.encounterStatus === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                                                            'bg-yellow-100 text-yellow-800'
                                                         }`}>
                                                         {encounter.encounterStatus?.replace('_', ' ').toUpperCase()}
                                                     </span>

@@ -1,4 +1,5 @@
 import { useState, useEffect, useContext } from 'react';
+import { AppContext } from '../context/AppContext';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import { Link } from 'react-router-dom';
@@ -12,6 +13,7 @@ const PatientList = () => {
     const [search, setSearch] = useState('');
     const [loading, setLoading] = useState(false);
     const { user } = useContext(AuthContext);
+    const { backendUrl } = useContext(AppContext);
 
     useEffect(() => {
         if (user) {
@@ -32,7 +34,7 @@ const PatientList = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/patients', config);
+            const { data } = await axios.get(`${backendUrl}/api/patients`, config);
             setPatients(data);
             setFilteredPatients(data);
         } catch (error) {

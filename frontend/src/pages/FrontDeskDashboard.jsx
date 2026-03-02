@@ -1,6 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
+import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
 import { FaUserPlus, FaCalendarCheck, FaDollarSign, FaSearch, FaFileAlt, FaPlus, FaTimes, FaClock, FaCalendarAlt, FaBed } from 'react-icons/fa';
 import { toast } from 'react-toastify';
@@ -35,6 +36,7 @@ const FrontDeskDashboard = () => {
     const [selectedEncounterId, setSelectedEncounterId] = useState(null);
 
     const { user } = useContext(AuthContext);
+    const { backendUrl } = useContext(AppContext);
 
     // New Patient Form
     const [newPatient, setNewPatient] = useState({
@@ -62,7 +64,7 @@ const FrontDeskDashboard = () => {
     const fetchWards = async () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/wards', config);
+            const { data } = await axios.get(`${backendUrl}/api/wards`, config);
             setWards(data);
         } catch (error) {
             console.error('Error fetching wards:', error);
@@ -96,7 +98,7 @@ const FrontDeskDashboard = () => {
         try {
 
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/patients', config);
+            const { data } = await axios.get(`${backendUrl}/api/patients`, config);
             setPatients(data);
         } catch (error) {
             console.error(error);
@@ -108,7 +110,7 @@ const FrontDeskDashboard = () => {
         try {
 
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/patients/recent', config);
+            const { data } = await axios.get(`${backendUrl}/api/patients/recent`, config);
             setRecentPatients(data);
 
             // Fetch encounters for each recent patient
@@ -128,7 +130,7 @@ const FrontDeskDashboard = () => {
         try {
 
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/charges?active=true', config);
+            const { data } = await axios.get(`${backendUrl}/api/charges?active=true`, config);
             // Filter to only show consultation charges
             const consultationCharges = data.filter(charge => charge.type === 'consultation');
             setCharges(consultationCharges);
@@ -142,7 +144,7 @@ const FrontDeskDashboard = () => {
         try {
 
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/clinics?active=true', config);
+            const { data } = await axios.get(`${backendUrl}/api/clinics?active=true`, config);
             setClinics(data);
         } catch (error) {
             console.error(error);
@@ -154,7 +156,7 @@ const FrontDeskDashboard = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get(`http://localhost:5000/api/visits/patient/${patientId}`, config);
+            const { data } = await axios.get(`${backendUrl}/api/visits/patient/${patientId}`, config);
             return data;
         } catch (error) {
             console.error(error);
@@ -201,7 +203,7 @@ const FrontDeskDashboard = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.post('http://localhost:5000/api/patients', newPatient, config);
+            await axios.post(`${backendUrl}/api/patients`, newPatient, config);
             toast.success('Patient Registered Successfully!');
             setNewPatient({
                 name: '', age: '', gender: 'male', contact: '', address: '',
@@ -287,7 +289,7 @@ const FrontDeskDashboard = () => {
                 ward: encounterType === 'Inpatient' ? selectedWard : undefined,
                 bed: encounterType === 'Inpatient' ? selectedBed : undefined
             };
-            const visitResponse = await axios.post('http://localhost:5000/api/visits', visitData, config);
+            const visitResponse = await axios.post(`${backendUrl}/api/visits`, visitData, config);
 
             // 2. Add all selected charges to encounter
             for (const chargeId of selectedCharges) {
@@ -298,7 +300,7 @@ const FrontDeskDashboard = () => {
                     quantity: 1,
                     notes: 'Added at registration'
                 };
-                await axios.post('http://localhost:5000/api/encounter-charges', chargeData, config);
+                await axios.post(`${backendUrl}/api/encounter-charges`, chargeData, config);
             }
 
             // 3. Calculate total and update encounter status
@@ -308,7 +310,7 @@ const FrontDeskDashboard = () => {
             if (encounterType !== 'External Investigation' && encounterType !== 'Inpatient') {
                 const newStatus = totalAmount > 0 ? 'payment_pending' : 'in_nursing';
                 await axios.put(
-                    `http://localhost:5000/api/visits/${visitResponse.data._id}`,
+                    `${backendUrl}/api/visits/${visitResponse.data._id}`,
                     { encounterStatus: newStatus },
                     config
                 );
@@ -387,7 +389,7 @@ const FrontDeskDashboard = () => {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             await axios.put(
-                `http://localhost:5000/api/visits/${selectedEncounterId}/convert-to-inpatient`,
+                `${backendUrl}/api/visits/${selectedEncounterId}/convert-to-inpatient`,
                 { ward: selectedWard, bed: selectedBed },
                 config
             );

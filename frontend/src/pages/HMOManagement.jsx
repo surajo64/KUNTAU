@@ -1,5 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
+import { AppContext } from '../context/AppContext';
 import AuthContext from '../context/AuthContext';
 import Layout from '../components/Layout';
 import { FaHospital, FaPlus, FaEdit, FaTrash, FaToggleOn, FaToggleOff, FaDownload, FaUpload, FaSearch } from 'react-icons/fa';
@@ -24,6 +25,7 @@ const HMOManagement = () => {
         contactEmail: ''
     });
     const { user } = useContext(AuthContext);
+    const { backendUrl } = useContext(AppContext);
 
     useEffect(() => {
         if (user && user.role === 'admin') {
@@ -49,7 +51,7 @@ const HMOManagement = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/hmos', config);
+            const { data } = await axios.get(`${backendUrl}/api/hmos`, config);
             setHmos(data);
             setFilteredHMOs(data);
         } catch (error) {
@@ -100,10 +102,10 @@ const HMOManagement = () => {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
 
             if (editMode) {
-                await axios.put(`http://localhost:5000/api/hmos/${currentHMO._id}`, currentHMO, config);
+                await axios.put(`${backendUrl}/api/hmos/${currentHMO._id}`, currentHMO, config);
                 toast.success('HMO updated successfully');
             } else {
-                await axios.post('http://localhost:5000/api/hmos', currentHMO, config);
+                await axios.post(`${backendUrl}/api/hmos`, currentHMO, config);
                 toast.success('HMO created successfully');
             }
 
@@ -121,7 +123,7 @@ const HMOManagement = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.patch(`http://localhost:5000/api/hmos/${hmo._id}/toggle-status`, {}, config);
+            await axios.patch(`${backendUrl}/api/hmos/${hmo._id}/toggle-status`, {}, config);
             toast.success(`HMO ${hmo.active ? 'deactivated' : 'activated'} successfully`);
             fetchHMOs();
         } catch (error) {
@@ -138,7 +140,7 @@ const HMOManagement = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.delete(`http://localhost:5000/api/hmos/${id}`, config);
+            await axios.delete(`${backendUrl}/api/hmos/${id}`, config);
             toast.success('HMO deleted successfully');
             fetchHMOs();
         } catch (error) {
@@ -200,7 +202,7 @@ const HMOManagement = () => {
                 }
             };
 
-            const { data } = await axios.post('http://localhost:5000/api/hmos/import-excel', formData, config);
+            const { data } = await axios.post(`${backendUrl}/api/hmos/import-excel`, formData, config);
             toast.success(data.message);
 
             if (data.results.failed.length > 0) {

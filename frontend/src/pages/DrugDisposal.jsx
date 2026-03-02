@@ -1,5 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
+import { AppContext } from '../context/AppContext';
 import AuthContext from '../context/AuthContext';
 import Layout from '../components/Layout';
 import LoadingOverlay from '../components/loadingOverlay';
@@ -9,6 +10,7 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 
 const DrugDisposal = () => {
+    const { backendUrl } = useContext(AppContext);
     const { user, loading } = useContext(AuthContext);
     const [disposals, setDisposals] = useState([]);
     const [inventory, setInventory] = useState([]);
@@ -165,7 +167,7 @@ const DrugDisposal = () => {
             const pharmacyParam = user.role === 'pharmacist' && user.assignedPharmacy
                 ? `?pharmacy=${user.assignedPharmacy._id || user.assignedPharmacy}`
                 : '';
-            const { data } = await axios.get(`http://localhost:5000/api/drug-disposals${pharmacyParam}`, config);
+            const { data } = await axios.get(`${backendUrl}/api/drug-disposals${pharmacyParam}`, config);
             setDisposals(data);
         } catch (error) {
             console.error(error);
@@ -185,7 +187,7 @@ const DrugDisposal = () => {
 
             if (isAdminOrMainPharmacy) {
                 try {
-                    const pharmaciesRes = await axios.get('http://localhost:5000/api/pharmacies', config);
+                    const pharmaciesRes = await axios.get(`${backendUrl}/api/pharmacies`, config);
                     const mainPharmacy = pharmaciesRes.data.find(p => p.isMainPharmacy);
                     if (mainPharmacy) {
                         pharmacyParam = `?pharmacy=${mainPharmacy._id}`;
@@ -206,7 +208,7 @@ const DrugDisposal = () => {
                 return;
             }
 
-            const { data } = await axios.get(`http://localhost:5000/api/inventory${pharmacyParam}`, config);
+            const { data } = await axios.get(`${backendUrl}/api/inventory${pharmacyParam}`, config);
             setInventory(data);
         } catch (error) {
             console.error(error);
@@ -297,10 +299,10 @@ const DrugDisposal = () => {
 
                 if (isBranchPharmacy) {
                     // For branch pharmacy - this is a return to main pharmacy
-                    await axios.post('http://localhost:5000/api/drug-disposals/return', payload, config);
+                    await axios.post(`${backendUrl}/api/drug-disposals/return`, payload, config);
                 } else {
                     // For main pharmacy - this is disposal
-                    await axios.post('http://localhost:5000/api/drug-disposals', payload, config);
+                    await axios.post(`${backendUrl}/api/drug-disposals`, payload, config);
                 }
             }
 

@@ -1,5 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
+import { AppContext } from '../context/AppContext';
 import { toast } from 'react-toastify';
 import { FaTimes, FaCalendarAlt, FaClock, FaUserMd, FaUser } from 'react-icons/fa';
 
@@ -12,6 +13,7 @@ const AppointmentModal = ({ isOpen, onClose, onSuccess, patientId, doctorId, use
         type: 'Checkup',
         reason: ''
     });
+    const { backendUrl } = useContext(AppContext);
 
     const [patients, setPatients] = useState([]);
     const [doctors, setDoctors] = useState([]);
@@ -55,7 +57,7 @@ const AppointmentModal = ({ isOpen, onClose, onSuccess, patientId, doctorId, use
         if (!user) return;
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/users/doctors', config);
+            const { data } = await axios.get(`${backendUrl}/api/users/doctors`, config);
             setDoctors(data);
         } catch (error) {
             console.error('Error fetching doctors', error);
@@ -67,7 +69,7 @@ const AppointmentModal = ({ isOpen, onClose, onSuccess, patientId, doctorId, use
         try {
             setSearchingPatient(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/patients', config);
+            const { data } = await axios.get(`${backendUrl}/api/patients`, config);
             // Client-side filter for now (ideally backend search)
             const filtered = data.filter(p =>
                 p.name.toLowerCase().includes(patientSearchTerm.toLowerCase()) ||
@@ -87,7 +89,7 @@ const AppointmentModal = ({ isOpen, onClose, onSuccess, patientId, doctorId, use
 
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.post('http://localhost:5000/api/appointments', formData, config);
+            await axios.post(`${backendUrl}/api/appointments`, formData, config);
             toast.success('Appointment scheduled successfully!');
             onSuccess();
             onClose();

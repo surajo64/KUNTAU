@@ -1,12 +1,14 @@
 import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
+import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
 import { FaHospital, FaPlus, FaEdit, FaSave, FaTimes } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 
 const ClinicManagement = () => {
     const { user } = useContext(AuthContext);
+    const { backendUrl } = useContext(AppContext);
     const [clinics, setClinics] = useState([]);
     const [showForm, setShowForm] = useState(false);
     const [editingClinic, setEditingClinic] = useState(null);
@@ -24,7 +26,7 @@ const ClinicManagement = () => {
     const fetchClinics = async () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/clinics', config);
+            const { data } = await axios.get(`${backendUrl}/api/clinics`, config);
             setClinics(data);
         } catch (error) {
             console.error(error);
@@ -53,13 +55,13 @@ const ClinicManagement = () => {
 
             if (editingClinic) {
                 await axios.put(
-                    `http://localhost:5000/api/clinics/${editingClinic._id}`,
+                    `${backendUrl}/api/clinics/${editingClinic._id}`,
                     formData,
                     config
                 );
                 toast.success('Clinic updated successfully!');
             } else {
-                await axios.post('http://localhost:5000/api/clinics', formData, config);
+                await axios.post(`${backendUrl}/api/clinics`, formData, config);
                 toast.success('Clinic created successfully!');
             }
 
@@ -86,7 +88,7 @@ const ClinicManagement = () => {
 
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.delete(`http://localhost:5000/api/clinics/${clinicId}`, config);
+            await axios.delete(`${backendUrl}/api/clinics/${clinicId}`, config);
             toast.success('Clinic deactivated');
             fetchClinics();
         } catch (error) {
@@ -100,7 +102,7 @@ const ClinicManagement = () => {
 
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.put(`http://localhost:5000/api/clinics/${clinicId}`, { active: true }, config);
+            await axios.put(`${backendUrl}/api/clinics/${clinicId}`, { active: true }, config);
             toast.success('Clinic activated');
             fetchClinics();
         } catch (error) {

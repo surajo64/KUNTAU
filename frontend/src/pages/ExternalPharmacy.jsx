@@ -1,5 +1,6 @@
 import { useState, useContext } from 'react';
 import axios from 'axios';
+import { AppContext } from '../context/AppContext';
 import AuthContext from '../context/AuthContext';
 import Layout from '../components/Layout';
 import { FaSearch, FaPills, FaPlus } from 'react-icons/fa';
@@ -7,6 +8,7 @@ import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 
 const ExternalPharmacy = () => {
+    const { backendUrl } = useContext(AppContext);
     const [searchTerm, setSearchTerm] = useState('');
     const [encounters, setEncounters] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -25,7 +27,7 @@ const ExternalPharmacy = () => {
 
             // Search for the specific patient
             const { data: patients } = await axios.get(
-                `http://localhost:5000/api/patients?search=${searchTerm}`,
+                `${backendUrl}/api/patients?search=${searchTerm}`,
                 config
             );
 
@@ -40,7 +42,7 @@ const ExternalPharmacy = () => {
 
             // Get External Investigation encounters for this specific patient only
             const { data: visits } = await axios.get(
-                `http://localhost:5000/api/visits/patient/${patient._id}`,
+                `${backendUrl}/api/visits/patient/${patient._id}`,
                 config
             );
 

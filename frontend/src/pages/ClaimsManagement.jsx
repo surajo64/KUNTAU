@@ -1,5 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
+import { AppContext } from '../context/AppContext';
 import AuthContext from '../context/AuthContext';
 import Layout from '../components/Layout';
 import { FaFileInvoiceDollar, FaFilter, FaDownload, FaEye, FaCheck, FaTimes, FaMoneyBillWave, FaPrint } from 'react-icons/fa';
@@ -9,6 +10,7 @@ import LoadingOverlay from '../components/loadingOverlay';
 
 const ClaimsManagement = () => {
     const { user } = useContext(AuthContext);
+    const { backendUrl } = useContext(AppContext);
     const [claims, setClaims] = useState([]);
     const [hmos, setHMOs] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -49,7 +51,7 @@ const ClaimsManagement = () => {
 
     const fetchSystemSettings = async () => {
         try {
-            const { data } = await axios.get('http://localhost:5000/api/settings');
+            const { data } = await axios.get(`${backendUrl}/api/settings`);
             setSystemSettings(data);
         } catch (error) {
             console.error('Error fetching system settings:', error);
@@ -60,7 +62,7 @@ const ClaimsManagement = () => {
         try {
             if (!user?.token) return;
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/hmos', config);
+            const { data } = await axios.get(`${backendUrl}/api/hmos`, config);
             setHMOs(data.filter(hmo => hmo.active && hmo.category !== 'Retainership'));
         } catch (error) {
             console.error(error);
@@ -81,7 +83,7 @@ const ClaimsManagement = () => {
             if (startDate) params.startDate = startDate;
             if (endDate) params.endDate = endDate;
 
-            const { data } = await axios.get('http://localhost:5000/api/claims', { ...config, params });
+            const { data } = await axios.get(`${backendUrl}/api/claims`, { ...config, params });
             setClaims(data);
         } catch (error) {
             console.error(error);
@@ -101,7 +103,7 @@ const ClaimsManagement = () => {
             if (startDate) params.startDate = startDate;
             if (endDate) params.endDate = endDate;
 
-            const { data } = await axios.get('http://localhost:5000/api/claims/summary', { ...config, params });
+            const { data } = await axios.get(`${backendUrl}/api/claims/summary`, { ...config, params });
             setSummary(data);
         } catch (error) {
             console.error(error);
@@ -111,7 +113,7 @@ const ClaimsManagement = () => {
     const handleViewDetails = async (claimId) => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get(`http://localhost:5000/api/claims/${claimId}`, config);
+            const { data } = await axios.get(`${backendUrl}/api/claims/${claimId}`, config);
             setSelectedClaim(data);
             setShowDetailModal(true);
         } catch (error) {
@@ -134,7 +136,7 @@ const ClaimsManagement = () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             await axios.put(
-                `http://localhost:5000/api/claims/${selectedClaim._id}/status`,
+                `${backendUrl}/api/claims/${selectedClaim._id}/status`,
                 { status: newStatus, rejectionReason, notes },
                 config
             );
@@ -164,7 +166,7 @@ const ClaimsManagement = () => {
             if (startDate) params.startDate = startDate;
             if (endDate) params.endDate = endDate;
 
-            const { data } = await axios.get('http://localhost:5000/api/claims/export', { ...config, params });
+            const { data } = await axios.get(`${backendUrl}/api/claims/export`, { ...config, params });
 
             const url = window.URL.createObjectURL(new Blob([data]));
             const link = document.createElement('a');
@@ -184,7 +186,7 @@ const ClaimsManagement = () => {
     const fetchDefaultBank = async () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/banks/default', config);
+            const { data } = await axios.get(`${backendUrl}/api/banks/default`, config);
             setDefaultBank(data);
         } catch (error) {
             console.error('No default bank set:', error);
@@ -194,7 +196,7 @@ const ClaimsManagement = () => {
     const handlePrintClaim = async (claimId) => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get(`http://localhost:5000/api/claims/${claimId}`, config);
+            const { data } = await axios.get(`${backendUrl}/api/claims/${claimId}`, config);
 
             // Calculate totals
             const totalBilled = data.totalClaimAmount;
@@ -341,7 +343,7 @@ const ClaimsManagement = () => {
             if (startDate) params.startDate = startDate;
             if (endDate) params.endDate = endDate;
 
-            const { data } = await axios.get('http://localhost:5000/api/claims', { ...config, params });
+            const { data } = await axios.get(`${backendUrl}/api/claims`, { ...config, params });
 
             if (data.length === 0) {
                 toast.error('No claims found for the selected HMO');

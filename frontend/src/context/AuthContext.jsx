@@ -1,13 +1,15 @@
-import { createContext, useState, useEffect } from 'react';
+import { createContext, useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import LoadingOverlay from '../components/loadingOverlay';
 import useInactivityTimeout from '../hooks/useInactivityTimeout';
+import { AppContext } from './AppContext';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
+    const { backendUrl } = useContext(AppContext);
 
     useEffect(() => {
         const userInfo = JSON.parse(localStorage.getItem('userInfo'));
@@ -25,7 +27,7 @@ export const AuthProvider = ({ children }) => {
                 },
             };
 
-            const { data } = await axios.post('http://localhost:5000/api/users/login', { email, password }, config);
+            const { data } = await axios.post(`${backendUrl}/api/users/login`, { email, password }, config);
 
             localStorage.setItem('userInfo', JSON.stringify(data));
             setUser(data);

@@ -1,6 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
+import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
 import LoadingOverlay from '../components/loadingOverlay';
 import { FaCogs, FaHospital, FaSave, FaImage, FaUndo, FaHashtag, FaEnvelope, FaPhone, FaMapMarkerAlt, FaGlobe } from 'react-icons/fa';
@@ -8,6 +9,7 @@ import { toast } from 'react-toastify';
 
 const Settings = () => {
     const { user } = useContext(AuthContext);
+    const { backendUrl } = useContext(AppContext);
     const [loading, setLoading] = useState(false);
     const [settings, setSettings] = useState({
         hospitalName: '',
@@ -30,7 +32,7 @@ const Settings = () => {
     const fetchSettings = async () => {
         try {
             setLoading(true);
-            const { data } = await axios.get('http://localhost:5000/api/settings');
+            const { data } = await axios.get(`${backendUrl}/api/settings`);
             setSettings(data);
         } catch (error) {
             console.error(error);
@@ -61,7 +63,7 @@ const Settings = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.put('http://localhost:5000/api/settings', settings, config);
+            await axios.put(`${backendUrl}/api/settings`, settings, config);
             toast.success('Settings updated successfully!');
             // Optional: trigger a global state update or refresh if needed
         } catch (error) {

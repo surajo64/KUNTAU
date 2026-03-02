@@ -1,6 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
+import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
 import { FaPills, FaSearch, FaCheckCircle, FaSave, FaBoxOpen } from 'react-icons/fa';
 import { toast } from 'react-toastify';
@@ -16,11 +17,12 @@ const PharmacyPrescriptions = () => {
     const [inventoryAvailability, setInventoryAvailability] = useState({});
     const [systemSettings, setSystemSettings] = useState(null);
     const { user } = useContext(AuthContext);
+    const { backendUrl } = useContext(AppContext);
 
     useEffect(() => {
         const fetchSystemSettings = async () => {
             try {
-                const { data } = await axios.get('http://localhost:5000/api/settings');
+                const { data } = await axios.get(`${backendUrl}/api/settings`);
                 setSystemSettings(data);
             } catch (error) {
                 console.error('Error fetching system settings:', error);
@@ -35,7 +37,7 @@ const PharmacyPrescriptions = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/prescriptions', config);
+            const { data } = await axios.get(`${backendUrl}/api/prescriptions`, config);
             // Sort by creation date (newest first)
             data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
             setPrescriptions(data);
@@ -90,7 +92,7 @@ const PharmacyPrescriptions = () => {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
 
             // Filter by logged-in pharmacist's assigned pharmacy
-            let url = 'http://localhost:5000/api/inventory';
+            let url = `${backendUrl}/api/inventory`;
             const pharmacyId = user?.assignedPharmacy?._id || user?.assignedPharmacy;
 
             console.log('User:', user);
@@ -247,7 +249,7 @@ const PharmacyPrescriptions = () => {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             const response = await axios.put(
-                `http://localhost:5000/api/prescriptions/${selectedPrescription._id}/dispense-with-inventory`,
+                `${backendUrl}/api/prescriptions/${selectedPrescription._id}/dispense-with-inventory`,
                 { medicines: dispensingMedicines },
                 config
             );
@@ -263,7 +265,7 @@ const PharmacyPrescriptions = () => {
             if (selectedPrescription.visit) {
                 try {
                     const visitId = selectedPrescription.visit._id || selectedPrescription.visit;
-                    const visitRes = await axios.get(`http://localhost:5000/api/visits/${visitId}`, config);
+                    const visitRes = await axios.get(`${backendUrl}/api/visits/${visitId}`, config);
                     const visit = visitRes.data;
 
                     let newStatus = visit.encounterStatus;
@@ -275,7 +277,7 @@ const PharmacyPrescriptions = () => {
 
                     if (newStatus !== visit.encounterStatus) {
                         await axios.put(
-                            `http://localhost:5000/api/visits/${visitId}`,
+                            `${backendUrl}/api/visits/${visitId}`,
                             { encounterStatus: newStatus },
                             config
                         );
@@ -516,7 +518,7 @@ const PharmacyPrescriptions = () => {
                                         const qty = dispensingMedicines[0]?.quantityDispensed || 1;
 
                                         await axios.put(
-                                            `http://localhost:5000/api/prescriptions/${selectedPrescription._id}/generate-charge`,
+                                            `${backendUrl}/api/prescriptions/${selectedPrescription._id}/generate-charge`,
                                             { quantity: qty },
                                             config
                                         );

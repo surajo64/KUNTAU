@@ -1,4 +1,5 @@
 import { useState, useContext } from 'react';
+import { AppContext } from '../context/AppContext';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -16,6 +17,7 @@ const RegisterPatient = () => {
         medicalHistory: ''
     });
     const { user } = useContext(AuthContext);
+    const { backendUrl } = useContext(AppContext);
     const navigate = useNavigate();
 
     const handleChange = (e) => {
@@ -35,7 +37,7 @@ const RegisterPatient = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.post('http://localhost:5000/api/patients', {
+            await axios.post(`${backendUrl}/api/patients`, {
                 ...formData,
                 medicalHistory: formData.medicalHistory.split(',')
             }, config);

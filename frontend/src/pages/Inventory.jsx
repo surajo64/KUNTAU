@@ -1,6 +1,7 @@
 import { useState, useEffect, useContext } from "react";
 import axios from "axios";
 import AuthContext from "../context/AuthContext";
+import { AppContext } from "../context/AppContext";
 import Layout from "../components/Layout";
 import LoadingOverlay from '../components/loadingOverlay';
 import * as XLSX from "xlsx";
@@ -9,6 +10,7 @@ import { FaPlus, FaEdit, FaTrash, FaTimes, FaChartLine, FaPrint } from 'react-ic
 
 const Inventory = () => {
     const { user } = useContext(AuthContext);
+    const { backendUrl } = useContext(AppContext);
 
     // States
     const [items, setItems] = useState([]);
@@ -84,7 +86,7 @@ const Inventory = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get("http://localhost:5000/api/pharmacies", config);
+            const { data } = await axios.get(`${backendUrl}/api/pharmacies`, config);
             setPharmacies(data);
 
             // For pharmacists, default to their assigned pharmacy
@@ -110,8 +112,8 @@ const Inventory = () => {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             const url = selectedPharmacy
-                ? `http://localhost:5000/api/inventory?pharmacy=${selectedPharmacy}`
-                : "http://localhost:5000/api/inventory";
+                ? `${backendUrl}/api/inventory?pharmacy=${selectedPharmacy}`
+                : `${backendUrl}/api/inventory`;
             const { data } = await axios.get(url, config);
             setItems(data);
             // Small delay to ensure UI finishes rendering before hiding overlay
@@ -130,7 +132,7 @@ const Inventory = () => {
                 ? `?pharmacy=${user.assignedPharmacy._id || user.assignedPharmacy}`
                 : selectedPharmacy ? `?pharmacy=${selectedPharmacy}` : '';
 
-            const { data } = await axios.get(`http://localhost:5000/api/inventory/alerts${pharmacyParam}`, config);
+            const { data } = await axios.get(`${backendUrl}/api/inventory/alerts${pharmacyParam}`, config);
             setAlerts(data);
         } catch (error) {
             console.error(error);
@@ -141,10 +143,10 @@ const Inventory = () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             const [routes, forms, dosages, frequencies] = await Promise.all([
-                axios.get("http://localhost:5000/api/drug-metadata?type=route", config),
-                axios.get("http://localhost:5000/api/drug-metadata?type=form", config),
-                axios.get("http://localhost:5000/api/drug-metadata?type=dosage", config),
-                axios.get("http://localhost:5000/api/drug-metadata?type=frequency", config)
+                axios.get(`${backendUrl}/api/drug-metadata?type=route`, config),
+                axios.get(`${backendUrl}/api/drug-metadata?type=form`, config),
+                axios.get(`${backendUrl}/api/drug-metadata?type=dosage`, config),
+                axios.get(`${backendUrl}/api/drug-metadata?type=frequency`, config)
             ]);
 
             setMetadata({
@@ -263,9 +265,9 @@ const Inventory = () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             if (isEditMode) {
-                await axios.put(`http://localhost:5000/api/inventory/${currentItem._id}`, currentItem, config);
+                await axios.put(`${backendUrl}/api/inventory/${currentItem._id}`, currentItem, config);
             } else {
-                await axios.post("http://localhost:5000/api/inventory", currentItem, config);
+                await axios.post(`${backendUrl}/api/inventory`, currentItem, config);
             }
             setShowModal(false);
             fetchInventory();
@@ -281,7 +283,7 @@ const Inventory = () => {
 
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.delete(`http://localhost:5000/api/inventory/${id}`, config);
+            await axios.delete(`${backendUrl}/api/inventory/${id}`, config);
             fetchInventory();
         } catch {
             alert("Error deleting item");
@@ -296,7 +298,7 @@ const Inventory = () => {
         try {
             setReportLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            let url = `http://localhost:5000/api/inventory/reports/profit-loss?startDate=${reportDateRange.start}&endDate=${reportDateRange.end}`;
+            let url = `${backendUrl}/api/inventory/reports/profit-loss?startDate=${reportDateRange.start}&endDate=${reportDateRange.end}`;
 
             if (selectedPharmacy) {
                 url += `&pharmacy=${selectedPharmacy}`;

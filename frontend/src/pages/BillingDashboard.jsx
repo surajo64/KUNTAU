@@ -1,6 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
+import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
 import { FaDollarSign, FaFileInvoiceDollar, FaCheckCircle, FaUndo, FaWallet, FaPrint, FaSearch, FaUser, FaExclamationTriangle, FaBuilding, FaHistory, FaPlus } from 'react-icons/fa';
 import { toast } from 'react-toastify';
@@ -40,11 +41,12 @@ const BillingDashboard = () => {
     const [systemSettings, setSystemSettings] = useState(null);
 
     const { user } = useContext(AuthContext);
+    const { backendUrl } = useContext(AppContext);
 
     useEffect(() => {
         const fetchSystemSettings = async () => {
             try {
-                const { data } = await axios.get('http://localhost:5000/api/settings');
+                const { data } = await axios.get(`${backendUrl}/api/settings`);
                 setSystemSettings(data);
             } catch (error) {
                 console.error('Error fetching system settings:', error);
@@ -66,7 +68,7 @@ const BillingDashboard = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/invoices', config);
+            const { data } = await axios.get(`${backendUrl}/api/invoices`, config);
             setInvoices(data);
         } catch (error) {
             console.error(error);
@@ -80,7 +82,7 @@ const BillingDashboard = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/patients', config);
+            const { data } = await axios.get(`${backendUrl}/api/patients`, config);
             setPatients(data);
         } catch (error) {
             console.error(error);
@@ -93,7 +95,7 @@ const BillingDashboard = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/receipts/with-claim-status', config);
+            const { data } = await axios.get(`${backendUrl}/api/receipts/with-claim-status`, config);
             setReceipts(data);
         } catch (error) {
             console.error(error);
@@ -110,7 +112,7 @@ const BillingDashboard = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/hmos?active=true', config);
+            const { data } = await axios.get(`${backendUrl}/api/hmos?active=true`, config);
 
             const filtered = data.filter(h =>
                 h.category === 'Retainership' &&
@@ -138,7 +140,7 @@ const BillingDashboard = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            let url = `http://localhost:5000/api/hmo-transactions/statement/${hmoId}`;
+            let url = `${backendUrl}/api/hmo-transactions/statement/${hmoId}`;
             if (statementStartDate && statementEndDate) {
                 url += `?startDate=${statementStartDate}&endDate=${statementEndDate}`;
             }
@@ -162,7 +164,7 @@ const BillingDashboard = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.post('http://localhost:5000/api/hmo-transactions/deposit', {
+            await axios.post(`${backendUrl}/api/hmo-transactions/deposit`, {
                 hmoId: selectedHMO._id,
                 amount: Number(hmoDepositAmount),
                 description: hmoDepositDescription,
@@ -191,7 +193,7 @@ const BillingDashboard = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.post(`http://localhost:5000/api/patients/${selectedPatient}/deposit`,
+            await axios.post(`${backendUrl}/api/patients/${selectedPatient}/deposit`,
                 { amount: parseFloat(depositAmount) }, config);
             toast.success('Deposit added successfully!');
             setShowDepositModal(false);
@@ -210,7 +212,7 @@ const BillingDashboard = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const depositRes = await axios.get(`http://localhost:5000/api/patients/${patient._id}/deposit`, config);
+            const depositRes = await axios.get(`${backendUrl}/api/patients/${patient._id}/deposit`, config);
             setViewingPatient({ ...patient, depositBalance: depositRes.data.balance, lowDepositThreshold: depositRes.data.threshold });
         } catch (error) {
             console.error(error);
@@ -584,7 +586,7 @@ const BillingDashboard = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.post(`http://localhost:5000/api/receipts/${receiptId}/reverse`, {}, config);
+            await axios.post(`${backendUrl}/api/receipts/${receiptId}/reverse`, {}, config);
             toast.success('Payment reversed successfully!');
             fetchReceipts();
         } catch (error) {

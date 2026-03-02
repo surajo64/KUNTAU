@@ -1,12 +1,14 @@
 import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
+import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
 import { FaFlask, FaPlus, FaEdit, FaSave, FaTimes, FaFileAlt } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 
 const LabTestManagement = () => {
     const { user } = useContext(AuthContext);
+    const { backendUrl } = useContext(AppContext);
     const [labTests, setLabTests] = useState([]);
     const [showForm, setShowForm] = useState(false);
     const [editingTest, setEditingTest] = useState(null);
@@ -30,7 +32,7 @@ const LabTestManagement = () => {
     const fetchLabTests = async () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/charges?type=lab', config);
+            const { data } = await axios.get(`${backendUrl}/api/charges?type=lab`, config);
             setLabTests(data);
         } catch (error) {
             console.error(error);
@@ -72,13 +74,13 @@ const LabTestManagement = () => {
 
             if (editingTest) {
                 await axios.put(
-                    `http://localhost:5000/api/charges/${editingTest._id}`,
+                    `${backendUrl}/api/charges/${editingTest._id}`,
                     payload,
                     config
                 );
                 toast.success('Lab test updated successfully!');
             } else {
-                await axios.post('http://localhost:5000/api/charges', payload, config);
+                await axios.post(`${backendUrl}/api/charges`, payload, config);
                 toast.success('Lab test created successfully!');
             }
 
@@ -111,7 +113,7 @@ const LabTestManagement = () => {
 
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.delete(`http://localhost:5000/api/charges/${testId}`, config);
+            await axios.delete(`${backendUrl}/api/charges/${testId}`, config);
             toast.success('Lab test deactivated');
             fetchLabTests();
         } catch (error) {
@@ -125,7 +127,7 @@ const LabTestManagement = () => {
 
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.put(`http://localhost:5000/api/charges/${testId}`, { active: true }, config);
+            await axios.put(`${backendUrl}/api/charges/${testId}`, { active: true }, config);
             toast.success('Lab test activated');
             fetchLabTests();
         } catch (error) {
@@ -315,9 +317,7 @@ NORMAL RANGES:
         mal: `MALARIA TEST
 
 RESULT:
-- Malaria: _____ Positive/Negative
-
-
+- Malaria: _____ (Normal: Negative)
 `
     };
 

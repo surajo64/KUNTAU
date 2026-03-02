@@ -1,10 +1,12 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { FaUserMd, FaPills, FaFlask, FaXRay, FaUserInjured, FaCalendarAlt, FaNotesMedical, FaSignOutAlt, FaTachometerAlt, FaDollarSign, FaFileInvoiceDollar, FaHeart, FaHospital, FaBed, FaChevronDown, FaChevronRight, FaCogs, FaMoneyBillWave, FaExchangeAlt, FaTrash, FaUniversity, FaChartLine, FaFileMedicalAlt } from 'react-icons/fa';
 import { useContext, useState, useEffect } from 'react';
-import AuthContext from '../context/AuthContext';
 import axios from 'axios';
+import { AppContext } from '../context/AppContext';
+import AuthContext from '../context/AuthContext';
 
 const Sidebar = () => {
+    const { backendUrl } = useContext(AppContext);
     const { user, logout } = useContext(AuthContext);
     const location = useLocation();
     const navigate = useNavigate();
@@ -17,7 +19,7 @@ const Sidebar = () => {
     useEffect(() => {
         const fetchHospitalSettings = async () => {
             try {
-                const { data } = await axios.get('http://localhost:5000/api/settings');
+                const { data } = await axios.get(`${backendUrl}/api/settings`);
                 if (data && data.hospitalName) {
                     setHospitalName(data.hospitalName);
                 }

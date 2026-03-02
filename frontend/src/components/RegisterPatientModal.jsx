@@ -1,5 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
+import { AppContext } from '../context/AppContext';
 import { FaTimes, FaUserPlus } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { nigeriaData } from '../data/nigeriaData';
@@ -19,6 +20,7 @@ const RegisterPatientModal = ({ isOpen, onClose, onSuccess, userToken }) => {
         emergencyContactName: '',
         emergencyContactPhone: ''
     });
+    const { backendUrl } = useContext(AppContext);
     const [loading, setLoading] = useState(false);
     const [hmos, setHmos] = useState([]);
     const [availableLgas, setAvailableLgas] = useState([]);
@@ -54,7 +56,7 @@ const RegisterPatientModal = ({ isOpen, onClose, onSuccess, userToken }) => {
 
         try {
             const config = { headers: { Authorization: `Bearer ${userToken}` } };
-            const { data } = await axios.get('http://localhost:5000/api/hmos?active=true', config);
+            const { data } = await axios.get(`${backendUrl}/api/hmos?active=true`, config);
             setHmos(data);
         } catch (error) {
             console.error('Error fetching HMOs:', error);
@@ -80,7 +82,7 @@ const RegisterPatientModal = ({ isOpen, onClose, onSuccess, userToken }) => {
                 delete dataToSend.hmo;
             }
 
-            const { data: newPatient } = await axios.post('http://localhost:5000/api/patients', dataToSend, config);
+            const { data: newPatient } = await axios.post(`${backendUrl}/api/patients`, dataToSend, config);
             toast.success('Patient registered successfully!');
 
             // Reset form

@@ -1,5 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
+import { AppContext } from '../context/AppContext';
 import AuthContext from '../context/AuthContext';
 import Layout from '../components/Layout';
 import AppointmentModal from '../components/AppointmentModal';
@@ -9,6 +10,7 @@ import { toast } from 'react-toastify';
 
 const Appointments = () => {
     const { user } = useContext(AuthContext);
+    const { backendUrl } = useContext(AppContext);
     const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(false);
     const [showModal, setShowModal] = useState(false);
@@ -30,7 +32,7 @@ const Appointments = () => {
         if (!user) return;
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/users/doctors', config);
+            const { data } = await axios.get(`${backendUrl}/api/users/doctors`, config);
             setDoctors(data);
         } catch (error) {
             console.error('Error fetching doctors', error);
@@ -57,7 +59,7 @@ const Appointments = () => {
             }
             if (filterStatus) query += `&status=${filterStatus}`;
 
-            const { data } = await axios.get(`http://localhost:5000/api/appointments${query}`, config);
+            const { data } = await axios.get(`${backendUrl}/api/appointments${query}`, config);
             setAppointments(data);
         } catch (error) {
             console.error(error);
@@ -73,7 +75,7 @@ const Appointments = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.put(`http://localhost:5000/api/appointments/${id}/status`, { status }, config);
+            await axios.put(`${backendUrl}/api/appointments/${id}/status`, { status }, config);
             toast.success(`Appointment marked as ${status}`);
             fetchAppointments();
         } catch (error) {

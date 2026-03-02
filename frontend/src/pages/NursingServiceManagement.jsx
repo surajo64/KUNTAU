@@ -1,6 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
+import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
 import { FaUserMd, FaPlus, FaEdit, FaSave, FaTimes, FaTrash } from 'react-icons/fa';
 import { toast } from 'react-toastify';
@@ -8,6 +9,7 @@ import LoadingOverlay from '../components/loadingOverlay';
 
 const NursingServiceManagement = () => {
     const { user } = useContext(AuthContext);
+    const { backendUrl } = useContext(AppContext);
     const [loading, setLoading] = useState(false);
     const [services, setServices] = useState([]);
     const [showForm, setShowForm] = useState(false);
@@ -31,7 +33,7 @@ const NursingServiceManagement = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/charges?type=nursing', config);
+            const { data } = await axios.get(`${backendUrl}/api/charges?type=nursing`, config);
             setServices(data);
         } catch (error) {
             console.error(error);
@@ -75,13 +77,13 @@ const NursingServiceManagement = () => {
 
             if (editingService) {
                 await axios.put(
-                    `http://localhost:5000/api/charges/${editingService._id}`,
+                    `${backendUrl}/api/charges/${editingService._id}`,
                     payload,
                     config
                 );
                 toast.success('Service updated successfully!');
             } else {
-                await axios.post('http://localhost:5000/api/charges', payload, config);
+                await axios.post(`${backendUrl}/api/charges`, payload, config);
                 toast.success('Service created successfully!');
             }
 
@@ -116,7 +118,7 @@ const NursingServiceManagement = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.delete(`http://localhost:5000/api/charges/${serviceId}`, config);
+            await axios.delete(`${backendUrl}/api/charges/${serviceId}`, config);
             toast.success('Service deactivated');
             fetchServices();
         } catch (error) {

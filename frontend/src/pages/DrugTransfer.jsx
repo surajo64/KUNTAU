@@ -1,5 +1,6 @@
 import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
+import { AppContext } from '../context/AppContext';
 import AuthContext from '../context/AuthContext';
 import Layout from '../components/Layout';
 import { FaExchangeAlt, FaCheck, FaTimes, FaPlus, FaEdit, FaDownload, FaFileExcel, FaUndo } from 'react-icons/fa';
@@ -8,6 +9,7 @@ import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
 
 const DrugTransfer = () => {
+    const { backendUrl } = useContext(AppContext);
     const { user } = useContext(AuthContext);
     const [transfers, setTransfers] = useState([]);
     const [returns, setReturns] = useState([]);
@@ -82,7 +84,7 @@ const DrugTransfer = () => {
     const fetchTransfers = async () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/drug-transfers', config);
+            const { data } = await axios.get(`${backendUrl}/api/drug-transfers`, config);
             setTransfers(data);
         } catch (error) {
             console.error(error);
@@ -94,7 +96,7 @@ const DrugTransfer = () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             // Fetch returns (disposals with type=return)
-            const { data } = await axios.get('http://localhost:5000/api/drug-disposals?type=return', config);
+            const { data } = await axios.get(`${backendUrl}/api/drug-disposals?type=return`, config);
 
             // Map returns to match transfer structure
             const mappedReturns = data.map(ret => ({
@@ -119,7 +121,7 @@ const DrugTransfer = () => {
     const fetchPharmacies = async () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/pharmacies', config);
+            const { data } = await axios.get(`${backendUrl}/api/pharmacies`, config);
             setPharmacies(data);
 
             // Find and set Main Pharmacy ID
@@ -137,7 +139,7 @@ const DrugTransfer = () => {
     const fetchMainInventory = async (mainId) => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get(`http://localhost:5000/api/inventory?pharmacy=${mainId}`, config);
+            const { data } = await axios.get(`${backendUrl}/api/inventory?pharmacy=${mainId}`, config);
             setMainInventory(data);
         } catch (error) {
             console.error("Error fetching main inventory", error);
@@ -150,7 +152,7 @@ const DrugTransfer = () => {
             const pharmacyParam = user.assignedPharmacy
                 ? `?pharmacy=${user.assignedPharmacy._id || user.assignedPharmacy}`
                 : '';
-            const { data } = await axios.get(`http://localhost:5000/api/inventory${pharmacyParam}`, config);
+            const { data } = await axios.get(`${backendUrl}/api/inventory${pharmacyParam}`, config);
             setInventory(data);
         } catch (error) {
             console.error(error);
@@ -199,7 +201,7 @@ const DrugTransfer = () => {
             // Ensure toPharmacyId is set to Main Pharmacy
             const payload = { ...formData, toPharmacyId: mainPharmacyId };
 
-            await axios.post('http://localhost:5000/api/drug-transfers', payload, config);
+            await axios.post(`${backendUrl}/api/drug-transfers`, payload, config);
             toast.success('Transfer request submitted successfully');
             setShowModal(false);
             setFormData({ drugName: '', toPharmacyId: mainPharmacyId, requestedQuantity: '', notes: '' });
@@ -214,7 +216,7 @@ const DrugTransfer = () => {
         e.preventDefault();
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.post('http://localhost:5000/api/drug-disposals/return', returnFormData, config);
+            await axios.post(`${backendUrl}/api/drug-disposals/return`, returnFormData, config);
             toast.success('Drug return to main pharmacy submitted successfully');
             setShowReturnModal(false);
             setReturnFormData({ drug: '', quantity: '', reason: '', notes: '' });
@@ -231,7 +233,7 @@ const DrugTransfer = () => {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             const payload = withEdit ? { approvedQuantity: approvalData.approvedQuantity } : {};
 
-            await axios.put(`http://localhost:5000/api/drug-transfers/${selectedTransfer._id}/approve`, payload, config);
+            await axios.put(`${backendUrl}/api/drug-transfers/${selectedTransfer._id}/approve`, payload, config);
             toast.success('Transfer request approved and completed');
             setShowApproveModal(false);
             setSelectedTransfer(null);
@@ -252,7 +254,7 @@ const DrugTransfer = () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             await axios.put(
-                `http://localhost:5000/api/drug-transfers/${selectedTransfer._id}/reject`,
+                `${backendUrl}/api/drug-transfers/${selectedTransfer._id}/reject`,
                 { rejectionReason: approvalData.rejectionReason },
                 config
             );

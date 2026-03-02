@@ -1,6 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
+import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
 import { FaXRay, FaPlus, FaEdit, FaSave, FaTimes, FaFileAlt } from 'react-icons/fa';
 import { toast } from 'react-toastify';
@@ -8,6 +9,7 @@ import LoadingOverlay from '../components/loadingOverlay';
 
 const RadiologyTestManagement = () => {
     const { user } = useContext(AuthContext);
+    const { backendUrl } = useContext(AppContext);
     const [loading, setLoading] = useState(false);
     const [radiologyTests, setRadiologyTests] = useState([]);
     const [showForm, setShowForm] = useState(false);
@@ -32,7 +34,7 @@ const RadiologyTestManagement = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/charges?type=radiology', config);
+            const { data } = await axios.get(`${backendUrl}/api/charges?type=radiology`, config);
             setRadiologyTests(data);
         } catch (error) {
             console.error(error);
@@ -77,13 +79,13 @@ const RadiologyTestManagement = () => {
 
             if (editingTest) {
                 await axios.put(
-                    `http://localhost:5000/api/charges/${editingTest._id}`,
+                    `${backendUrl}/api/charges/${editingTest._id}`,
                     payload,
                     config
                 );
                 toast.success('Radiology test updated successfully!');
             } else {
-                await axios.post('http://localhost:5000/api/charges', payload, config);
+                await axios.post(`${backendUrl}/api/charges`, payload, config);
                 toast.success('Radiology test created successfully!');
             }
 
@@ -118,7 +120,7 @@ const RadiologyTestManagement = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.delete(`http://localhost:5000/api/charges/${testId}`, config);
+            await axios.delete(`${backendUrl}/api/charges/${testId}`, config);
             toast.success('Radiology test deactivated');
             fetchRadiologyTests();
         } catch (error) {
@@ -135,7 +137,7 @@ const RadiologyTestManagement = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.put(`http://localhost:5000/api/charges/${testId}`, { active: true }, config);
+            await axios.put(`${backendUrl}/api/charges/${testId}`, { active: true }, config);
             toast.success('Radiology test activated');
             fetchRadiologyTests();
         } catch (error) {

@@ -2,9 +2,11 @@ import { useState, useEffect, useContext, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
+import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
 import { FaFlask, FaSearch, FaCheckCircle, FaEdit, FaSave, FaTimes, FaFileAlt, FaCog } from 'react-icons/fa';
 import { toast } from 'react-toastify';
+import { parseRange, checkRange, getRangeColorClass } from '../utils/labUtils';
 
 const LabDashboard = () => {
     const resultRef = useRef();
@@ -19,82 +21,13 @@ const LabDashboard = () => {
     const [viewResultModal, setViewResultModal] = useState(null);
     const [editResultModal, setEditResultModal] = useState(null);
     const [editResults, setEditResults] = useState('');
+    const [editTableResults, setEditTableResults] = useState([]);
+    const [isEditTableFormat, setIsEditTableFormat] = useState(false);
     const [systemSettings, setSystemSettings] = useState(null);
     const { user } = useContext(AuthContext);
+    const { backendUrl } = useContext(AppContext);
 
-    // Helper function to parse normal range and determine if value is abnormal
-    const parseRange = (rangeStr) => {
-        if (!rangeStr) return null;
 
-        // Handle ranges like "4.0-11.0"
-        const rangeMatch = rangeStr.match(/([\d.]+)\s*-\s*([\d.]+)/);
-        if (rangeMatch) {
-            return {
-                type: 'range',
-                min: parseFloat(rangeMatch[1]),
-                max: parseFloat(rangeMatch[2])
-            };
-        }
-
-        // Handle "<" ranges like "<200"
-        const lessThanMatch = rangeStr.match(/<\s*([\d.]+)/);
-        if (lessThanMatch) {
-            return {
-                type: 'lessThan',
-                max: parseFloat(lessThanMatch[1])
-            };
-        }
-
-        // Handle ">" ranges like ">40"
-        const greaterThanMatch = rangeStr.match(/>\s*([\d.]+)/);
-        if (greaterThanMatch) {
-            return {
-                type: 'greaterThan',
-                min: parseFloat(greaterThanMatch[1])
-            };
-        }
-
-        return null;
-    };
-
-    // Helper function to check if value is out of range
-    const checkRange = (value, rangeStr) => {
-        if (!value || !rangeStr) return 'normal';
-
-        const numValue = parseFloat(value);
-        if (isNaN(numValue)) return 'normal';
-
-        const range = parseRange(rangeStr);
-        if (!range) return 'normal';
-
-        if (range.type === 'range') {
-            if (numValue < range.min) return 'low';
-            if (numValue > range.max) return 'high';
-            return 'normal';
-        } else if (range.type === 'lessThan') {
-            if (numValue >= range.max) return 'high';
-            return 'normal';
-        } else if (range.type === 'greaterThan') {
-            if (numValue <= range.min) return 'low';
-            return 'normal';
-        }
-
-        return 'normal';
-    };
-
-    // Helper function to get color class based on range status
-    const getRangeColorClass = (status) => {
-        switch (status) {
-            case 'low':
-                return 'bg-orange-100 text-orange-800 border-orange-300';
-            case 'high':
-                return 'bg-red-100 text-red-800 border-red-300';
-            case 'normal':
-                return 'bg-green-50 text-green-800 border-green-200';
-            default:
-                return '';
-        }
-    };
 
     // Parse text-based template into table format
     const parseTextTemplate = (template) => {
@@ -126,7 +59,7 @@ const LabDashboard = () => {
     useEffect(() => {
         const fetchSystemSettings = async () => {
             try {
-                const { data } = await axios.get('http://localhost:5000/api/settings');
+                const { data } = await axios.get(`${backendUrl}/api/settings`);
                 setSystemSettings(data);
             } catch (error) {
                 console.error('Error fetching system settings:', error);
@@ -139,7 +72,7 @@ const LabDashboard = () => {
     const fetchLabOrders = async () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/lab', config);
+            const { data } = await axios.get(`${backendUrl}/api/lab`, config);
             setLabOrders(data);
         } catch (error) {
             console.error(error);
@@ -184,7 +117,7 @@ const LabDashboard = () => {
         } else {
             try {
                 const config = { headers: { Authorization: `Bearer ${user.token}` } };
-                const { data } = await axios.get(`http://localhost:5000/api/charges?type=lab&active=true`, config);
+                const { data } = await axios.get(`${backendUrl}/api/charges?type=lab&active=true`, config);
                 const matchingCharge = data.find(c => c.name === order.testName);
                 const template = matchingCharge?.resultTemplate || '';
 
@@ -247,7 +180,7 @@ const LabDashboard = () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             await axios.put(
-                `http://localhost:5000/api/lab/${selectedOrder._id}/result`,
+                `${backendUrl}/api/lab/${selectedOrder._id}/result`,
                 {
                     status: 'completed',
                     result: resultData,
@@ -273,7 +206,7 @@ const LabDashboard = () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             await axios.put(
-                `http://localhost:5000/api/lab/${orderId}/approve`,
+                `${backendUrl}/api/lab/${orderId}/approve`,
                 {},
                 config
             );
@@ -287,18 +220,33 @@ const LabDashboard = () => {
     };
 
     const handleEditResult = async () => {
-        if (!editResults.trim()) {
-            toast.error('Please enter lab results');
-            return;
+        let resultData;
+
+        if (isEditTableFormat) {
+            const hasValues = editTableResults.some(param => param.value && param.value.trim());
+            if (!hasValues) {
+                toast.error('Please enter at least one lab result value');
+                return;
+            }
+            resultData = JSON.stringify({
+                format: 'table',
+                parameters: editTableResults
+            });
+        } else {
+            if (!editResults.trim()) {
+                toast.error('Please enter lab results');
+                return;
+            }
+            resultData = editResults;
         }
 
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             await axios.put(
-                `http://localhost:5000/api/lab/${editResultModal._id}/result`,
+                `${backendUrl}/api/lab/${editResultModal._id}/result`,
                 {
                     status: 'completed',
-                    result: editResults,
+                    result: resultData,
                     signedBy: user._id,
                     resultDate: new Date()
                 },
@@ -308,6 +256,8 @@ const LabDashboard = () => {
             toast.success('Lab results updated and re-signed!');
             setEditResultModal(null);
             setEditResults('');
+            setEditTableResults([]);
+            setIsEditTableFormat(false);
             fetchLabOrders();
         } catch (error) {
             console.error(error);
@@ -806,7 +756,22 @@ const LabDashboard = () => {
                                                 <button
                                                     onClick={() => {
                                                         setEditResultModal(order);
-                                                        setEditResults(order.result);
+                                                        try {
+                                                            const parsed = JSON.parse(order.result);
+                                                            if (parsed.format === 'table' && Array.isArray(parsed.parameters)) {
+                                                                setIsEditTableFormat(true);
+                                                                setEditTableResults(parsed.parameters);
+                                                                setEditResults('');
+                                                            } else {
+                                                                setIsEditTableFormat(false);
+                                                                setEditResults(order.result);
+                                                                setEditTableResults([]);
+                                                            }
+                                                        } catch (e) {
+                                                            setIsEditTableFormat(false);
+                                                            setEditResults(order.result);
+                                                            setEditTableResults([]);
+                                                        }
                                                     }}
                                                     className="bg-orange-600 text-white px-3 py-1 rounded hover:bg-orange-700 text-sm flex items-center gap-1"
                                                 >
@@ -901,8 +866,8 @@ const LabDashboard = () => {
                                                                         <td className="p-3 text-center border">
                                                                             {param.value && (
                                                                                 <span className={`text-xs px-2 py-1 rounded font-semibold ${rangeStatus === 'low' ? 'bg-orange-200 text-orange-900' :
-                                                                                        rangeStatus === 'high' ? 'bg-red-200 text-red-900' :
-                                                                                            'bg-green-200 text-green-900'
+                                                                                    rangeStatus === 'high' ? 'bg-red-200 text-red-900' :
+                                                                                        'bg-green-200 text-green-900'
                                                                                     }`}>
                                                                                     {rangeStatus === 'low' ? '↓ LOW' :
                                                                                         rangeStatus === 'high' ? '↑ HIGH' :
@@ -1022,14 +987,72 @@ const LabDashboard = () => {
                         </div>
 
                         <div className="mb-6">
-                            <label className="block text-gray-700 mb-2 font-semibold">Lab Results</label>
-                            <textarea
-                                className="w-full border p-3 rounded font-mono text-sm"
-                                rows="20"
-                                value={editResults}
-                                onChange={(e) => setEditResults(e.target.value)}
-                                placeholder="Enter lab test results here..."
-                            ></textarea>
+                            <label className="block text-gray-700 mb-2 font-semibold flex items-center gap-2">
+                                <FaEdit /> Lab Results
+                            </label>
+
+                            {isEditTableFormat ? (
+                                <div className="border rounded overflow-hidden">
+                                    <table className="w-full">
+                                        <thead className="bg-gray-100">
+                                            <tr>
+                                                <th className="text-left p-3 font-semibold border-b">Parameter</th>
+                                                <th className="text-left p-3 font-semibold border-b w-32">Value</th>
+                                                <th className="text-left p-3 font-semibold border-b w-24">Unit</th>
+                                                <th className="text-left p-3 font-semibold border-b w-40">Normal Range</th>
+                                                <th className="text-left p-3 font-semibold border-b w-24">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {editTableResults.map((param, index) => {
+                                                const rangeStatus = checkRange(param.value, param.normalRange);
+                                                const colorClass = getRangeColorClass(rangeStatus);
+
+                                                return (
+                                                    <tr key={index} className={`border-b ${param.value ? colorClass : ''}`}>
+                                                        <td className="p-3 font-medium">{param.name}</td>
+                                                        <td className="p-2">
+                                                            <input
+                                                                type="text"
+                                                                value={param.value}
+                                                                onChange={(e) => {
+                                                                    const newResults = [...editTableResults];
+                                                                    newResults[index].value = e.target.value;
+                                                                    setEditTableResults(newResults);
+                                                                }}
+                                                                className="w-full border p-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
+                                                                placeholder="Enter value"
+                                                            />
+                                                        </td>
+                                                        <td className="p-3 text-sm text-gray-600">{param.unit}</td>
+                                                        <td className="p-3 text-sm text-gray-600">{param.normalRange}</td>
+                                                        <td className="p-3">
+                                                            {param.value && (
+                                                                <span className={`text-xs px-2 py-1 rounded font-semibold ${rangeStatus === 'low' ? 'bg-orange-200 text-orange-900' :
+                                                                    rangeStatus === 'high' ? 'bg-red-200 text-red-900' :
+                                                                        'bg-green-200 text-green-900'
+                                                                    }`}>
+                                                                    {rangeStatus === 'low' ? '↓ LOW' :
+                                                                        rangeStatus === 'high' ? 'High' :
+                                                                            '✓ Normal'}
+                                                                </span>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                );
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <textarea
+                                    className="w-full border p-3 rounded font-mono text-sm"
+                                    rows="20"
+                                    value={editResults}
+                                    onChange={(e) => setEditResults(e.target.value)}
+                                    placeholder="Enter lab test results here..."
+                                ></textarea>
+                            )}
                         </div>
 
                         <div className="flex gap-2">

@@ -3,6 +3,8 @@ import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
 import AuthContext from '../context/AuthContext';
+import { AppContext } from '../context/AppContext';
+import { checkRange, getRangeColorClass } from '../utils/labUtils';
 import Layout from '../components/Layout';
 import LoadingOverlay from '../components/loadingOverlay';
 import AppointmentModal from '../components/AppointmentModal';
@@ -12,6 +14,7 @@ import icd11Data from '../data/icd11.json';
 const PatientDetails = () => {
     const { id } = useParams();
     const { user } = useContext(AuthContext);
+    const { backendUrl } = useContext(AppContext);
     const [loading, setLoading] = useState(false);
     const [patient, setPatient] = useState(null);
     const [encounter, setEncounter] = useState(null);
@@ -161,7 +164,7 @@ const PatientDetails = () => {
     useEffect(() => {
         const fetchSystemSettings = async () => {
             try {
-                const { data } = await axios.get('http://localhost:5000/api/settings');
+                const { data } = await axios.get(`${backendUrl}/api/settings`);
                 setSystemSettings(data);
             } catch (error) {
                 console.error('Error fetching system settings:', error);
@@ -211,12 +214,12 @@ const PatientDetails = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/patients', config);
+            const { data } = await axios.get(`${backendUrl}/api/patients`, config);
             const foundPatient = data.find(p => p._id === id);
             setPatient(foundPatient);
 
             // Fetch all visits for history
-            const visitsRes = await axios.get('http://localhost:5000/api/visits', config);
+            const visitsRes = await axios.get(`${backendUrl}/api/visits`, config);
             const patientVisits = visitsRes.data.filter(v => v.patient._id === id || v.patient === id);
 
             // Sort by date desc
@@ -244,12 +247,12 @@ const PatientDetails = () => {
     const fetchEncounterDetails = async (encounterId, config) => {
         try {
             const [vitalsRes, labRes, radRes, rxRes, visitRes, referralsRes] = await Promise.all([
-                axios.get(`http://localhost:5000/api/vitals/visit/${encounterId}`, config),
-                axios.get(`http://localhost:5000/api/lab/visit/${encounterId}`, config),
-                axios.get(`http://localhost:5000/api/radiology/visit/${encounterId}`, config),
-                axios.get(`http://localhost:5000/api/prescriptions/visit/${encounterId}`, config),
-                axios.get(`http://localhost:5000/api/visits/${encounterId}`, config),
-                axios.get(`http://localhost:5000/api/referrals/visit/${encounterId}`, config)
+                axios.get(`${backendUrl}/api/vitals/visit/${encounterId}`, config),
+                axios.get(`${backendUrl}/api/lab/visit/${encounterId}`, config),
+                axios.get(`${backendUrl}/api/radiology/visit/${encounterId}`, config),
+                axios.get(`${backendUrl}/api/prescriptions/visit/${encounterId}`, config),
+                axios.get(`${backendUrl}/api/visits/${encounterId}`, config),
+                axios.get(`${backendUrl}/api/referrals/visit/${encounterId}`, config)
             ]);
 
             // Vitals
@@ -348,13 +351,13 @@ const PatientDetails = () => {
     const fetchCharges = async () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/charges?active=true', config);
+            const { data } = await axios.get(`${backendUrl}/api/charges?active=true`, config);
 
             setLabCharges(data.filter(c => c.type === 'lab'));
             setRadiologyCharges(data.filter(c => c.type === 'radiology'));
 
             // Fetch inventory drugs - filter by doctor's pharmacy if doctor role
-            let inventoryUrl = 'http://localhost:5000/api/inventory';
+            let inventoryUrl = `${backendUrl}/api/inventory`;
             if (user.role === 'doctor' && user.assignedPharmacy) {
                 inventoryUrl += `?pharmacy=${user.assignedPharmacy._id || user.assignedPharmacy}`;
             }
@@ -368,7 +371,7 @@ const PatientDetails = () => {
     const fetchWards = async () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/wards', config);
+            const { data } = await axios.get(`${backendUrl}/api/wards`, config);
             setWards(data);
         } catch (error) {
             console.error('Error fetching wards:', error);
@@ -403,7 +406,7 @@ const PatientDetails = () => {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             await axios.put(
-                `http://localhost:5000/api/visits/${encounter._id}/convert-to-inpatient`,
+                `${backendUrl}/api/visits/${encounter._id}/convert-to-inpatient`,
                 { ward: selectedWard, bed: selectedBed },
                 config
             );
@@ -429,7 +432,7 @@ const PatientDetails = () => {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             await axios.put(
-                `http://localhost:5000/api/visits/${encounter._id}`,
+                `${backendUrl}/api/visits/${encounter._id}`,
                 {
                     ...soapNote,
                     assessment: soapNote.assessment,
@@ -442,7 +445,7 @@ const PatientDetails = () => {
             setShowSoapModal(false);
 
             // Refresh encounter to show updated SOAP notes
-            const { data } = await axios.get(`http://localhost:5000/api/visits/${encounter._id}`, config);
+            const { data } = await axios.get(`${backendUrl}/api/visits/${encounter._id}`, config);
             setEncounter(data);
 
             // Clear form
@@ -516,7 +519,7 @@ const PatientDetails = () => {
             for (const test of ordersToPlace) {
                 // 1. Add charge to encounter FIRST
                 const chargeRes = await axios.post(
-                    'http://localhost:5000/api/encounter-charges',
+                    `${backendUrl}/api/encounter-charges`,
                     {
                         encounterId: encounter._id,
                         patientId: patient._id,
@@ -528,7 +531,7 @@ const PatientDetails = () => {
 
                 // 2. Create lab order with charge ID
                 await axios.post(
-                    'http://localhost:5000/api/lab',
+                    `${backendUrl}/api/lab`,
                     {
                         patientId: patient._id,
                         visitId: encounter._id,
@@ -545,7 +548,7 @@ const PatientDetails = () => {
             setTempLabOrders([]);
             setShowLabModal(false);
             // Refresh list
-            const labRes = await axios.get(`http://localhost:5000/api/lab/visit/${encounter._id}`, config);
+            const labRes = await axios.get(`${backendUrl}/api/lab/visit/${encounter._id}`, config);
             setCurrentLabOrders(labRes.data);
         } catch (error) {
             console.error(error);
@@ -591,7 +594,7 @@ const PatientDetails = () => {
             for (const scan of ordersToPlace) {
                 // 1. Add charge to encounter FIRST
                 const chargeRes = await axios.post(
-                    'http://localhost:5000/api/encounter-charges',
+                    `${backendUrl}/api/encounter-charges`,
                     {
                         encounterId: encounter._id,
                         patientId: patient._id,
@@ -603,7 +606,7 @@ const PatientDetails = () => {
 
                 // 2. Create radiology order with charge ID
                 await axios.post(
-                    'http://localhost:5000/api/radiology',
+                    `${backendUrl}/api/radiology`,
                     {
                         patientId: patient._id,
                         visitId: encounter._id,
@@ -620,7 +623,7 @@ const PatientDetails = () => {
             setTempRadOrders([]);
             setShowRadModal(false);
             // Refresh list
-            const radRes = await axios.get(`http://localhost:5000/api/radiology/visit/${encounter._id}`, config);
+            const radRes = await axios.get(`${backendUrl}/api/radiology/visit/${encounter._id}`, config);
             setCurrentRadOrders(radRes.data);
         } catch (error) {
             console.error(error);
@@ -700,7 +703,7 @@ const PatientDetails = () => {
 
         // Create prescription WITHOUT charge ID
         await axios.post(
-            'http://localhost:5000/api/prescriptions',
+            `${backendUrl}/api/prescriptions`,
             {
                 patientId: patient._id,
                 visitId: encounter._id,
@@ -735,7 +738,7 @@ const PatientDetails = () => {
 
             // 3. Update encounter status to 'in_pharmacy'
             await axios.put(
-                `http://localhost:5000/api/visits/${encounter._id}`,
+                `${backendUrl}/api/visits/${encounter._id}`,
                 { encounterStatus: 'in_pharmacy' },
                 config
             );
@@ -747,7 +750,7 @@ const PatientDetails = () => {
             setShowRxModal(false);
 
             // Refresh list
-            const rxRes = await axios.get(`http://localhost:5000/api/prescriptions/visit/${encounter._id}`, config);
+            const rxRes = await axios.get(`${backendUrl}/api/prescriptions/visit/${encounter._id}`, config);
             setCurrentPrescriptions(rxRes.data);
 
             // Refresh encounter to reflect status change
@@ -769,7 +772,7 @@ const PatientDetails = () => {
     const fetchReferrals = async () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const res = await axios.get(`http://localhost:5000/api/referrals/visit/${encounter._id}`, config);
+            const res = await axios.get(`${backendUrl}/api/referrals/visit/${encounter._id}`, config);
             setReferrals(res.data);
         } catch (error) {
             console.error('Error fetching referrals:', error);
@@ -787,7 +790,7 @@ const PatientDetails = () => {
 
             if (editingReferral) {
                 // Update existing referral
-                const res = await axios.put(`http://localhost:5000/api/referrals/${editingReferral._id}`, {
+                const res = await axios.put(`${backendUrl}/api/referrals/${editingReferral._id}`, {
                     referredTo: referralData.referredTo,
                     reason: referralData.reason,
                     diagnosis: referralData.diagnosis,
@@ -799,7 +802,7 @@ const PatientDetails = () => {
                 toast.success('Referral updated successfully');
             } else {
                 // Create new referral
-                const res = await axios.post('http://localhost:5000/api/referrals', {
+                const res = await axios.post(`${backendUrl}/api/referrals`, {
                     patientId: patient._id,
                     visitId: encounter._id,
                     referredTo: referralData.referredTo,
@@ -848,7 +851,7 @@ const PatientDetails = () => {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             await axios.put(
-                `http://localhost:5000/api/visits/${encounter._id}`,
+                `${backendUrl}/api/visits/${encounter._id}`,
                 { encounterStatus: 'discharged', status: 'Discharged' },
                 config
             );
@@ -869,7 +872,7 @@ const PatientDetails = () => {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             const { data } = await axios.post(
-                `http://localhost:5000/api/visits/${encounter._id}/notes`,
+                `${backendUrl}/api/visits/${encounter._id}/notes`,
                 { text: newNote },
                 config
             );
@@ -1684,8 +1687,59 @@ const PatientDetails = () => {
                                                                         <summary className="cursor-pointer text-blue-600 hover:text-blue-800 text-sm font-semibold">
                                                                             View Results
                                                                         </summary>
-                                                                        <div className="mt-2 p-3 bg-white rounded border text-sm whitespace-pre-wrap font-mono">
-                                                                            {order.result}
+                                                                        <div className="mt-2 p-3 bg-white rounded border text-sm">
+                                                                            {(() => {
+                                                                                try {
+                                                                                    const parsed = JSON.parse(order.result);
+                                                                                    if (parsed.format === 'table' && Array.isArray(parsed.parameters)) {
+                                                                                        return (
+                                                                                            <div className="overflow-x-auto">
+                                                                                                <table className="w-full border-collapse">
+                                                                                                    <thead className="bg-gray-100 text-xs text-gray-700">
+                                                                                                        <tr>
+                                                                                                            <th className="text-left p-2 font-semibold border">Parameter</th>
+                                                                                                            <th className="text-left p-2 font-semibold border w-24">Value</th>
+                                                                                                            <th className="text-left p-2 font-semibold border w-16">Unit</th>
+                                                                                                            <th className="text-left p-2 font-semibold border w-32">Normal</th>
+                                                                                                            <th className="text-center p-2 font-semibold border w-20">Status</th>
+                                                                                                        </tr>
+                                                                                                    </thead>
+                                                                                                    <tbody className="text-xs">
+                                                                                                        {parsed.parameters.map((param, index) => {
+                                                                                                            const rangeStatus = checkRange(param.value, param.normalRange);
+                                                                                                            const colorClass = getRangeColorClass(rangeStatus);
+
+                                                                                                            return (
+                                                                                                                <tr key={index} className={`${param.value ? colorClass : ''} border`}>
+                                                                                                                    <td className="p-2 font-medium border">{param.name}</td>
+                                                                                                                    <td className="p-2 font-semibold border">{param.value || '-'}</td>
+                                                                                                                    <td className="p-2 text-gray-600 border">{param.unit}</td>
+                                                                                                                    <td className="p-2 text-gray-600 border">{param.normalRange}</td>
+                                                                                                                    <td className="p-2 text-center border">
+                                                                                                                        {param.value && (
+                                                                                                                            <span className={`text-[10px] px-1 py-0.5 rounded font-bold ${rangeStatus === 'low' ? 'bg-orange-200 text-orange-900 border border-orange-300' :
+                                                                                                                                rangeStatus === 'high' ? 'bg-red-200 text-red-900 border border-red-300' :
+                                                                                                                                    'bg-green-200 text-green-900 border border-green-300'
+                                                                                                                                }`}>
+                                                                                                                                {rangeStatus === 'low' ? 'LOW' :
+                                                                                                                                    rangeStatus === 'high' ? 'HIGH' :
+                                                                                                                                        'NORMAL'}
+                                                                                                                            </span>
+                                                                                                                        )}
+                                                                                                                    </td>
+                                                                                                                </tr>
+                                                                                                            );
+                                                                                                        })}
+                                                                                                    </tbody>
+                                                                                                </table>
+                                                                                            </div>
+                                                                                        );
+                                                                                    }
+                                                                                } catch (e) {
+                                                                                    // Fallback to text
+                                                                                }
+                                                                                return <pre className="whitespace-pre-wrap font-mono">{order.result}</pre>;
+                                                                            })()}
                                                                         </div>
                                                                     </details>
                                                                 )}
@@ -1757,10 +1811,10 @@ const PatientDetails = () => {
                                                                                         <div key={index} className="border rounded p-2 bg-gray-50">
                                                                                             <p className="font-semibold text-xs mb-1 text-blue-600">{img.name}</p>
                                                                                             <img
-                                                                                                src={`http://localhost:5000/${img.path}`}
+                                                                                                src={`${backendUrl}/${img.path}`}
                                                                                                 alt={img.name}
                                                                                                 className="w-full h-32 object-contain bg-white rounded cursor-pointer hover:opacity-80 border"
-                                                                                                onClick={() => window.open(`http://localhost:5000/${img.path}`, '_blank')}
+                                                                                                onClick={() => window.open(`${backendUrl}/${img.path}`, '_blank')}
                                                                                                 title="Click to view full size"
                                                                                             />
                                                                                             <p className="text-xs text-gray-500 mt-1">

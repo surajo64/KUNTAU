@@ -1,6 +1,7 @@
 import { useState, useEffect, useContext, useRef } from 'react';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
+import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
 import { FaXRay, FaSearch, FaCheckCircle, FaUpload, FaSave, FaImage, FaEdit, FaTimes, FaTrash } from 'react-icons/fa';
 import { toast } from 'react-toastify';
@@ -20,6 +21,7 @@ const RadiologyDashboard = () => {
     const [uploadedImages, setUploadedImages] = useState([]); // New: Array of {file, name, preview}
     const [systemSettings, setSystemSettings] = useState(null);
     const { user } = useContext(AuthContext);
+    const { backendUrl } = useContext(AppContext);
 
     const [viewResultModal, setViewResultModal] = useState(null);
     const [editResultModal, setEditResultModal] = useState(null);
@@ -30,7 +32,7 @@ const RadiologyDashboard = () => {
     useEffect(() => {
         const fetchSystemSettings = async () => {
             try {
-                const { data } = await axios.get('http://localhost:5000/api/settings');
+                const { data } = await axios.get(`${backendUrl}/api/settings`);
                 setSystemSettings(data);
             } catch (error) {
                 console.error('Error fetching system settings:', error);
@@ -44,7 +46,7 @@ const RadiologyDashboard = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/radiology', config);
+            const { data } = await axios.get(`${backendUrl}/api/radiology`, config);
             setRadiologyOrders(data);
         } catch (error) {
             console.error(error);
@@ -86,7 +88,7 @@ const RadiologyDashboard = () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             const response = await axios.post(
-                'http://localhost:5000/api/receipts/validate',
+                `${backendUrl}/api/receipts/validate`,
                 { receiptNumber: receiptNumber.trim(), department: 'Radiology' },
                 config
             );
@@ -112,7 +114,7 @@ const RadiologyDashboard = () => {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             await axios.put(
-                `http://localhost:5000/api/radiology/${selectedOrder._id}/report`,
+                `${backendUrl}/api/radiology/${selectedOrder._id}/report`,
                 {
                     status: 'completed',
                     report: notes,
@@ -148,7 +150,7 @@ const RadiologyDashboard = () => {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             await axios.put(
-                `http://localhost:5000/api/radiology/${editResultModal._id}/report`,
+                `${backendUrl}/api/radiology/${editResultModal._id}/report`,
                 {
                     status: 'completed',
                     report: editNotes,
@@ -233,7 +235,7 @@ const RadiologyDashboard = () => {
                                     ${order.images.map(img => `
                                         <div style="border: 1px solid #ddd; padding: 10px; border-radius: 4px;">
                                             <p style="font-weight: bold; color: #2563eb; margin-bottom: 8px;">${img.name}</p>
-                                            <img src="http://localhost:5000/${img.path}" alt="${img.name}" style="width: 100%; max-height: 300px; object-fit: contain; background: #f3f4f6; border-radius: 4px;" />
+                                            <img src="${backendUrl}/${img.path}" alt="${img.name}" style="width: 100%; max-height: 300px; object-fit: contain; background: #f3f4f6; border-radius: 4px;" />
                                             <p style="font-size: 11px; color: #666; margin-top: 5px;">Uploaded: ${new Date(img.uploadedAt).toLocaleString()}</p>
                                         </div>
                                     `).join('')}
@@ -455,7 +457,7 @@ const RadiologyDashboard = () => {
                                                     />
                                                 ) : img.path ? (
                                                     <img
-                                                        src={`http://localhost:5000/${img.path}`}
+                                                        src={`${backendUrl}/${img.path}`}
                                                         alt={img.name}
                                                         className="w-16 h-16 object-cover rounded"
                                                     />
@@ -483,7 +485,7 @@ const RadiologyDashboard = () => {
                                                             try {
                                                                 const config = { headers: { Authorization: `Bearer ${user.token}` } };
                                                                 await axios.delete(
-                                                                    `http://localhost:5000/api/radiology/${selectedOrder._id}/images/${img._id}`,
+                                                                    `${backendUrl}/api/radiology/${selectedOrder._id}/images/${img._id}`,
                                                                     config
                                                                 );
                                                                 toast.success('Image deleted');
@@ -526,7 +528,7 @@ const RadiologyDashboard = () => {
                                                 formData.append('imageNames', JSON.stringify(imageNames));
 
                                                 const { data } = await axios.post(
-                                                    `http://localhost:5000/api/radiology/${selectedOrder._id}/upload-images`,
+                                                    `${backendUrl}/api/radiology/${selectedOrder._id}/upload-images`,
                                                     formData,
                                                     config
                                                 );
@@ -756,10 +758,10 @@ Normal chest X-ray. No acute cardiopulmonary disease.
                                                 <div key={index} className="border rounded p-2">
                                                     <p className="font-semibold text-sm mb-2 text-blue-700">{img.name}</p>
                                                     <img
-                                                        src={`http://localhost:5000/${img.path}`}
+                                                        src={`${backendUrl}/${img.path}`}
                                                         alt={img.name}
                                                         className="w-full h-48 object-contain bg-gray-100 rounded cursor-pointer hover:opacity-80"
-                                                        onClick={() => window.open(`http://localhost:5000/${img.path}`, '_blank')}
+                                                        onClick={() => window.open(`${backendUrl}/${img.path}`, '_blank')}
                                                     />
                                                     <p className="text-xs text-gray-500 mt-1">
                                                         Uploaded: {new Date(img.uploadedAt).toLocaleString()}

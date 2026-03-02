@@ -24,7 +24,7 @@ const useHospitalSettings = () => {
         const fetchSettings = async () => {
             try {
                 setLoading(true);
-                const { data } = await axios.get('http://localhost:5000/api/settings');
+                const { data } = await axios.get(`${import.meta.env.VITE_BACKEND_URL}/api/settings`);
                 setSettings(data);
                 setError(null);
             } catch (err) {

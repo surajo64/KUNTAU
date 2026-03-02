@@ -1,9 +1,11 @@
 // Print Claim Statement Functions for ClaimsManagement
 
+const backendUrl = import.meta.env.VITE_BACKEND_URL;
+
 export const fetchDefaultBank = async (userToken, setDefaultBank) => {
     try {
         const config = { headers: { Authorization: `Bearer ${userToken}` } };
-        const { data } = await axios.get('http://localhost:5000/api/banks/default', config);
+        const { data } = await axios.get(`${backendUrl}/api/banks/default`, config);
         setDefaultBank(data);
     } catch (error) {
         console.error('No default bank set:', error);
@@ -14,7 +16,7 @@ export const handlePrintClaim = async (claimId, userToken, defaultBank, toast) =
     try {
         const axios = require('axios');
         const config = { headers: { Authorization: `Bearer ${userToken}` } };
-        const { data } = await axios.get(`http://localhost:5000/api/claims/${claimId}`, config);
+        const { data } = await axios.get(`${backendUrl}/api/claims/${claimId}`, config);
 
         // Create printable content
         const printWindow = window.open('', '', 'width=800,height=600');

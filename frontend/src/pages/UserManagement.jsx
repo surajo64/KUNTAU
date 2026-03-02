@@ -1,6 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
+import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
 import { FaUsers, FaPlus, FaEdit, FaTrash, FaKey, FaSearch, FaTimes } from 'react-icons/fa';
 import { toast } from 'react-toastify';
@@ -24,6 +25,7 @@ const UserManagement = () => {
     const [newPassword, setNewPassword] = useState('');
     const [pharmacies, setPharmacies] = useState([]);
     const { user } = useContext(AuthContext);
+    const { backendUrl } = useContext(AppContext);
 
     useEffect(() => {
         if (user && user.role === 'admin') {
@@ -39,7 +41,7 @@ const UserManagement = () => {
     const fetchUsers = async () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/users/all', config);
+            const { data } = await axios.get(`${backendUrl}/api/users/all`, config);
             setUsers(data);
             setFilteredUsers(data);
         } catch (error) {
@@ -51,7 +53,7 @@ const UserManagement = () => {
     const fetchPharmacies = async () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/pharmacies', config);
+            const { data } = await axios.get(`${backendUrl}/api/pharmacies`, config);
             setPharmacies(data);
         } catch (error) {
             console.error(error);
@@ -79,7 +81,7 @@ const UserManagement = () => {
         e.preventDefault();
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.post('http://localhost:5000/api/users', newUser, config);
+            await axios.post(`${backendUrl}/api/users`, newUser, config);
             toast.success('User created successfully!');
             setShowAddModal(false);
             setNewUser({ name: '', email: '', password: '', role: '', assignedPharmacy: '' });
@@ -94,7 +96,7 @@ const UserManagement = () => {
         e.preventDefault();
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.put(`http://localhost:5000/api/users/${selectedUser._id}`, selectedUser, config);
+            await axios.put(`${backendUrl}/api/users/${selectedUser._id}`, selectedUser, config);
             toast.success('User updated successfully!');
             setShowEditModal(false);
             setSelectedUser(null);
@@ -110,7 +112,7 @@ const UserManagement = () => {
 
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.delete(`http://localhost:5000/api/users/${userId}`, config);
+            await axios.delete(`${backendUrl}/api/users/${userId}`, config);
             toast.success('User deactivated successfully!');
             fetchUsers();
         } catch (error) {
@@ -123,7 +125,7 @@ const UserManagement = () => {
         e.preventDefault();
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.post(`http://localhost:5000/api/users/${selectedUser._id}/reset-password`,
+            await axios.post(`${backendUrl}/api/users/${selectedUser._id}/reset-password`,
                 { newPassword },
                 config
             );

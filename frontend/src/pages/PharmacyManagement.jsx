@@ -1,6 +1,7 @@
 import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
+import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
 import LoadingOverlay from '../components/loadingOverlay';
 import { FaPlus, FaEdit, FaTrash, FaHospital, FaStar } from 'react-icons/fa';
@@ -8,6 +9,7 @@ import { toast } from 'react-toastify';
 
 const PharmacyManagement = () => {
     const { user } = useContext(AuthContext);
+    const { backendUrl } = useContext(AppContext);
     const [pharmacies, setPharmacies] = useState([]);
     const [loading, setLoading] = useState(false);
     const [showModal, setShowModal] = useState(false);
@@ -27,7 +29,7 @@ const PharmacyManagement = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get('http://localhost:5000/api/pharmacies', config);
+            const { data } = await axios.get(`${backendUrl}/api/pharmacies`, config);
             setPharmacies(data);
             // Small delay to ensure UI finishes rendering before hiding overlay
             setTimeout(() => setLoading(false), 300);
@@ -44,10 +46,10 @@ const PharmacyManagement = () => {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
 
             if (editItem) {
-                await axios.put(`http://localhost:5000/api/pharmacies/${editItem._id}`, formData, config);
+                await axios.put(`${backendUrl}/api/pharmacies/${editItem._id}`, formData, config);
                 toast.success('Pharmacy updated successfully');
             } else {
-                await axios.post('http://localhost:5000/api/pharmacies', formData, config);
+                await axios.post(`${backendUrl}/api/pharmacies`, formData, config);
                 toast.success('Pharmacy created successfully');
             }
 
@@ -65,7 +67,7 @@ const PharmacyManagement = () => {
         if (window.confirm('Are you sure you want to delete this pharmacy?')) {
             try {
                 const config = { headers: { Authorization: `Bearer ${user.token}` } };
-                await axios.delete(`http://localhost:5000/api/pharmacies/${id}`, config);
+                await axios.delete(`${backendUrl}/api/pharmacies/${id}`, config);
                 toast.success('Pharmacy deleted successfully');
                 fetchPharmacies();
             } catch (error) {
