@@ -2,7 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import Layout from '../components/Layout';
-import { FaUserInjured, FaSearch, FaEdit, FaTrash, FaEye, FaCalendar, FaDownload, FaHospital } from 'react-icons/fa';
+import { FaUserInjured, FaSearch, FaEdit, FaTrash, FaEye, FaCalendar, FaDownload, FaHospital, FaCalendarCheck, FaTimes, FaBed } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
@@ -17,6 +17,8 @@ const PatientManagement = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [currentPage, setCurrentPage] = useState(1);
+    const PATIENTS_PER_PAGE = 5;
     const [selectedPatient, setSelectedPatient] = useState(null);
     const [encounters, setEncounters] = useState([]);
     const [showEncountersModal, setShowEncountersModal] = useState(false);
@@ -27,12 +29,54 @@ const PatientManagement = () => {
     const { user } = useContext(AuthContext);
     const navigate = useNavigate();
 
+    // Create Encounter Modal State
+    const [showEncounterModal, setShowEncounterModal] = useState(false);
+    const [encounterPatient, setEncounterPatient] = useState(null);
+    const [encounterType, setEncounterType] = useState('Outpatient');
+    const [selectedClinic, setSelectedClinic] = useState('');
+    const [reasonForVisit, setReasonForVisit] = useState('');
+    const [charges, setCharges] = useState([]);
+    const [clinics, setClinics] = useState([]);
+    const [selectedCharges, setSelectedCharges] = useState([]);
+    const [wards, setWards] = useState([]);
+    const [availableBeds, setAvailableBeds] = useState([]);
+    const [selectedWard, setSelectedWard] = useState('');
+    const [selectedBed, setSelectedBed] = useState('');
+    const [pendingEncounterPatient, setPendingEncounterPatient] = useState(null);
+
+    // Watch for pending encounter patient and register modal closing
+    useEffect(() => {
+        if (pendingEncounterPatient && !showRegisterPatientModal) {
+            setEncounterPatient(pendingEncounterPatient);
+            setEncounterType('Outpatient');
+            setSelectedClinic('');
+            setReasonForVisit('');
+            setSelectedCharges([]);
+            setSelectedWard('');
+            setSelectedBed('');
+            setShowEncounterModal(true);
+            setPendingEncounterPatient(null);
+        }
+    }, [pendingEncounterPatient, showRegisterPatientModal]);
+
     useEffect(() => {
         if (user && (user.role === 'admin' || user.role === 'receptionist')) {
             fetchPatients();
             fetchHMOs();
+            fetchClinics();
+            fetchCharges();
+            fetchWards();
         }
     }, [user]);
+
+    useEffect(() => {
+        if (selectedWard) {
+            const ward = wards.find(w => w._id === selectedWard);
+            if (ward) setAvailableBeds(ward.beds.filter(b => !b.isOccupied));
+        } else {
+            setAvailableBeds([]);
+        }
+    }, [selectedWard, wards]);
 
     useEffect(() => {
         filterPatients();
@@ -63,6 +107,99 @@ const PatientManagement = () => {
         }
     };
 
+    const fetchClinics = async () => {
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const { data } = await axios.get('http://localhost:5000/api/clinics?active=true', config);
+            setClinics(data);
+        } catch (error) {
+            console.error('Error fetching clinics:', error);
+        }
+    };
+
+    const fetchCharges = async () => {
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const { data } = await axios.get('http://localhost:5000/api/charges?active=true', config);
+            setCharges(data.filter(c => c.type === 'consultation'));
+        } catch (error) {
+            console.error('Error fetching charges:', error);
+        }
+    };
+
+    const fetchWards = async () => {
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const { data } = await axios.get('http://localhost:5000/api/wards', config);
+            setWards(data);
+        } catch (error) {
+            console.error('Error fetching wards:', error);
+        }
+    };
+
+    const closeEncounterModal = () => {
+        setShowEncounterModal(false);
+        setEncounterPatient(null);
+        setEncounterType('Outpatient');
+        setSelectedClinic('');
+        setReasonForVisit('');
+        setSelectedCharges([]);
+        setSelectedWard('');
+        setSelectedBed('');
+    };
+
+    const handleChargeToggle = (chargeId) => {
+        setSelectedCharges(prev =>
+            prev.includes(chargeId) ? prev.filter(id => id !== chargeId) : [...prev, chargeId]
+        );
+    };
+
+    const handleCreateEncounter = async () => {
+        if (!encounterPatient) return;
+        if (encounterType !== 'External Investigation' && encounterType !== 'Inpatient' && selectedCharges.length === 0) {
+            toast.error('Please select at least one charge');
+            return;
+        }
+        try {
+            setLoading(true);
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const visitData = {
+                patientId: encounterPatient._id,
+                doctorId: user._id,
+                type: encounterType,
+                encounterType: encounterType,
+                clinic: selectedClinic || undefined,
+                subjective: 'Encounter created at Front Desk',
+                reasonForVisit,
+                encounterStatus: 'registered',
+                ward: encounterType === 'Inpatient' ? selectedWard : undefined,
+                bed: encounterType === 'Inpatient' ? selectedBed : undefined
+            };
+            const visitResponse = await axios.post('http://localhost:5000/api/visits', visitData, config);
+            for (const chargeId of selectedCharges) {
+                await axios.post('http://localhost:5000/api/encounter-charges', {
+                    encounterId: visitResponse.data._id,
+                    patientId: encounterPatient._id,
+                    chargeId,
+                    quantity: 1,
+                    notes: 'Added at registration'
+                }, config);
+            }
+            const total = charges.filter(c => selectedCharges.includes(c._id)).reduce((s, c) => s + c.basePrice, 0);
+            if (encounterType !== 'External Investigation' && encounterType !== 'Inpatient') {
+                await axios.put(`http://localhost:5000/api/visits/${visitResponse.data._id}`,
+                    { encounterStatus: total > 0 ? 'payment_pending' : 'in_nursing' }, config);
+            }
+            toast.success('Encounter created successfully!');
+            closeEncounterModal();
+        } catch (error) {
+            console.error(error);
+            toast.error(error.response?.data?.message || 'Error creating encounter');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const filterPatients = () => {
         let filtered = patients;
 
@@ -85,7 +222,11 @@ const PatientManagement = () => {
             filtered = filtered.filter(p => new Date(p.createdAt) <= end);
         }
 
+        // Sort: newest first
+        filtered = [...filtered].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
         setFilteredPatients(filtered);
+        setCurrentPage(1); // reset to first page on any filter change
     };
 
     const fetchPatientEncounters = async (patientId) => {
@@ -311,64 +452,114 @@ const PatientManagement = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {filteredPatients.map((patient) => (
-                                <tr key={patient._id} className="border-b hover:bg-gray-50">
-                                    <td className="p-4 font-semibold text-blue-600">{patient.mrn || 'N/A'}</td>
-                                    <td className="p-4 font-semibold">{patient.name}</td>
-                                    <td className="p-4">
-                                        {patient.age || 'N/A'} / {patient.gender || 'N/A'}
-                                    </td>
-                                    <td className="p-4 text-gray-600">{patient.contact || 'N/A'}</td>
-                                    <td className="p-4 text-sm text-gray-600">
-                                        {new Date(patient.createdAt).toLocaleDateString()}
-                                    </td>
-                                    <td className="p-4">
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => navigate(`/patient/${patient._id}`)}
-                                                className="text-blue-600 hover:text-blue-800"
-                                                title="View Details"
-                                            >
-                                                <FaEye />
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    setSelectedPatient(patient);
-                                                    fetchPatientEncounters(patient._id);
-                                                }}
-                                                className="text-purple-600 hover:text-purple-800"
-                                                title="View Encounters"
-                                            >
-                                                <FaHospital />
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    setEditPatient(patient);
-                                                    setShowEditPatientModal(true);
-                                                }}
-                                                className="text-green-600 hover:text-green-800"
-                                                title="Edit Patient"
-                                            >
-                                                <FaEdit />
-                                            </button>
-                                            {user.role === 'admin' && (
+                            {filteredPatients
+                                .slice((currentPage - 1) * PATIENTS_PER_PAGE, currentPage * PATIENTS_PER_PAGE)
+                                .map((patient) => (
+                                    <tr key={patient._id} className="border-b hover:bg-gray-50">
+                                        <td className="p-4 font-semibold text-blue-600">{patient.mrn || 'N/A'}</td>
+                                        <td className="p-4 font-semibold">{patient.name}</td>
+                                        <td className="p-4">
+                                            {patient.age || 'N/A'} / {patient.gender || 'N/A'}
+                                        </td>
+                                        <td className="p-4 text-gray-600">{patient.contact || 'N/A'}</td>
+                                        <td className="p-4 text-sm text-gray-600">
+                                            {new Date(patient.createdAt).toLocaleDateString()}
+                                        </td>
+                                        <td className="p-4">
+                                            <div className="flex gap-2">
                                                 <button
-                                                    onClick={() => handleDeletePatient(patient._id)}
-                                                    className="text-red-600 hover:text-red-800"
-                                                    title="Delete Patient"
+                                                    onClick={() => navigate(`/patient/${patient._id}`)}
+                                                    className="text-blue-600 hover:text-blue-800"
+                                                    title="View Details"
                                                 >
-                                                    <FaTrash />
+                                                    <FaEye />
                                                 </button>
-                                            )}
-                                        </div>
-                                    </td>
-                                </tr>
-                            ))}
+                                                <button
+                                                    onClick={() => {
+                                                        setSelectedPatient(patient);
+                                                        fetchPatientEncounters(patient._id);
+                                                    }}
+                                                    className="text-purple-600 hover:text-purple-800"
+                                                    title="View Encounters"
+                                                >
+                                                    <FaHospital />
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setEditPatient(patient);
+                                                        setShowEditPatientModal(true);
+                                                    }}
+                                                    className="text-green-600 hover:text-green-800"
+                                                    title="Edit Patient"
+                                                >
+                                                    <FaEdit />
+                                                </button>
+                                                {user.role === 'admin' && (
+                                                    <button
+                                                        onClick={() => handleDeletePatient(patient._id)}
+                                                        className="text-red-600 hover:text-red-800"
+                                                        title="Delete Patient"
+                                                    >
+                                                        <FaTrash />
+                                                    </button>
+                                                )}
+                                            </div>
+                                        </td>
+                                    </tr>
+                                ))}
                         </tbody>
                     </table>
                     {filteredPatients.length === 0 && (
                         <div className="p-8 text-center text-gray-500">
                             No patients found
+                        </div>
+                    )}
+                    {/* Pagination */}
+                    {filteredPatients.length > PATIENTS_PER_PAGE && (
+                        <div className="flex items-center justify-between px-4 py-3 border-t bg-gray-50">
+                            <p className="text-sm text-gray-600">
+                                Showing {Math.min((currentPage - 1) * PATIENTS_PER_PAGE + 1, filteredPatients.length)}–{Math.min(currentPage * PATIENTS_PER_PAGE, filteredPatients.length)} of {filteredPatients.length} patients
+                            </p>
+                            <div className="flex items-center gap-2">
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                    disabled={currentPage === 1}
+                                    className="px-3 py-1.5 text-sm border rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                    ← Prev
+                                </button>
+                                {Array.from({ length: Math.ceil(filteredPatients.length / PATIENTS_PER_PAGE) }, (_, i) => i + 1)
+                                    .filter(page => page === 1 || page === Math.ceil(filteredPatients.length / PATIENTS_PER_PAGE) || Math.abs(page - currentPage) <= 1)
+                                    .reduce((acc, page, idx, arr) => {
+                                        if (idx > 0 && arr[idx - 1] !== page - 1) acc.push('...');
+                                        acc.push(page);
+                                        return acc;
+                                    }, [])
+                                    .map((item, idx) =>
+                                        item === '...' ? (
+                                            <span key={`ellipsis-${idx}`} className="px-2 text-gray-400">…</span>
+                                        ) : (
+                                            <button
+                                                key={item}
+                                                onClick={() => setCurrentPage(item)}
+                                                className={`px-3 py-1.5 text-sm border rounded ${currentPage === item
+                                                    ? 'bg-blue-600 text-white border-blue-600'
+                                                    : 'hover:bg-gray-100'
+                                                    }`}
+                                            >
+                                                {item}
+                                            </button>
+                                        )
+                                    )
+                                }
+                                <button
+                                    onClick={() => setCurrentPage(p => Math.min(Math.ceil(filteredPatients.length / PATIENTS_PER_PAGE), p + 1))}
+                                    disabled={currentPage === Math.ceil(filteredPatients.length / PATIENTS_PER_PAGE)}
+                                    className="px-3 py-1.5 text-sm border rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                    Next →
+                                </button>
+                            </div>
                         </div>
                     )}
                 </div>
@@ -713,12 +904,195 @@ const PatientManagement = () => {
             <RegisterPatientModal
                 isOpen={showRegisterPatientModal}
                 onClose={() => setShowRegisterPatientModal(false)}
-                onSuccess={() => {
+                onSuccess={(newPatient) => {
                     fetchPatients();
+                    setPendingEncounterPatient(newPatient);
                     setShowRegisterPatientModal(false);
                 }}
                 userToken={user.token}
             />
+
+            {/* Create Encounter Modal */}
+            {showEncounterModal && encounterPatient && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                        {/* Header */}
+                        <div className="bg-blue-600 text-white p-4 rounded-t-lg flex justify-between items-center sticky top-0">
+                            <h3 className="text-xl font-bold flex items-center gap-2">
+                                <FaCalendarCheck /> Create Encounter
+                            </h3>
+                            <button onClick={closeEncounterModal} className="text-white hover:text-gray-200">
+                                <FaTimes size={24} />
+                            </button>
+                        </div>
+
+                        <div className="p-6">
+                            {/* Patient Info */}
+                            <div className="bg-gray-50 p-4 rounded mb-6">
+                                <h4 className="font-bold text-lg mb-2">Patient Information</h4>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <div>
+                                        <p className="text-sm text-gray-600">Name</p>
+                                        <p className="font-semibold">{encounterPatient.name}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-gray-600">MRN</p>
+                                        <p className="font-semibold">{encounterPatient.mrn}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-gray-600">Age</p>
+                                        <p className="font-semibold">{encounterPatient.age} years</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-gray-600">Gender</p>
+                                        <p className="font-semibold capitalize">{encounterPatient.gender}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Encounter Type */}
+                            <div className="mb-6">
+                                <label className="block text-gray-700 font-semibold mb-2">
+                                    Encounter Type <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                    className="w-full border p-2 rounded"
+                                    value={encounterType}
+                                    onChange={(e) => setEncounterType(e.target.value)}
+                                >
+                                    <option value="Outpatient">Outpatient</option>
+                                    <option value="Inpatient">Inpatient</option>
+                                    <option value="Emergency">Emergency</option>
+                                    <option value="Follow-up">Follow-up</option>
+                                    <option value="External Investigation">External Investigation</option>
+                                    <option value="Consultation">Consultation</option>
+                                </select>
+                            </div>
+
+                            {/* Clinic */}
+                            <div className="mb-6">
+                                <label className="block text-gray-700 font-semibold mb-2">Clinic (Optional)</label>
+                                <select
+                                    className="w-full border p-2 rounded"
+                                    value={selectedClinic}
+                                    onChange={(e) => setSelectedClinic(e.target.value)}
+                                >
+                                    <option value="">-- No Clinic --</option>
+                                    {clinics.map(clinic => (
+                                        <option key={clinic._id} value={clinic._id}>
+                                            {clinic.name} ({clinic.department})
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            {/* Reason for Visit */}
+                            <div className="mb-6">
+                                <label className="block text-gray-700 font-semibold mb-2">Reason for Visit</label>
+                                <textarea
+                                    className="w-full border p-2 rounded"
+                                    rows="3"
+                                    placeholder="Enter reason for visit..."
+                                    value={reasonForVisit}
+                                    onChange={(e) => setReasonForVisit(e.target.value)}
+                                />
+                            </div>
+
+                            {/* Inpatient Ward/Bed */}
+                            {encounterType === 'Inpatient' && (
+                                <div className="bg-blue-50 p-4 rounded mb-6 border border-blue-200">
+                                    <h4 className="font-bold text-blue-800 mb-3 flex items-center gap-2">
+                                        <FaBed /> Inpatient Admission
+                                    </h4>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-semibold mb-1">Select Ward</label>
+                                            <select
+                                                className="w-full border p-2 rounded"
+                                                value={selectedWard}
+                                                onChange={(e) => { setSelectedWard(e.target.value); setSelectedBed(''); }}
+                                            >
+                                                <option value="">-- Select Ward --</option>
+                                                {wards.map(ward => (
+                                                    <option key={ward._id} value={ward._id}>
+                                                        {ward.name} ({ward.type}) - ₦{ward.dailyRate}/day
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-semibold mb-1">Select Bed</label>
+                                            <select
+                                                className="w-full border p-2 rounded"
+                                                value={selectedBed}
+                                                onChange={(e) => setSelectedBed(e.target.value)}
+                                                disabled={!selectedWard}
+                                            >
+                                                <option value="">-- Select Bed --</option>
+                                                {availableBeds.map(bed => (
+                                                    <option key={bed._id} value={bed.number}>
+                                                        {bed.number}
+                                                    </option>
+                                                ))}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Charges */}
+                            {encounterType !== 'External Investigation' && encounterType !== 'Inpatient' && (
+                                <div className="mb-6">
+                                    <label className="block text-gray-700 font-semibold mb-2">
+                                        Consultation Charges <span className="text-red-500">*</span>
+                                    </label>
+                                    {charges.length === 0 ? (
+                                        <p className="text-gray-500 text-sm">No consultation charges available</p>
+                                    ) : (
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                            {charges.map(charge => (
+                                                <label key={charge._id} className={`flex items-center gap-3 p-3 border rounded cursor-pointer ${selectedCharges.includes(charge._id) ? 'border-blue-500 bg-blue-50' : 'hover:bg-gray-50'
+                                                    }`}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedCharges.includes(charge._id)}
+                                                        onChange={() => handleChargeToggle(charge._id)}
+                                                        className="w-4 h-4"
+                                                    />
+                                                    <span className="flex-1">{charge.name}</span>
+                                                    <span className="font-semibold text-green-600">₦{charge.basePrice?.toLocaleString()}</span>
+                                                </label>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {selectedCharges.length > 0 && (
+                                        <p className="mt-2 text-right font-bold text-blue-700">
+                                            Total: ₦{charges.filter(c => selectedCharges.includes(c._id)).reduce((s, c) => s + c.basePrice, 0).toLocaleString()}
+                                        </p>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Actions */}
+                            <div className="flex gap-3 pt-4 border-t">
+                                <button
+                                    onClick={handleCreateEncounter}
+                                    disabled={loading}
+                                    className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:bg-gray-400 flex items-center justify-center gap-2"
+                                >
+                                    <FaCalendarCheck /> {loading ? 'Creating...' : 'Create Encounter'}
+                                </button>
+                                <button
+                                    onClick={closeEncounterModal}
+                                    className="flex-1 bg-gray-400 text-white py-2 rounded hover:bg-gray-500"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </Layout>
     );
 };

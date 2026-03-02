@@ -80,7 +80,7 @@ const RegisterPatientModal = ({ isOpen, onClose, onSuccess, userToken }) => {
                 delete dataToSend.hmo;
             }
 
-            await axios.post('http://localhost:5000/api/patients', dataToSend, config);
+            const { data: newPatient } = await axios.post('http://localhost:5000/api/patients', dataToSend, config);
             toast.success('Patient registered successfully!');
 
             // Reset form
@@ -100,7 +100,7 @@ const RegisterPatientModal = ({ isOpen, onClose, onSuccess, userToken }) => {
             });
             setAvailableLgas([]);
 
-            if (onSuccess) onSuccess();
+            if (onSuccess) onSuccess(newPatient);
             onClose();
         } catch (error) {
             console.error(error);

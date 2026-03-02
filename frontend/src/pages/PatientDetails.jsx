@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from 'react';
+﻿import { useState, useEffect, useContext } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -268,6 +268,9 @@ const PatientDetails = () => {
             // Clinical Notes
             setClinicalNotes(visitRes.data.notes || []);
 
+            // Update encounter with fully-populated data (so consultingPhysician.name is available)
+            setEncounter(visitRes.data);
+
             // Referrals
             setReferrals(referralsRes.data);
 
@@ -302,11 +305,11 @@ const PatientDetails = () => {
     // 2. Outpatient: Active for 24 hours from creation
     const isEncounterActive = () => {
         if (!encounter) {
-            console.log('🔍 isEncounterActive: No encounter');
+            console.log('ðŸ” isEncounterActive: No encounter');
             return false;
         }
         if (viewingPastEncounter) {
-            console.log('🔍 isEncounterActive: Viewing past encounter');
+            console.log('ðŸ” isEncounterActive: Viewing past encounter');
             return false;
         }
 
@@ -315,7 +318,7 @@ const PatientDetails = () => {
             // Active statuses: admitted, in_progress, with_doctor, in_nursing, in_lab, in_radiology, in_pharmacy, in_ward
             const activeStatuses = ['admitted', 'in_progress', 'with_doctor', 'in_nursing', 'in_lab', 'in_radiology', 'in_pharmacy', 'in_ward'];
             const isActive = activeStatuses.includes(encounter.encounterStatus);
-            console.log('🔍 isEncounterActive: Inpatient encounter', {
+            console.log('ðŸ” isEncounterActive: Inpatient encounter', {
                 encounterStatus: encounter.encounterStatus,
                 isActive,
                 ward: encounter.ward,
@@ -329,7 +332,7 @@ const PatientDetails = () => {
             const now = new Date().getTime();
             const isActive = (now - created) < oneDay;
             const hoursOld = Math.floor((now - created) / (60 * 60 * 1000));
-            console.log('🔍 isEncounterActive: Non-inpatient encounter', {
+            console.log('ðŸ” isEncounterActive: Non-inpatient encounter', {
                 type: encounter.type,
                 createdAt: encounter.createdAt,
                 hoursOld,
@@ -1023,7 +1026,7 @@ const PatientDetails = () => {
 
         switch (vitalType) {
             case 'temperature':
-                // Normal: 36.1-37.2°C
+                // Normal: 36.1-37.2Â°C
                 if (numValue < 36.1) return 'text-yellow-600 font-semibold';
                 if (numValue > 37.2) return 'text-red-600 font-semibold';
                 return '';
@@ -1041,7 +1044,7 @@ const PatientDetails = () => {
                 return '';
 
             case 'spo2':
-                // Normal: ≥95%
+                // Normal: â‰¥95%
                 if (numValue < 95) return 'text-red-600 font-semibold';
                 if (numValue < 90) return 'text-red-700 font-bold';
                 return '';
@@ -1224,7 +1227,7 @@ const PatientDetails = () => {
                                             <div>
                                                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 mb-4">
                                                     <div className="bg-blue-50 p-2 rounded text-center">
-                                                        <p className="text-xs text-gray-600">Temp (°C)</p>
+                                                        <p className="text-xs text-gray-600">Temp (Â°C)</p>
                                                         <p className={`font-bold ${getVitalColorClass('temperature', vitals.temperature)}`}>
                                                             {vitals.temperature || '-'}
                                                         </p>
@@ -1264,21 +1267,29 @@ const PatientDetails = () => {
                                                     <div className={`p-2 rounded text-center ${vitals.bmi || (vitals.weight && vitals.height) ? (
                                                         (() => {
                                                             const bmiValue = vitals.bmi || (vitals.weight / Math.pow(vitals.height / 100, 2));
-                                                            return parseFloat(bmiValue) < 18.5 ? 'bg-yellow-100 border border-yellow-300' :
-                                                                parseFloat(bmiValue) < 25 ? 'bg-green-100 border border-green-300' :
-                                                                    parseFloat(bmiValue) < 30 ? 'bg-orange-100 border border-orange-300' :
-                                                                        'bg-red-100 border border-red-300';
+                                                            const b = parseFloat(bmiValue);
+                                                            return b < 18.5 ? 'bg-yellow-100 border border-yellow-300' :
+                                                                b < 25 ? 'bg-green-100 border border-green-300' :
+                                                                    b < 30 ? 'bg-orange-100 border border-orange-300' :
+                                                                        b < 35 ? 'bg-red-100 border border-red-300' :
+                                                                            b < 40 ? 'bg-red-200 border border-red-400' :
+                                                                                b < 50 ? 'bg-red-300 border border-red-500' :
+                                                                                    'bg-purple-200 border border-purple-500';
                                                         })()
                                                     ) : 'bg-blue-50'
                                                         }`}>
-                                                        <p className="text-xs text-gray-600">BMI (kg/m²)</p>
+                                                        <p className="text-xs text-gray-600">BMI (kg/m)</p>
                                                         <p className={`font-bold ${vitals.bmi || (vitals.weight && vitals.height) ? (
                                                             (() => {
                                                                 const bmiValue = vitals.bmi || (vitals.weight / Math.pow(vitals.height / 100, 2));
-                                                                return parseFloat(bmiValue) < 18.5 ? 'text-yellow-700' :
-                                                                    parseFloat(bmiValue) < 25 ? 'text-green-700' :
-                                                                        parseFloat(bmiValue) < 30 ? 'text-orange-700' :
-                                                                            'text-red-700';
+                                                                const b = parseFloat(bmiValue);
+                                                                return b < 18.5 ? 'text-yellow-700' :
+                                                                    b < 25 ? 'text-green-700' :
+                                                                        b < 30 ? 'text-orange-700' :
+                                                                            b < 35 ? 'text-red-700' :
+                                                                                b < 40 ? 'text-red-800' :
+                                                                                    b < 50 ? 'text-red-900' :
+                                                                                        'text-purple-700';
                                                             })()
                                                         ) : ''
                                                             }`}>
@@ -1291,10 +1302,14 @@ const PatientDetails = () => {
                                                             <p className="text-xs font-semibold mt-1">
                                                                 {(() => {
                                                                     const bmiValue = vitals.bmi || (vitals.weight / Math.pow(vitals.height / 100, 2));
-                                                                    return parseFloat(bmiValue) < 18.5 ? 'Underweight' :
-                                                                        parseFloat(bmiValue) < 25 ? 'Normal' :
-                                                                            parseFloat(bmiValue) < 30 ? 'Overweight' :
-                                                                                'Obese';
+                                                                    const b = parseFloat(bmiValue);
+                                                                    return b < 18.5 ? 'Underweight' :
+                                                                        b < 25 ? 'Normal' :
+                                                                            b < 30 ? 'Overweight' :
+                                                                                b < 35 ? 'Grade I Obese' :
+                                                                                    b < 40 ? 'Grade II Obese' :
+                                                                                        b < 50 ? 'Morbidly Obese' :
+                                                                                            'Super Obese';
                                                                 })()}
                                                             </p>
                                                         )}
@@ -1397,7 +1412,7 @@ const PatientDetails = () => {
                                                 {/* Doctor and Timestamp Info */}
                                                 <div className="bg-blue-50 border-l-4 border-blue-600 p-4 rounded">
                                                     <p className="text-sm text-gray-700">
-                                                        <span className="font-semibold">Documented by:</span>{encounter.consultingPhysician?.name || user?.name || 'Unknown'}
+                                                        <span className="font-semibold">Documented by:</span>{encounter.consultingPhysician?.name || 'Unknown'}
                                                         {encounter.updatedAt && (
                                                             <span className="ml-4 text-gray-600">
                                                                 on {new Date(encounter.updatedAt).toLocaleString()}
@@ -2481,7 +2496,7 @@ const PatientDetails = () => {
                                                             }}
                                                         >
                                                             <div className="font-semibold">{charge.name}</div>
-                                                            <div className="text-xs text-gray-500">₦{charge.basePrice}</div>
+                                                            <div className="text-xs text-gray-500">â‚¦{charge.basePrice}</div>
                                                         </div>
                                                     ))
                                                 ) : (
@@ -2514,7 +2529,7 @@ const PatientDetails = () => {
                                                 {tempLabOrders.map(test => (
                                                     <tr key={test._id} className="border-b">
                                                         <td className="p-2">{test.name}</td>
-                                                        <td className="p-2">₦{test.basePrice}</td>
+                                                        <td className="p-2">â‚¦{test.basePrice}</td>
                                                         <td className="p-2">
                                                             <button
                                                                 onClick={() => handleRemoveLabFromQueue(test._id)}
@@ -2593,7 +2608,7 @@ const PatientDetails = () => {
                                                             }}
                                                         >
                                                             <div className="font-semibold">{charge.name}</div>
-                                                            <div className="text-xs text-gray-500">₦{charge.basePrice}</div>
+                                                            <div className="text-xs text-gray-500">â‚¦{charge.basePrice}</div>
                                                         </div>
                                                     ))
                                                 ) : (
@@ -2626,7 +2641,7 @@ const PatientDetails = () => {
                                                 {tempRadOrders.map(scan => (
                                                     <tr key={scan._id} className="border-b">
                                                         <td className="p-2">{scan.name}</td>
-                                                        <td className="p-2">₦{scan.basePrice}</td>
+                                                        <td className="p-2">â‚¦{scan.basePrice}</td>
                                                         <td className="p-2">
                                                             <button
                                                                 onClick={() => handleRemoveRadFromQueue(scan._id)}
@@ -2703,7 +2718,7 @@ const PatientDetails = () => {
                                                             onClick={() => handleSelectDrugFromSearch(drug)}
                                                         >
                                                             <div className="font-semibold">{drug.name}</div>
-                                                            <div className="text-xs text-gray-500">Stock: {drug.quantity} | ₦{drug.price}</div>
+                                                            <div className="text-xs text-gray-500">Stock: {drug.quantity} | â‚¦{drug.price}</div>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -2908,7 +2923,7 @@ const PatientDetails = () => {
                             <div className="mb-4 p-3 bg-blue-50 rounded text-sm text-blue-800">
                                 <p className="font-bold">Provider: {patient.provider}</p>
                                 <p>
-                                    Rate: ₦{wards.find(w => w._id === selectedWard)?.rates?.[patient.provider] ||
+                                    Rate: â‚¦{wards.find(w => w._id === selectedWard)?.rates?.[patient.provider] ||
                                         wards.find(w => w._id === selectedWard)?.rates?.Standard ||
                                         wards.find(w => w._id === selectedWard)?.dailyRate || 0}
                                 </p>

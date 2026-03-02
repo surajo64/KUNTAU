@@ -264,6 +264,7 @@ const getVisitsByPatient = async (req, res) => {
         const visits = await Visit.find({ patient: req.params.patientId })
             .sort({ createdAt: -1 })
             .populate('doctor', 'name')
+            .populate('consultingPhysician', 'name')
             .populate('clinic', 'name department')
             .populate('ward', 'name');
         res.json(visits);

@@ -1,4 +1,4 @@
-import { useState, useEffect, useContext } from 'react';
+﻿import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import Layout from '../components/Layout';
@@ -43,7 +43,7 @@ const NurseTriage = () => {
         const heightNum = parseFloat(height);
         if (isNaN(weightNum) || isNaN(heightNum) || heightNum === 0) return '';
 
-        // BMI = weight (kg) / (height (m))²
+        // BMI = weight (kg) / (height (m))Â²
         const heightInMeters = heightNum / 100; // Convert cm to meters
         const bmi = weightNum / (heightInMeters * heightInMeters);
         return bmi.toFixed(1);
@@ -342,7 +342,7 @@ const NurseTriage = () => {
 
         switch (vitalType) {
             case 'temperature':
-                // Normal: 36.1-37.2°C
+                // Normal: 36.1-37.2Â°C
                 if (numValue < 36.1) return 'text-yellow-600 font-semibold';
                 if (numValue > 37.2) return 'text-red-600 font-semibold';
                 return '';
@@ -360,7 +360,7 @@ const NurseTriage = () => {
                 return '';
 
             case 'spo2':
-                // Normal: ≥95%
+                // Normal: â‰¥95%
                 if (numValue < 95) return 'text-red-600 font-semibold';
                 if (numValue < 90) return 'text-red-700 font-bold';
                 return '';
@@ -728,7 +728,7 @@ const NurseTriage = () => {
                                 }}
                                 className="text-blue-600 text-sm mt-2 hover:underline"
                             >
-                                ← Change Patient
+                                â† Change Patient
                             </button>
                         </div>
 
@@ -854,13 +854,13 @@ const NurseTriage = () => {
                                                 <tr>
                                                     <th className="p-2">Time</th>
                                                     <th className="p-2">BP (mmHg)</th>
-                                                    <th className="p-2">Temp (°C)</th>
+                                                    <th className="p-2">Temp (Â°C)</th>
                                                     <th className="p-2">HR (bpm)</th>
                                                     <th className="p-2">RR (/min)</th>
                                                     <th className="p-2">SpO2 (%)</th>
                                                     <th className="p-2">Wt (kg)</th>
                                                     <th className="p-2">Ht (cm)</th>
-                                                    <th className="p-2">BMI</th>
+                                                    <th className="p-2">BMI (kg/m\u00b2)</th>
                                                     <th className="p-2">Nurse</th>
                                                     <th className="p-2">Action</th>
                                                 </tr>
@@ -954,7 +954,7 @@ const NurseTriage = () => {
                                 </h4>
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                     <div>
-                                        <label className="block text-sm text-gray-600 mb-1">Temperature (°C)</label>
+                                        <label className="block text-sm text-gray-600 mb-1">Temperature (Â°C)</label>
                                         <input
                                             type="number"
                                             step="0.1"
@@ -1048,7 +1048,7 @@ const NurseTriage = () => {
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm text-gray-600 mb-1">BMI (kg/m²)</label>
+                                        <label className="block text-sm text-gray-600 mb-1">BMI (kg/m)</label>
                                         <input
                                             type="text"
                                             className={`w-full border p-2 rounded font-semibold ${vitals.bmi ? (
@@ -1274,7 +1274,7 @@ const NurseTriage = () => {
                                     }}
                                     className="text-white hover:text-gray-200 text-2xl"
                                 >
-                                    ×
+                                    Ã—
                                 </button>
                             </div>
 
@@ -1375,7 +1375,7 @@ const NurseTriage = () => {
                                     onClick={() => setShowNurseNoteModal(false)}
                                     className="text-white hover:text-gray-200 text-2xl"
                                 >
-                                    ×
+                                    Ã—
                                 </button>
                             </div>
 
@@ -1497,7 +1497,7 @@ const NurseTriage = () => {
                                 <div className="mb-6 p-3 bg-blue-50 rounded text-sm text-blue-800 border border-blue-100">
                                     <p className="font-bold">Provider Scheme: {selectedPatient.provider}</p>
                                     <p>
-                                        Daily Rate: ₦{wards.find(w => w._id === selectedWard)?.rates?.[selectedPatient.provider] ||
+                                        Daily Rate: â‚¦{wards.find(w => w._id === selectedWard)?.rates?.[selectedPatient.provider] ||
                                             wards.find(w => w._id === selectedWard)?.rates?.Standard ||
                                             wards.find(w => w._id === selectedWard)?.dailyRate || 0}
                                     </p>
