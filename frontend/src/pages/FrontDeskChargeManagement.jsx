@@ -3,8 +3,9 @@ import axios from 'axios';
 import { AppContext } from '../context/AppContext';
 import AuthContext from '../context/AuthContext';
 import Layout from '../components/Layout';
-import { FaDollarSign, FaPlus, FaEdit, FaSave, FaTimes } from 'react-icons/fa';
+import { FaDollarSign, FaPlus, FaEdit, FaSave, FaTimes, FaDownload, FaUpload } from 'react-icons/fa';
 import { toast } from 'react-toastify';
+import * as XLSX from 'xlsx';
 
 const FrontDeskChargeManagement = () => {
     const { backendUrl } = useContext(AppContext);
@@ -156,6 +157,61 @@ const FrontDeskChargeManagement = () => {
         setShowForm(false);
     };
 
+    const handleDownloadTemplate = () => {
+        const templateData = [{
+            'Service Name': 'Example Consultation',
+            'Code': 'CONS001',
+            'Description': 'General consultation fee',
+            'Standard Fee': 5000,
+            'Retainership Fee': 4000,
+            'NHIA Fee': 2000,
+            'KSCHMA Fee': 1500
+        }];
+        const ws = XLSX.utils.json_to_sheet(templateData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Template');
+        XLSX.writeFile(wb, 'FrontDeskCharges_Import_Template.xlsx');
+        toast.success('Template downloaded');
+    };
+
+    const handleExportToExcel = () => {
+        const exportData = charges.map(c => ({
+            'Service Name': c.name,
+            'Code': c.code || '',
+            'Description': c.description || '',
+            'Standard Fee': c.standardFee || 0,
+            'Retainership Fee': c.retainershipFee || 0,
+            'NHIA Fee': c.nhiaFee || 0,
+            'KSCHMA Fee': c.kschmaFee || 0,
+            'Status': c.active ? 'Active' : 'Inactive'
+        }));
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Charges');
+        XLSX.writeFile(wb, `FrontDeskCharges_${new Date().toISOString().split('T')[0]}.xlsx`);
+        toast.success('Charges exported successfully');
+    };
+
+    const handleImportExcel = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            const config = { headers: { Authorization: `Bearer ${user.token}`, 'Content-Type': 'multipart/form-data' } };
+            const { data } = await axios.post(`${backendUrl}/api/charges/import-excel?type=consultation&department=Front+Desk`, formData, config);
+            toast.success(data.message);
+            if (data.results.failed.length > 0) {
+                toast.warning(`${data.results.failed.length} row(s) failed to import.`);
+            }
+            fetchCharges();
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Error importing charges');
+        } finally {
+            e.target.value = '';
+        }
+    };
+
     const chargeTypeLabels = {
         consultation: 'Consultation',
         card: 'Hospital Card',
@@ -200,12 +256,23 @@ const FrontDeskChargeManagement = () => {
                     </h2>
                     <p className="text-gray-600 text-sm">Manage charges available for encounter creation at the front desk</p>
                 </div>
-                <button
-                    onClick={() => setShowForm(!showForm)}
-                    className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 flex items-center gap-2"
-                >
-                    {showForm ? <><FaTimes /> Cancel</> : <><FaPlus /> Add New Charge</>}
-                </button>
+                {user?.role === 'admin' && (
+                    <div className="flex gap-2 flex-wrap">
+                        <button onClick={handleDownloadTemplate} className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 flex items-center gap-2 text-sm">
+                            <FaDownload /> Template
+                        </button>
+                        <label className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center gap-2 cursor-pointer text-sm">
+                            <FaUpload /> Import
+                            <input type="file" accept=".xlsx,.xls" onChange={handleImportExcel} className="hidden" />
+                        </label>
+                        <button onClick={handleExportToExcel} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-2 text-sm">
+                            <FaDownload /> Export
+                        </button>
+                        <button onClick={() => setShowForm(!showForm)} className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 flex items-center gap-2">
+                            {showForm ? <><FaTimes /> Cancel</> : <><FaPlus /> Add New Charge</>}
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Form */}
@@ -438,16 +505,12 @@ const FrontDeskChargeManagement = () => {
                                                     </td>
                                                     <td className="p-3">
                                                         <div className="flex gap-2">
-                                                            <button
-                                                                onClick={() => handleEdit(charge)}
-                                                                className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-sm"
-                                                            >
-                                                                <FaEdit /> Edit
-                                                            </button>
-                                                            <button
-                                                                onClick={() => handleDeactivate(charge._id)}
-                                                                className="text-red-600 hover:text-red-800 text-sm"
-                                                            >
+                                                            {user?.role === 'admin' && (
+                                                                <button onClick={() => handleEdit(charge)} className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-sm">
+                                                                    <FaEdit /> Edit
+                                                                </button>
+                                                            )}
+                                                            <button onClick={() => handleDeactivate(charge._id)} className="text-red-600 hover:text-red-800 text-sm">
                                                                 Deactivate
                                                             </button>
                                                         </div>
@@ -475,7 +538,7 @@ const FrontDeskChargeManagement = () => {
                                 <div>
                                     <p className="font-semibold text-gray-600">{charge.name}</p>
                                     <p className="text-sm text-gray-500">
-                                        {chargeTypeLabels[charge.type]} - ${charge.basePrice.toFixed(2)}
+                                        {chargeTypeLabels[charge.type]} - ₦{(charge.basePrice || 0).toLocaleString()}
                                     </p>
                                 </div>
                                 <div className="flex items-center gap-3">

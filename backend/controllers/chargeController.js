@@ -1,4 +1,5 @@
 const Charge = require('../models/chargeModel');
+const xlsx = require('xlsx');
 
 // @desc    Create new charge (master data)
 // @route   POST /api/charges
@@ -94,9 +95,80 @@ const deactivateCharge = async (req, res) => {
     }
 };
 
+// @desc    Import Charges from Excel
+// @route   POST /api/charges/import-excel
+// @access  Private
+const importChargesFromExcel = async (req, res) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: 'No file uploaded' });
+        }
+
+        const { type, department } = req.query;
+        if (!type) {
+            return res.status(400).json({ message: 'Service type is required (query param: type)' });
+        }
+
+        const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const data = xlsx.utils.sheet_to_json(worksheet);
+
+        if (data.length === 0) {
+            return res.status(400).json({ message: 'Excel file is empty' });
+        }
+
+        const results = { success: [], failed: [] };
+
+        for (const row of data) {
+            try {
+                const name = row['Service Name'] || row['name'];
+                if (!name) {
+                    results.failed.push({ row, error: 'Service Name is required' });
+                    continue;
+                }
+
+                const standardFee = parseFloat(row['Standard Fee'] || row['standardFee'] || 0);
+
+                // Skip if already exists
+                const existing = await Charge.findOne({ name, type });
+                if (existing) {
+                    results.failed.push({ row, error: `${name} already exists` });
+                    continue;
+                }
+
+                const charge = await Charge.create({
+                    name,
+                    type,
+                    basePrice: standardFee,
+                    standardFee,
+                    retainershipFee: parseFloat(row['Retainership Fee'] || row['retainershipFee'] || 0),
+                    nhiaFee: parseFloat(row['NHIA Fee'] || row['nhiaFee'] || 0),
+                    kschmaFee: parseFloat(row['KSCHMA Fee'] || row['kschmaFee'] || 0),
+                    department: department || row['Department'] || type,
+                    description: row['Description'] || row['description'] || '',
+                    code: row['Code'] || row['code'] || undefined,
+                });
+
+                results.success.push(charge);
+            } catch (error) {
+                results.failed.push({ row, error: error.message });
+            }
+        }
+
+        res.json({
+            message: `Imported ${results.success.length} service(s) successfully. ${results.failed.length} failed.`,
+            results
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     createCharge,
     getCharges,
     updateCharge,
     deactivateCharge,
+    importChargesFromExcel,
 };

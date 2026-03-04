@@ -3,9 +3,10 @@ import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
-import { FaXRay, FaPlus, FaEdit, FaSave, FaTimes, FaFileAlt } from 'react-icons/fa';
+import { FaXRay, FaPlus, FaEdit, FaSave, FaTimes, FaFileAlt, FaDownload, FaUpload } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import LoadingOverlay from '../components/loadingOverlay';
+import * as XLSX from 'xlsx';
 
 const RadiologyTestManagement = () => {
     const { user } = useContext(AuthContext);
@@ -161,6 +162,63 @@ const RadiologyTestManagement = () => {
         });
         setEditingTest(null);
         setShowForm(false);
+    };
+
+    const handleDownloadTemplate = () => {
+        const templateData = [{
+            'Service Name': 'Example Radiology Test',
+            'Code': 'RAD001',
+            'Description': 'Example description',
+            'Standard Fee': 5000,
+            'Retainership Fee': 4000,
+            'NHIA Fee': 3000,
+            'KSCHMA Fee': 2500
+        }];
+        const ws = XLSX.utils.json_to_sheet(templateData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Template');
+        XLSX.writeFile(wb, 'RadiologyTests_Import_Template.xlsx');
+        toast.success('Template downloaded');
+    };
+
+    const handleExportToExcel = () => {
+        const exportData = radiologyTests.map(t => ({
+            'Service Name': t.name,
+            'Code': t.code || '',
+            'Description': t.description || '',
+            'Standard Fee': t.standardFee || 0,
+            'Retainership Fee': t.retainershipFee || 0,
+            'NHIA Fee': t.nhiaFee || 0,
+            'KSCHMA Fee': t.kschmaFee || 0,
+            'Status': t.active ? 'Active' : 'Inactive'
+        }));
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Radiology Tests');
+        XLSX.writeFile(wb, `RadiologyTests_${new Date().toISOString().split('T')[0]}.xlsx`);
+        toast.success('Radiology tests exported successfully');
+    };
+
+    const handleImportExcel = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        try {
+            setLoading(true);
+            const formData = new FormData();
+            formData.append('file', file);
+            const config = { headers: { Authorization: `Bearer ${user.token}`, 'Content-Type': 'multipart/form-data' } };
+            const { data } = await axios.post(`${backendUrl}/api/charges/import-excel?type=radiology&department=Radiology`, formData, config);
+            toast.success(data.message);
+            if (data.results.failed.length > 0) {
+                toast.warning(`${data.results.failed.length} row(s) failed to import.`);
+            }
+            fetchRadiologyTests();
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Error importing radiology tests');
+        } finally {
+            setLoading(false);
+            e.target.value = '';
+        }
     };
 
     const defaultTemplates = {
@@ -363,19 +421,39 @@ _____________________________________
     return (
         <Layout>
             {loading && <LoadingOverlay />}
-            <div className="mb-6 flex justify-between items-center">
+            <div className="mb-6 flex justify-between items-center flex-wrap gap-3">
                 <div>
                     <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
                         <FaXRay className="text-blue-600" /> Radiology Test Management
                     </h2>
                     <p className="text-gray-600 text-sm">Manage radiology test catalog, prices, and result templates</p>
                 </div>
-                <button
-                    onClick={() => setShowForm(!showForm)}
-                    className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 flex items-center gap-2"
-                >
-                    {showForm ? <><FaTimes /> Cancel</> : <><FaPlus /> Add New Test</>}
-                </button>
+                {user?.role === 'admin' && (
+                    <div className="flex gap-2 flex-wrap">
+                        <button
+                            onClick={handleDownloadTemplate}
+                            className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 flex items-center gap-2 text-sm"
+                        >
+                            <FaDownload /> Template
+                        </button>
+                        <label className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 flex items-center gap-2 cursor-pointer text-sm">
+                            <FaUpload /> Import
+                            <input type="file" accept=".xlsx,.xls" onChange={handleImportExcel} className="hidden" />
+                        </label>
+                        <button
+                            onClick={handleExportToExcel}
+                            className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 flex items-center gap-2 text-sm"
+                        >
+                            <FaDownload /> Export
+                        </button>
+                        <button
+                            onClick={() => setShowForm(!showForm)}
+                            className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 flex items-center gap-2"
+                        >
+                            {showForm ? <><FaTimes /> Cancel</> : <><FaPlus /> Add New Test</>}
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Form */}
@@ -595,32 +673,32 @@ _____________________________________"
                                             <div className="text-sm">
                                                 <div className="flex justify-between gap-2 border-b border-gray-100 pb-1 mb-1">
                                                     <span className="text-gray-500">Standard:</span>
-                                                    <span className="font-semibold text-gray-800">${(test.standardFee || test.basePrice || 0).toFixed(2)}</span>
+                                                    <span className="font-semibold text-gray-800">₦{(test.standardFee || test.basePrice || 0).toLocaleString()}</span>
                                                 </div>
                                                 {(test.standardFee > 0 || test.retainershipFee > 0 || test.nhiaFee > 0 || test.kschmaFee > 0) && (
                                                     <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
                                                         {test.standardFee > 0 && (
                                                             <div className="flex justify-between gap-1">
                                                                 <span className="text-blue-600">Std:</span>
-                                                                <span>${test.standardFee.toFixed(2)}</span>
+                                                                <span>₦{test.standardFee.toLocaleString()}</span>
                                                             </div>
                                                         )}
                                                         {test.retainershipFee > 0 && (
                                                             <div className="flex justify-between gap-1">
                                                                 <span className="text-purple-600">Ret:</span>
-                                                                <span>${test.retainershipFee.toFixed(2)}</span>
+                                                                <span>₦{test.retainershipFee.toLocaleString()}</span>
                                                             </div>
                                                         )}
                                                         {test.nhiaFee > 0 && (
                                                             <div className="flex justify-between gap-1">
                                                                 <span className="text-green-600">NHIA:</span>
-                                                                <span>${test.nhiaFee.toFixed(2)}</span>
+                                                                <span>₦{test.nhiaFee.toLocaleString()}</span>
                                                             </div>
                                                         )}
                                                         {test.kschmaFee > 0 && (
                                                             <div className="flex justify-between gap-1">
                                                                 <span className="text-orange-600">KSC:</span>
-                                                                <span>${test.kschmaFee.toFixed(2)}</span>
+                                                                <span>₦{test.kschmaFee.toLocaleString()}</span>
                                                             </div>
                                                         )}
                                                     </div>
@@ -640,12 +718,14 @@ _____________________________________"
                                         </td>
                                         <td className="p-3">
                                             <div className="flex gap-2">
-                                                <button
-                                                    onClick={() => handleEdit(test)}
-                                                    className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-sm"
-                                                >
-                                                    <FaEdit /> Edit
-                                                </button>
+                                                {user?.role === 'admin' && (
+                                                    <button
+                                                        onClick={() => handleEdit(test)}
+                                                        className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-sm"
+                                                    >
+                                                        <FaEdit /> Edit
+                                                    </button>
+                                                )}
                                                 <button
                                                     onClick={() => handleDeactivate(test._id)}
                                                     className="text-red-600 hover:text-red-800 text-sm"
@@ -673,7 +753,7 @@ _____________________________________"
                             <div key={test._id} className="bg-white p-3 rounded border flex justify-between items-center">
                                 <div>
                                     <p className="font-semibold text-gray-600">{test.name}</p>
-                                    <p className="text-sm text-gray-500">${test.basePrice.toFixed(2)}</p>
+                                    <p className="text-sm text-gray-500">₦{(test.basePrice || 0).toLocaleString()}</p>
                                 </div>
                                 <div className="flex items-center gap-3">
                                     <span className="text-xs bg-red-100 text-red-700 px-3 py-1 rounded">

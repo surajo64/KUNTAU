@@ -3,9 +3,10 @@ import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
-import { FaUserMd, FaPlus, FaEdit, FaSave, FaTimes, FaTrash } from 'react-icons/fa';
+import { FaUserMd, FaPlus, FaEdit, FaSave, FaTimes, FaTrash, FaDownload, FaUpload } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import LoadingOverlay from '../components/loadingOverlay';
+import * as XLSX from 'xlsx';
 
 const NursingServiceManagement = () => {
     const { user } = useContext(AuthContext);
@@ -129,6 +130,23 @@ const NursingServiceManagement = () => {
         }
     };
 
+    const handleActivate = async (serviceId) => {
+        if (!window.confirm('Are you sure you want to activate this service?')) return;
+
+        try {
+            setLoading(true);
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            await axios.put(`${backendUrl}/api/charges/${serviceId}`, { active: true }, config);
+            toast.success('Service activated');
+            fetchServices();
+        } catch (error) {
+            console.error(error);
+            toast.error('Error activating service');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const resetForm = () => {
         setFormData({
             name: '',
@@ -144,25 +162,93 @@ const NursingServiceManagement = () => {
         setShowForm(false);
     };
 
+    const handleDownloadTemplate = () => {
+        const templateData = [{
+            'Service Name': 'Example Nursing Service',
+            'Code': 'NUR001',
+            'Description': 'Example description',
+            'Standard Fee': 2000,
+            'Retainership Fee': 1500,
+            'NHIA Fee': 1000,
+            'KSCHMA Fee': 800
+        }];
+        const ws = XLSX.utils.json_to_sheet(templateData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Template');
+        XLSX.writeFile(wb, 'NursingServices_Import_Template.xlsx');
+        toast.success('Template downloaded');
+    };
+
+    const handleExportToExcel = () => {
+        const exportData = services.map(s => ({
+            'Service Name': s.name,
+            'Code': s.code || '',
+            'Description': s.description || '',
+            'Standard Fee': s.standardFee || 0,
+            'Retainership Fee': s.retainershipFee || 0,
+            'NHIA Fee': s.nhiaFee || 0,
+            'KSCHMA Fee': s.kschmaFee || 0,
+            'Status': s.active ? 'Active' : 'Inactive'
+        }));
+        const ws = XLSX.utils.json_to_sheet(exportData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Nursing Services');
+        XLSX.writeFile(wb, `NursingServices_${new Date().toISOString().split('T')[0]}.xlsx`);
+        toast.success('Nursing services exported successfully');
+    };
+
+    const handleImportExcel = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        try {
+            setLoading(true);
+            const formData = new FormData();
+            formData.append('file', file);
+            const config = { headers: { Authorization: `Bearer ${user.token}`, 'Content-Type': 'multipart/form-data' } };
+            const { data } = await axios.post(`${backendUrl}/api/charges/import-excel?type=nursing&department=Nursing`, formData, config);
+            toast.success(data.message);
+            if (data.results.failed.length > 0) {
+                toast.warning(`${data.results.failed.length} row(s) failed to import.`);
+            }
+            fetchServices();
+        } catch (error) {
+            toast.error(error.response?.data?.message || 'Error importing nursing services');
+        } finally {
+            setLoading(false);
+            e.target.value = '';
+        }
+    };
+
     const activeServices = services.filter(s => s.active);
     const inactiveServices = services.filter(s => !s.active);
 
     return (
         <Layout>
             {loading && <LoadingOverlay />}
-            <div className="mb-6 flex justify-between items-center">
+            <div className="mb-6 flex justify-between items-center flex-wrap gap-3">
                 <div>
                     <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
                         <FaUserMd className="text-green-600" /> Nursing Service Management
                     </h2>
                     <p className="text-gray-600 text-sm">Manage nursing service catalog and prices</p>
                 </div>
-                <button
-                    onClick={() => setShowForm(!showForm)}
-                    className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 flex items-center gap-2"
-                >
-                    {showForm ? <><FaTimes /> Cancel</> : <><FaPlus /> Add New Service</>}
-                </button>
+                {user?.role === 'admin' && (
+                    <div className="flex gap-2 flex-wrap">
+                        <button onClick={handleDownloadTemplate} className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 flex items-center gap-2 text-sm">
+                            <FaDownload /> Template
+                        </button>
+                        <label className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 flex items-center gap-2 cursor-pointer text-sm">
+                            <FaUpload /> Import
+                            <input type="file" accept=".xlsx,.xls" onChange={handleImportExcel} className="hidden" />
+                        </label>
+                        <button onClick={handleExportToExcel} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-2 text-sm">
+                            <FaDownload /> Export
+                        </button>
+                        <button onClick={() => setShowForm(!showForm)} className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 flex items-center gap-2">
+                            {showForm ? <><FaTimes /> Cancel</> : <><FaPlus /> Add New Service</>}
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Form */}
@@ -328,32 +414,32 @@ const NursingServiceManagement = () => {
                                             <div className="text-sm">
                                                 <div className="flex justify-between gap-2 border-b border-gray-100 pb-1 mb-1">
                                                     <span className="text-gray-500">Standard:</span>
-                                                    <span className="font-semibold text-gray-800">${(service.standardFee || 0).toFixed(2)}</span>
+                                                    <span className="font-semibold text-gray-800">₦{(service.standardFee || 0).toLocaleString()}</span>
                                                 </div>
                                                 {(service.standardFee > 0 || service.retainershipFee > 0 || service.nhiaFee > 0 || service.kschmaFee > 0) && (
                                                     <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
                                                         {service.standardFee > 0 && (
                                                             <div className="flex justify-between gap-1">
                                                                 <span className="text-blue-600">Std:</span>
-                                                                <span>${service.standardFee.toFixed(2)}</span>
+                                                                <span>₦{service.standardFee.toLocaleString()}</span>
                                                             </div>
                                                         )}
                                                         {service.retainershipFee > 0 && (
                                                             <div className="flex justify-between gap-1">
                                                                 <span className="text-purple-600">Ret:</span>
-                                                                <span>${service.retainershipFee.toFixed(2)}</span>
+                                                                <span>₦{service.retainershipFee.toLocaleString()}</span>
                                                             </div>
                                                         )}
                                                         {service.nhiaFee > 0 && (
                                                             <div className="flex justify-between gap-1">
                                                                 <span className="text-green-600">NHIA:</span>
-                                                                <span>${service.nhiaFee.toFixed(2)}</span>
+                                                                <span>₦{service.nhiaFee.toLocaleString()}</span>
                                                             </div>
                                                         )}
                                                         {service.kschmaFee > 0 && (
                                                             <div className="flex justify-between gap-1">
                                                                 <span className="text-orange-600">KSC:</span>
-                                                                <span>${service.kschmaFee.toFixed(2)}</span>
+                                                                <span>₦{service.kschmaFee.toLocaleString()}</span>
                                                             </div>
                                                         )}
                                                     </div>
@@ -362,16 +448,12 @@ const NursingServiceManagement = () => {
                                         </td>
                                         <td className="p-3">
                                             <div className="flex gap-2">
-                                                <button
-                                                    onClick={() => handleEdit(service)}
-                                                    className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-sm"
-                                                >
-                                                    <FaEdit /> Edit
-                                                </button>
-                                                <button
-                                                    onClick={() => handleDeactivate(service._id)}
-                                                    className="text-red-600 hover:text-red-800 text-sm"
-                                                >
+                                                {user?.role === 'admin' && (
+                                                    <button onClick={() => handleEdit(service)} className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-sm">
+                                                        <FaEdit /> Edit
+                                                    </button>
+                                                )}
+                                                <button onClick={() => handleDeactivate(service._id)} className="text-red-600 hover:text-red-800 text-sm">
                                                     Deactivate
                                                 </button>
                                             </div>
@@ -396,11 +478,19 @@ const NursingServiceManagement = () => {
                                 <div key={service._id} className="bg-white p-3 rounded border flex justify-between items-center">
                                     <div>
                                         <p className="font-semibold text-gray-600">{service.name}</p>
-                                        <p className="text-sm text-gray-500">${service.basePrice.toFixed(2)}</p>
+                                        <p className="text-sm text-gray-500">₦{(service.basePrice || 0).toLocaleString()}</p>
                                     </div>
-                                    <span className="text-xs bg-red-100 text-red-700 px-3 py-1 rounded">
-                                        Inactive
-                                    </span>
+                                    <div className="flex items-center gap-3">
+                                        <span className="text-xs bg-red-100 text-red-700 px-3 py-1 rounded">
+                                            Inactive
+                                        </span>
+                                        <button
+                                            onClick={() => handleActivate(service._id)}
+                                            className="text-green-600 hover:text-green-800 text-sm font-semibold"
+                                        >
+                                            Activate
+                                        </button>
+                                    </div>
                                 </div>
                             ))}
                         </div>
