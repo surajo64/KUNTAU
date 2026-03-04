@@ -416,6 +416,11 @@ const PharmacyPrescriptions = () => {
                                                 <span className={`text-xs px-3 py-1 rounded ${p.status === 'dispensed' ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-600'}`}>
                                                     {p.status}
                                                 </span>
+                                                {p.pharmacy && (
+                                                    <span className="text-xs px-3 py-1 rounded bg-purple-100 text-purple-800">
+                                                        Dest: {p.pharmacy.name}
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                     </div>

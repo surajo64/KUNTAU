@@ -1,6 +1,7 @@
 const Inventory = require('../models/inventoryModel');
 const EncounterCharge = require('../models/encounterChargeModel');
 const Prescription = require('../models/prescriptionModel');
+const Pharmacy = require('../models/pharmacyModel');
 
 // @desc Get all drugs
 // @route GET /api/inventory
@@ -8,15 +9,46 @@ const Prescription = require('../models/prescriptionModel');
 const getInventory = async (req, res) => {
     try {
         const { pharmacy } = req.query;
-        const filter = {};
+        let filter = {};
 
-        if (pharmacy) {
+        const userRole = req.user.role ? req.user.role.toLowerCase() : '';
+        const userPharmacyId = req.user.assignedPharmacy?._id || req.user.assignedPharmacy;
+
+        // Apply access control
+        if (userRole === 'pharmacist') {
+            if (req.user.assignedPharmacy) {
+                const isMain = req.user.assignedPharmacy.isMainPharmacy;
+
+                if (!isMain) {
+                    // Branch pharmacist
+                    if (pharmacy && pharmacy !== userPharmacyId.toString()) {
+                        const targetPharmacy = await Pharmacy.findById(pharmacy);
+                        if (targetPharmacy && targetPharmacy.isMainPharmacy) {
+                            filter.pharmacy = pharmacy;
+                        } else {
+                            filter.pharmacy = userPharmacyId;
+                        }
+                    } else {
+                        filter.pharmacy = userPharmacyId;
+                    }
+                } else if (pharmacy) {
+                    filter.pharmacy = pharmacy;
+                }
+            } else {
+                return res.json([]);
+            }
+        } else if (userRole === 'admin') {
+            if (pharmacy) {
+                filter.pharmacy = pharmacy;
+            }
+        } else if (pharmacy) {
             filter.pharmacy = pharmacy;
         }
 
         const items = await Inventory.find(filter)
             .populate('pharmacy', 'name')
             .sort({ createdAt: -1 });
+
         res.json(items);
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -122,9 +154,27 @@ const getInventoryAlerts = async (req, res) => {
         const today = new Date();
         const thirtyDaysFromNow = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
 
-        // Build filter based on pharmacy parameter
-        const filter = {};
-        if (pharmacy) {
+        const userRole = req.user.role ? req.user.role.toLowerCase() : '';
+        const userPharmacyId = req.user.assignedPharmacy?._id || req.user.assignedPharmacy;
+
+        // Apply access control for alerts
+        let filter = {};
+        if (userRole === 'pharmacist') {
+            if (req.user.assignedPharmacy) {
+                const isMain = req.user.assignedPharmacy.isMainPharmacy;
+                if (!isMain) {
+                    filter.pharmacy = userPharmacyId;
+                } else if (pharmacy) {
+                    filter.pharmacy = pharmacy;
+                }
+            } else {
+                return res.json({ lowStock: [], expiringSoon: [], expired: [], summary: { lowStockCount: 0, expiringSoonCount: 0, expiredCount: 0 } });
+            }
+        } else if (userRole === 'admin') {
+            if (pharmacy) {
+                filter.pharmacy = pharmacy;
+            }
+        } else if (pharmacy) {
             filter.pharmacy = pharmacy;
         }
 

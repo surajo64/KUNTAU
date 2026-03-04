@@ -491,6 +491,7 @@ const Inventory = () => {
                             <th className="p-4 border-b">Price</th>
                             <th className="p-4 border-b">Expiry</th>
                             <th className="p-4 border-b">Status</th>
+                            <th className="p-4 border-b">Pharmacy</th>
                             <th className="p-4 border-b">Actions</th>
                         </tr>
                     </thead>
@@ -556,6 +557,9 @@ const Inventory = () => {
                                     {checkExpiry(item.expiryDate) === "Expired" && <span className="text-red-600">Expired</span>}
                                     {checkExpiry(item.expiryDate) === "Expiring Soon" && <span className="text-orange-500">Expiring Soon</span>}
                                     {checkExpiry(item.expiryDate) === "Good" && <span className="text-green-600">Good</span>}
+                                </td>
+                                <td className="p-4 border-b text-sm italic">
+                                    {item.pharmacy?.name || (item.pharmacies ? item.pharmacies.map(p => p.name).join(', ') : 'Unknown')}
                                 </td>
                                 <td className="p-4 border-b space-x-2">
                                     {/* Only allow edit/delete for admin or main pharmacy pharmacists */}

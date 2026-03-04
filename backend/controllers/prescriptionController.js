@@ -28,6 +28,7 @@ const createPrescription = async (req, res) => {
         charge: chargeId || null, // Allow chargeId to be null/undefined
         medicines,
         notes,
+        pharmacy: req.user.assignedPharmacy?._id || req.user.assignedPharmacy || null, // Capture doctor's assigned pharmacy
     });
 
     res.status(201).json(prescription);
@@ -37,10 +38,37 @@ const createPrescription = async (req, res) => {
 // @route   GET /api/prescriptions
 // @access  Private (Pharmacist/Admin)
 const getPrescriptions = async (req, res) => {
-    const prescriptions = await Prescription.find({})
+    let filter = {};
+
+    const userRole = req.user.role ? req.user.role.toLowerCase() : '';
+    const userPharmacyId = req.user.assignedPharmacy?._id || req.user.assignedPharmacy;
+
+    // Apply access control
+    if (userRole === 'pharmacist') {
+        if (req.user.assignedPharmacy) {
+            const isMain = req.user.assignedPharmacy.isMainPharmacy;
+            if (!isMain) {
+                // Regular pharmacist - only see prescriptions for their pharmacy
+                // (Prescriptions without a pharmacy are visible to all for backward compatibility or if not set)
+                filter.$or = [
+                    { pharmacy: userPharmacyId },
+                    { pharmacy: { $exists: false } },
+                    { pharmacy: null }
+                ];
+            } else {
+                // Main pharmacy pharmacists can see all prescriptions
+            }
+        } else {
+            // Pharmacist with no assigned pharmacy - return nothing for safety
+            return res.json([]);
+        }
+    }
+
+    const prescriptions = await Prescription.find(filter)
         .populate('doctor', 'name')
         .populate('patient', 'name age gender mrn')
-        .populate('charge'); // Populate full charge object to get status
+        .populate('charge') // Populate full charge object to get status
+        .populate('pharmacy', 'name');
     res.json(prescriptions);
 };
 
@@ -75,6 +103,15 @@ const generatePrescriptionCharge = async (req, res) => {
 
         if (!prescription) {
             return res.status(404).json({ message: 'Prescription not found' });
+        }
+
+        // Check pharmacy ownership
+        if (req.user.role === 'pharmacist' && req.user.assignedPharmacy) {
+            const userPharmacyId = req.user.assignedPharmacy._id || req.user.assignedPharmacy;
+            const isMain = req.user.assignedPharmacy.isMainPharmacy;
+            if (!isMain && prescription.pharmacy && prescription.pharmacy.toString() !== userPharmacyId.toString()) {
+                return res.status(403).json({ message: 'Not authorized to process prescriptions for another pharmacy' });
+            }
         }
 
         if (prescription.charge) {
@@ -204,6 +241,19 @@ const generatePrescriptionCharge = async (req, res) => {
 const dispensePrescription = async (req, res) => {
     const prescription = await Prescription.findById(req.params.id);
 
+    if (!prescription) {
+        return res.status(404).json({ message: 'Prescription not found' });
+    }
+
+    // Check pharmacy ownership
+    if (req.user.role === 'pharmacist' && req.user.assignedPharmacy) {
+        const userPharmacyId = req.user.assignedPharmacy._id || req.user.assignedPharmacy;
+        const isMain = req.user.assignedPharmacy.isMainPharmacy;
+        if (!isMain && prescription.pharmacy && prescription.pharmacy.toString() !== userPharmacyId.toString()) {
+            return res.status(403).json({ message: 'Not authorized to dispense prescriptions for another pharmacy' });
+        }
+    }
+
     if (prescription) {
         prescription.status = 'dispensed';
         prescription.dispensedBy = req.user._id;
@@ -229,6 +279,15 @@ const dispenseWithInventory = async (req, res) => {
 
         if (!prescription) {
             return res.status(404).json({ message: 'Prescription not found' });
+        }
+
+        // Check pharmacy ownership
+        if (req.user.role === 'pharmacist' && req.user.assignedPharmacy) {
+            const userPharmacyId = req.user.assignedPharmacy._id || req.user.assignedPharmacy;
+            const isMain = req.user.assignedPharmacy.isMainPharmacy;
+            if (!isMain && prescription.pharmacy && prescription.pharmacy.toString() !== userPharmacyId.toString()) {
+                return res.status(403).json({ message: 'Not authorized to dispense prescriptions for another pharmacy' });
+            }
         }
 
         // Verify payment status

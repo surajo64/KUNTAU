@@ -1,0 +1,59 @@
+{
+  "user": {
+    "_id": "6925b6859ebf8e4fa49ef356",
+    "name": "Ibrahim Shehu",
+    "email": "ibrahim@gmail.com",
+    "password": "$2b$10$D66gs30ecK8zdWC2l3lHcOSiVjdSZTNS9L7uqwmzmwYwLBLBVKKMG",
+    "role": "pharmacist",
+    "assignedPharmacy": {
+      "_id": "6925b1537ced1fd32855fe1e",
+      "name": "GOPD Pharmacy",
+      "location": "GOPD Building",
+      "description": "GOPD Pharmacy",
+      "isMainPharmacy": false,
+      "isActive": true,
+      "createdAt": "2025-11-25T13:38:27.241Z",
+      "updatedAt": "2025-11-25T13:38:27.241Z",
+      "__v": 0
+    },
+    "isActive": true,
+    "createdAt": "2025-11-25T14:00:37.619Z",
+    "updatedAt": "2025-11-25T14:15:23.587Z",
+    "__v": 0
+  },
+  "pharmacies": [
+    {
+      "_id": "6925b1217ced1fd32855fe11",
+      "name": "Main Pharmacy",
+      "location": "Main Building",
+      "description": "A super power pharmacy",
+      "isMainPharmacy": true,
+      "isActive": true,
+      "createdAt": "2025-11-25T13:37:38.002Z",
+      "updatedAt": "2025-11-25T13:37:38.002Z",
+      "__v": 0
+    },
+    {
+      "_id": "6925b13a7ced1fd32855fe18",
+      "name": "A & E Pharmacy",
+      "location": "A & E Building",
+      "description": "A & E Pharmacy",
+      "isMainPharmacy": false,
+      "isActive": true,
+      "createdAt": "2025-11-25T13:38:02.563Z",
+      "updatedAt": "2025-11-25T13:38:02.563Z",
+      "__v": 0
+    },
+    {
+      "_id": "6925b1537ced1fd32855fe1e",
+      "name": "GOPD Pharmacy",
+      "location": "GOPD Building",
+      "description": "GOPD Pharmacy",
+      "isMainPharmacy": false,
+      "isActive": true,
+      "createdAt": "2025-11-25T13:38:27.241Z",
+      "updatedAt": "2025-11-25T13:38:27.241Z",
+      "__v": 0
+    }
+  ]
+}

@@ -14,6 +14,7 @@ const prescriptionSchema = mongoose.Schema({
         quantity: { type: Number, default: 1 }, // Doctor's prescribed quantity
     }],
     notes: { type: String },
+    pharmacy: { type: mongoose.Schema.Types.ObjectId, ref: 'Pharmacy' }, // Target pharmacy
     status: { type: String, enum: ['pending', 'dispensed'], default: 'pending' },
     dispensedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     dispensedAt: { type: Date },
