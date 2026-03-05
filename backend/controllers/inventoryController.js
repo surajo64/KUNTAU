@@ -2,6 +2,7 @@ const Inventory = require('../models/inventoryModel');
 const EncounterCharge = require('../models/encounterChargeModel');
 const Prescription = require('../models/prescriptionModel');
 const Pharmacy = require('../models/pharmacyModel');
+const xlsx = require('xlsx');
 
 // @desc Get all drugs
 // @route GET /api/inventory
@@ -59,6 +60,13 @@ const getInventory = async (req, res) => {
 // @route POST /api/inventory
 // @access Private
 const addInventoryItem = async (req, res) => {
+    const userRole = req.user.role ? req.user.role.toLowerCase() : '';
+    const isMainPharmacy = req.user.assignedPharmacy?.isMainPharmacy;
+
+    if (userRole !== 'admin' && !(userRole === 'pharmacist' && isMainPharmacy)) {
+        return res.status(403).json({ message: "Access denied. Only Admin or Main Pharmacy can add items to inventory." });
+    }
+
     const { name, quantity, price, standardFee, retainershipFee, nhiaFee, kschmaFee, purchasingPrice, expiryDate, supplier, batchNumber, barcode, reorderLevel, route, form, dosage, frequency, drugUnit, pharmacy } = req.body;
 
     if (!name || !quantity || (!price && !standardFee) || !expiryDate || !pharmacy) {
@@ -98,6 +106,13 @@ const addInventoryItem = async (req, res) => {
 // @route PUT /api/inventory/:id
 // @access Private
 const updateInventoryItem = async (req, res) => {
+    const userRole = req.user.role ? req.user.role.toLowerCase() : '';
+    const isMainPharmacy = req.user.assignedPharmacy?.isMainPharmacy;
+
+    if (userRole !== 'admin' && !(userRole === 'pharmacist' && isMainPharmacy)) {
+        return res.status(403).json({ message: "Access denied. Only Admin or Main Pharmacy can update inventory items." });
+    }
+
     const { name, quantity, price, standardFee, retainershipFee, nhiaFee, kschmaFee, purchasingPrice, expiryDate, supplier, batchNumber, barcode, reorderLevel, route, form, dosage, frequency, drugUnit, pharmacy } = req.body;
 
     const finalStandardFee = standardFee || price;
@@ -138,6 +153,13 @@ const updateInventoryItem = async (req, res) => {
 // @route DELETE /api/inventory/:id
 // @access Private
 const deleteInventoryItem = async (req, res) => {
+    const userRole = req.user.role ? req.user.role.toLowerCase() : '';
+    const isMainPharmacy = req.user.assignedPharmacy?.isMainPharmacy;
+
+    if (userRole !== 'admin' && !(userRole === 'pharmacist' && isMainPharmacy)) {
+        return res.status(403).json({ message: "Access denied. Only Admin or Main Pharmacy can remove items from inventory." });
+    }
+
     const item = await Inventory.findById(req.params.id);
     if (!item) return res.status(404).json({ message: "Item not found" });
 
@@ -366,6 +388,112 @@ const getProfitLossReport = async (req, res) => {
     }
 };
 
+// @desc    Import Inventory from Excel
+// @route   POST /api/inventory/import-excel
+// @access  Private
+const importInventoryFromExcel = async (req, res) => {
+    try {
+        const userRole = req.user.role ? req.user.role.toLowerCase() : '';
+        const isMainPharmacy = req.user.assignedPharmacy?.isMainPharmacy;
+
+        if (userRole !== 'admin' && !(userRole === 'pharmacist' && isMainPharmacy)) {
+            return res.status(403).json({ message: "Access denied. Only Admin or Main Pharmacy can import inventory." });
+        }
+
+        if (!req.file) {
+            return res.status(400).json({ message: 'No file uploaded' });
+        }
+
+        const { pharmacy } = req.query;
+        let targetPharmacyId = pharmacy;
+
+        // For main pharmacy pharmacist, they can import into any pharmacy if provided, 
+        // but if not provided, we need to ensure they have a target.
+        // If branch pharmacist reached here (though blocked by check above), they'd be locked to their pharmacy.
+
+        if (req.user.role === 'pharmacist' && req.user.assignedPharmacy) {
+            const isMain = req.user.assignedPharmacy.isMainPharmacy;
+            if (!isMain) {
+                targetPharmacyId = req.user.assignedPharmacy._id || req.user.assignedPharmacy;
+            }
+        }
+
+        if (!targetPharmacyId) {
+            return res.status(400).json({ message: 'Pharmacy ID is required' });
+        }
+
+        const workbook = xlsx.read(req.file.buffer, { type: 'buffer' });
+        const sheetName = workbook.SheetNames[0];
+        const worksheet = workbook.Sheets[sheetName];
+        const data = xlsx.utils.sheet_to_json(worksheet);
+
+        if (data.length === 0) {
+            return res.status(400).json({ message: 'Excel file is empty' });
+        }
+
+        const results = { success: [], failed: [] };
+
+        for (const row of data) {
+            try {
+                const name = row['Drug Name'] || row['name'];
+                if (!name) {
+                    results.failed.push({ row, error: 'Drug Name is required' });
+                    continue;
+                }
+
+                const quantity = parseInt(row['Quantity'] || row['quantity'] || 0);
+                const standardFee = parseFloat(row['Standard Fee'] || row['standardFee'] || 0);
+                const purchasingPrice = parseFloat(row['Purchasing Price'] || row['purchasingPrice'] || 0);
+
+                let expiryDate = row['Expiry Date'] || row['expiryDate'];
+                if (expiryDate && typeof expiryDate === 'number') {
+                    // Handle Excel dates
+                    expiryDate = new Date((expiryDate - (25567 + 1)) * 86400 * 1000);
+                } else if (expiryDate) {
+                    expiryDate = new Date(expiryDate);
+                }
+
+                if (!expiryDate || isNaN(expiryDate.getTime())) {
+                    results.failed.push({ row, error: 'Valid Expiry Date is required' });
+                    continue;
+                }
+
+                const item = await Inventory.create({
+                    name,
+                    quantity,
+                    price: standardFee,
+                    standardFee,
+                    retainershipFee: parseFloat(row['Retainership Fee'] || row['retainershipFee'] || 0),
+                    nhiaFee: parseFloat(row['NHIA Fee'] || row['nhiaFee'] || 0),
+                    kschmaFee: parseFloat(row['KSCHMA Fee'] || row['kschmaFee'] || 0),
+                    purchasingPrice,
+                    expiryDate,
+                    supplier: row['Supplier'] || row['supplier'] || '',
+                    batchNumber: row['Batch Number'] || row['batchNumber'] || '',
+                    reorderLevel: parseInt(row['Reorder Level'] || row['reorderLevel'] || 10),
+                    route: row['Route'] || row['route'] || '',
+                    form: row['Form'] || row['form'] || '',
+                    dosage: row['Dosage'] || row['dosage'] || '',
+                    frequency: row['Frequency'] || row['frequency'] || '',
+                    drugUnit: (row['Drug Unit'] || row['drugUnit'] || 'unit').toLowerCase(),
+                    pharmacy: targetPharmacyId
+                });
+
+                results.success.push(item);
+            } catch (error) {
+                results.failed.push({ row, error: error.message });
+            }
+        }
+
+        res.json({
+            message: `Imported ${results.success.length} drug(s) successfully. ${results.failed.length} failed.`,
+            results
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     getInventory,
     addInventoryItem,
@@ -373,4 +501,5 @@ module.exports = {
     deleteInventoryItem,
     getInventoryAlerts,
     getProfitLossReport,
+    importInventoryFromExcel,
 };

@@ -131,6 +131,12 @@ const PatientDetails = () => {
     const [filteredDrugs, setFilteredDrugs] = useState([]);
     const [tempDrugs, setTempDrugs] = useState([]); // List of drugs to prescribe
     const [showDrugDropdown, setShowDrugDropdown] = useState(false);
+    const [metadataOptions, setMetadataOptions] = useState({
+        dosage: [],
+        frequency: [],
+        route: [],
+        form: []
+    });
 
     // History & Lists
     const [pastEncounters, setPastEncounters] = useState([]);
@@ -172,6 +178,93 @@ const PatientDetails = () => {
         };
         fetchSystemSettings();
     }, []);
+
+    useEffect(() => {
+        const fetchMetadata = async () => {
+            try {
+                const { data } = await axios.get(`${backendUrl}/api/drug-metadata`, {
+                    headers: { Authorization: `Bearer ${user.token}` }
+                });
+                const organized = {
+                    dosage: data.filter(m => m.type === 'dosage' && m.isActive),
+                    frequency: data.filter(m => m.type === 'frequency' && m.isActive),
+                    route: data.filter(m => m.type === 'route' && m.isActive),
+                    form: data.filter(m => m.type === 'form' && m.isActive)
+                };
+                setMetadataOptions(organized);
+            } catch (error) {
+                console.error('Error fetching drug metadata:', error);
+            }
+        };
+        if (showRxModal) {
+            fetchMetadata();
+        }
+    }, [showRxModal, backendUrl, user.token]);
+
+    // Auto-calculate prescription quantity
+    useEffect(() => {
+        if (!showRxModal || !selectedDrug) return;
+
+        const calculateTotal = () => {
+            // Parse dose units (e.g., "1 tab", "500", "5ml")
+            const parseDose = (str) => {
+                if (!str) return 1;
+                // If it contains strength like mg/mcg/g, we assume 1 unit of that strength
+                if (/mg|mcg|g|ml|l|unit/i.test(str)) {
+                    // But if it starts with a number, and that number is small (< 10), it might be units (e.g. 2mg)
+                    // Actually, let's keep it simple: if it contains a strength unit, assume 1 unless it's like "2 tabs"
+                    if (/tab|cap|pill|vial|amp/i.test(str)) {
+                        const match = str.match(/^(\d+(\.\d+)?)/);
+                        return match ? parseFloat(match[1]) : 1;
+                    }
+                    return 1;
+                }
+                const match = str.match(/^(\d+(\.\d+)?)/);
+                const num = match ? parseFloat(match[1]) : 1;
+                return num > 20 ? 1 : num; // If it's a large number (e.g. 500), it's likely strength
+            };
+
+            const doseUnits = parseDose(drugDosage);
+
+            // Parse frequencyMultiplier based on medical abbreviations
+            const freqLower = (drugFrequency || '').toLowerCase().trim();
+            let freqMultiplier = 1;
+
+            if (freqLower === 'od' || freqLower.includes('once daily') || freqLower === 'daily' || freqLower === 'od' || freqLower === 'once' || freqLower === 'stat' || freqLower === 'nocte' || freqLower === 'ac' || freqLower === 'pc' || freqLower === 'hs' || freqLower === 'prn') {
+                freqMultiplier = 1;
+            } else if (freqLower === 'bd' || freqLower.includes('twice daily') || freqLower === 'bid' || freqLower.includes('twice') || freqLower.includes('12 hourly') || freqLower.includes('12h')) {
+                freqMultiplier = 2;
+            } else if (freqLower === 'tds' || freqLower.includes('three times daily') || freqLower === 'tid' || freqLower.includes('trice') || freqLower.includes('8 hourly') || freqLower.includes('8h')) {
+                freqMultiplier = 3;
+            } else if (freqLower === 'qid' || freqLower.includes('four times daily') || freqLower.includes('6 hourly') || freqLower.includes('6h') || freqLower.includes('four times')) {
+                freqMultiplier = 4;
+            } else if (freqLower.includes('weekly')) {
+                freqMultiplier = 1 / 7;
+            } else if (freqLower.match(/(\d+)\s*times/)) {
+                freqMultiplier = parseInt(freqLower.match(/(\d+)\s*times/)[1]);
+            }
+
+            // Parse totalDays
+            const durationLower = (drugDuration || '').toLowerCase();
+            const durMatch = durationLower.match(/(\d+(\.\d+)?)/);
+            const durNum = durMatch ? parseFloat(durMatch[1]) : 0;
+            let totalDays = durNum;
+
+            if (durationLower.includes('week')) {
+                totalDays = durNum * 7;
+            } else if (durationLower.includes('month')) {
+                totalDays = durNum * 30;
+            }
+
+            const total = Math.ceil(doseUnits * freqMultiplier * totalDays);
+            if (total > 0 && !isNaN(total)) {
+                setDrugQuantity(total);
+            }
+        };
+
+        const timer = setTimeout(calculateTotal, 300); // Debounce
+        return () => clearTimeout(timer);
+    }, [drugDosage, drugFrequency, drugDuration, showRxModal, selectedDrug]);
 
     // Tab State - default based on user role
     const getDefaultTab = () => {
@@ -2783,43 +2876,67 @@ const PatientDetails = () => {
                                             <div className="grid grid-cols-7 gap-2 items-end">
                                                 <div>
                                                     <label className="block text-xs text-gray-600 mb-1">Route</label>
-                                                    <input
-                                                        type="text"
+                                                    <select
                                                         className="w-full border p-2 rounded text-sm"
                                                         value={drugRoute}
                                                         onChange={(e) => setDrugRoute(e.target.value)}
-                                                        placeholder="Oral"
-                                                    />
+                                                    >
+                                                        <option value="">-- Route --</option>
+                                                        {metadataOptions.route.map(m => (
+                                                            <option key={m._id} value={m.value}>{m.value}</option>
+                                                        ))}
+                                                        {!metadataOptions.route.find(m => m.value === drugRoute) && drugRoute && (
+                                                            <option value={drugRoute}>{drugRoute}</option>
+                                                        )}
+                                                    </select>
                                                 </div>
                                                 <div>
                                                     <label className="block text-xs text-gray-600 mb-1">Dosage</label>
-                                                    <input
-                                                        type="text"
+                                                    <select
                                                         className="w-full border p-2 rounded text-sm"
                                                         value={drugDosage}
                                                         onChange={(e) => setDrugDosage(e.target.value)}
-                                                        placeholder="500mg"
-                                                    />
+                                                    >
+                                                        <option value="">-- Dosage --</option>
+                                                        {metadataOptions.dosage.map(m => (
+                                                            <option key={m._id} value={m.value}>{m.value}</option>
+                                                        ))}
+                                                        {!metadataOptions.dosage.find(m => m.value === drugDosage) && drugDosage && (
+                                                            <option value={drugDosage}>{drugDosage}</option>
+                                                        )}
+                                                    </select>
                                                 </div>
                                                 <div>
                                                     <label className="block text-xs text-gray-600 mb-1">Form</label>
-                                                    <input
-                                                        type="text"
+                                                    <select
                                                         className="w-full border p-2 rounded text-sm"
                                                         value={drugForm}
                                                         onChange={(e) => setDrugForm(e.target.value)}
-                                                        placeholder="Tablet"
-                                                    />
+                                                    >
+                                                        <option value="">-- Form --</option>
+                                                        {metadataOptions.form.map(m => (
+                                                            <option key={m._id} value={m.value}>{m.value}</option>
+                                                        ))}
+                                                        {!metadataOptions.form.find(m => m.value === drugForm) && drugForm && (
+                                                            <option value={drugForm}>{drugForm}</option>
+                                                        )}
+                                                    </select>
                                                 </div>
                                                 <div>
                                                     <label className="block text-xs text-gray-600 mb-1">Frequency</label>
-                                                    <input
-                                                        type="text"
+                                                    <select
                                                         className="w-full border p-2 rounded text-sm"
                                                         value={drugFrequency}
                                                         onChange={(e) => setDrugFrequency(e.target.value)}
-                                                        placeholder="BD"
-                                                    />
+                                                    >
+                                                        <option value="">-- Freq --</option>
+                                                        {metadataOptions.frequency.map(m => (
+                                                            <option key={m._id} value={m.value}>{m.value}</option>
+                                                        ))}
+                                                        {!metadataOptions.frequency.find(m => m.value === drugFrequency) && drugFrequency && (
+                                                            <option value={drugFrequency}>{drugFrequency}</option>
+                                                        )}
+                                                    </select>
                                                 </div>
                                                 <div>
                                                     <label className="block text-xs text-gray-600 mb-1">Duration</label>

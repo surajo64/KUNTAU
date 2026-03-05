@@ -6,11 +6,15 @@ import Layout from "../components/Layout";
 import LoadingOverlay from '../components/loadingOverlay';
 import * as XLSX from "xlsx";
 import { saveAs } from "file-saver";
-import { FaPlus, FaEdit, FaTrash, FaTimes, FaChartLine, FaPrint } from 'react-icons/fa';
+import { FaPlus, FaEdit, FaTrash, FaTimes, FaChartLine, FaPrint, FaDownload, FaUpload } from 'react-icons/fa';
+import { toast } from 'react-toastify';
 
 const Inventory = () => {
     const { user } = useContext(AuthContext);
     const { backendUrl } = useContext(AppContext);
+
+    // Authorization Check
+    const isAdminOrMain = user?.role === 'admin' || (user?.role === 'pharmacist' && user?.assignedPharmacy?.isMainPharmacy);
 
     // States
     const [items, setItems] = useState([]);
@@ -170,6 +174,58 @@ const Inventory = () => {
         return "Good";
     };
 
+    const handleDownloadTemplate = () => {
+        const templateData = [{
+            'Drug Name': 'Paracetamol',
+            'Form': 'Tablet',
+            'Dosage': '500mg',
+            'Route': 'Oral',
+            'Quantity': 100,
+            'Drug Unit': 'unit',
+            'Standard Fee': 50,
+            'Retainership Fee': 45,
+            'NHIA Fee': 40,
+            'KSCHMA Fee': 40,
+            'Purchasing Price': 30,
+            'Expiry Date': '2027-12-31',
+            'Supplier': 'ABC Pharma',
+            'Batch Number': 'BN123',
+            'Reorder Level': 10,
+            'Frequency': 'TDS'
+        }];
+        const ws = XLSX.utils.json_to_sheet(templateData);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, 'Template');
+        XLSX.writeFile(wb, 'DrugInventory_Import_Template.xlsx');
+        toast.success('Template downloaded');
+    };
+
+    const handleImportExcel = async (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        try {
+            setLoading(true);
+            const formData = new FormData();
+            formData.append('file', file);
+            const config = { headers: { Authorization: `Bearer ${user.token}`, 'Content-Type': 'multipart/form-data' } };
+
+            const pharmacyParam = selectedPharmacy ? `?pharmacy=${selectedPharmacy}` : '';
+            const { data } = await axios.post(`${backendUrl}/api/inventory/import-excel${pharmacyParam}`, formData, config);
+
+            toast.success(data.message);
+            if (data.results.failed.length > 0) {
+                toast.warning(`${data.results.failed.length} row(s) failed to import.`);
+            }
+            fetchInventory();
+        } catch (error) {
+            console.error(error);
+            toast.error(error.response?.data?.message || 'Error importing inventory');
+        } finally {
+            setLoading(false);
+            e.target.value = '';
+        }
+    };
+
     const exportExcel = () => {
         // Format data for export with pharmacy information
         const exportData = filteredItems.map(item => {
@@ -179,13 +235,16 @@ const Inventory = () => {
                 'Dosage': item.dosage,
                 'Route': item.route,
                 'Quantity': item.quantity,
-                'Unit': item.drugUnit,
-                'Price': item.price,
-                'Purchasing Price': item.purchasingPrice,
+                'Drug Unit': item.drugUnit,
+                'Standard Fee': item.standardFee || item.price || 0,
+                'Retainership Fee': item.retainershipFee || 0,
+                'NHIA Fee': item.nhiaFee || 0,
+                'KSCHMA Fee': item.kschmaFee || 0,
+                'Purchasing Price': item.purchasingPrice || 0,
                 'Expiry Date': new Date(item.expiryDate).toLocaleDateString(),
-                'Supplier': item.supplier,
-                'Batch Number': item.batchNumber,
-                'Reorder Level': item.reorderLevel
+                'Supplier': item.supplier || '',
+                'Batch Number': item.batchNumber || '',
+                'Reorder Level': item.reorderLevel || 10
             };
 
             // Add pharmacy information
@@ -205,7 +264,8 @@ const Inventory = () => {
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Inventory");
         const buffer = XLSX.write(wb, { bookType: "xlsx", type: "array" });
-        saveAs(new Blob([buffer], { type: "application/octet-stream" }), "inventory.xlsx");
+        saveAs(new Blob([buffer], { type: "application/octet-stream" }), `inventory_${new Date().toISOString().split('T')[0]}.xlsx`);
+        toast.success('Inventory exported successfully');
     };
 
     const handleOpenAddModal = () => {
@@ -272,8 +332,9 @@ const Inventory = () => {
             setShowModal(false);
             fetchInventory();
             fetchAlerts();
+            toast.success(isEditMode ? "Item updated successfully" : "Item added successfully");
         } catch (error) {
-            alert("Error saving item");
+            toast.error("Error saving item");
             console.error(error);
         }
     };
@@ -284,15 +345,16 @@ const Inventory = () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             await axios.delete(`${backendUrl}/api/inventory/${id}`, config);
+            toast.success("Item removed");
             fetchInventory();
         } catch {
-            alert("Error deleting item");
+            toast.error("Error deleting item");
         }
     };
 
     const fetchReport = async () => {
         if (!reportDateRange.start || !reportDateRange.end) {
-            alert('Please select both start and end dates');
+            toast.warning('Please select both start and end dates');
             return;
         }
         try {
@@ -400,12 +462,32 @@ const Inventory = () => {
                         )}
                     </div>
                 </div>
-                <button
-                    onClick={handleOpenAddModal}
-                    className="bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-green-700"
-                >
-                    <FaPlus /> Add Drug
-                </button>
+                {isAdminOrMain && (
+                    <div className="flex gap-2 flex-wrap">
+                        <button
+                            onClick={handleDownloadTemplate}
+                            className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 flex items-center gap-2 text-sm"
+                        >
+                            <FaDownload /> Template
+                        </button>
+                        <label className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-2 cursor-pointer text-sm">
+                            <FaUpload /> Import
+                            <input type="file" accept=".xlsx,.xls" onChange={handleImportExcel} className="hidden" />
+                        </label>
+                        <button
+                            onClick={exportExcel}
+                            className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 flex items-center gap-2 text-sm"
+                        >
+                            <FaDownload /> Export
+                        </button>
+                        <button
+                            onClick={handleOpenAddModal}
+                            className="bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-green-700"
+                        >
+                            <FaPlus /> Add Drug
+                        </button>
+                    </div>
+                )}
             </div>
 
             {/* Alerts Dashboard */}
@@ -469,15 +551,14 @@ const Inventory = () => {
                     <option value="Expiring Soon">Expiring Soon</option>
                     <option value="Expired">Expired</option>
                 </select>
-                <button onClick={exportExcel} className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
-                    Download
-                </button>
-                <button
-                    onClick={() => setShowReportModal(true)}
-                    className="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-blue-700"
-                >
-                    <FaChartLine /> Profit & Loss
-                </button>
+                {isAdminOrMain && (
+                    <button
+                        onClick={() => setShowReportModal(true)}
+                        className="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-blue-700"
+                    >
+                        <FaChartLine /> Profit & Loss
+                    </button>
+                )}
             </div>
 
             {/* Inventory Table */}
@@ -563,7 +644,7 @@ const Inventory = () => {
                                 </td>
                                 <td className="p-4 border-b space-x-2">
                                     {/* Only allow edit/delete for admin or main pharmacy pharmacists */}
-                                    {(user?.role === 'admin' || (user?.role === 'pharmacist' && user?.assignedPharmacy?.isMainPharmacy)) ? (
+                                    {isAdminOrMain ? (
                                         <>
                                             <button onClick={() => handleOpenEditModal(item)} className="text-blue-600 hover:text-blue-800">
                                                 <FaEdit />
