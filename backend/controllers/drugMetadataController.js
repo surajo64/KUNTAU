@@ -76,7 +76,7 @@ const deleteDrugMetadata = async (req, res) => {
             return res.status(404).json({ message: 'Item not found' });
         }
 
-        await metadata.remove();
+        await metadata.deleteOne();
         res.json({ message: 'Item removed' });
     } catch (error) {
         res.status(500).json({ message: error.message });
