@@ -135,6 +135,17 @@ const ClinicManagement = () => {
             c.department.toLowerCase().includes(searchTerm.toLowerCase())
         );
 
+    if (user?.role !== 'admin' && user?.role !== 'super_admin') {
+        return (
+            <Layout>
+                <div className="bg-red-50 border border-red-200 p-6 rounded">
+                    <h2 className="text-xl font-bold text-red-800">Access Denied</h2>
+                    <p className="text-red-600">You do not have permission to access clinic management.</p>
+                </div>
+            </Layout>
+        );
+    }
+
     return (
         <Layout>
             <div className="mb-6 flex justify-between items-center">

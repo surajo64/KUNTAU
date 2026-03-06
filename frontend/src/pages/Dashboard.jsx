@@ -12,8 +12,8 @@ const Dashboard = () => {
 
     // Manual check removed as ProtectedRoute handles this.
 
-    // Show AdminDashboard for admin users
-    if (user.role === 'admin') {
+    // Show AdminDashboard for admin and super_admin users
+    if (user.role === 'admin' || user.role === 'super_admin') {
         return <AdminDashboard />;
     }
 

@@ -505,6 +505,11 @@ const LabDashboard = () => {
                                             <p className="text-sm text-gray-500">
                                                 Ordered: {new Date(order.createdAt).toLocaleString()}
                                             </p>
+                                            {order.labSpecialization && (
+                                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded mt-1 inline-block">
+                                                    {order.labSpecialization}
+                                                </span>
+                                            )}
                                         </div>
                                         <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded text-sm">
                                             {order.status}
@@ -727,6 +732,11 @@ const LabDashboard = () => {
                                             <p className="text-sm text-gray-600">
                                                 Patient: {order.patient?.name} | Completed: {new Date(order.updatedAt).toLocaleString()}
                                             </p>
+                                            {order.labSpecialization && (
+                                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded mt-1 inline-block">
+                                                    {order.labSpecialization}
+                                                </span>
+                                            )}
                                             {order.signedBy && (
                                                 <p className="text-xs text-blue-700 mt-1">
                                                     Signed by: {order.signedBy.name}

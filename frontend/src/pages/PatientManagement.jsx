@@ -62,7 +62,7 @@ const PatientManagement = () => {
     }, [pendingEncounterPatient, showRegisterPatientModal]);
 
     useEffect(() => {
-        if (user && (user.role === 'admin' || user.role === 'receptionist')) {
+        if (user && (user.role === 'admin' || user.role === 'super_admin' || user.role === 'receptionist')) {
             fetchPatients();
             fetchHMOs();
             fetchClinics();
@@ -332,7 +332,7 @@ const PatientManagement = () => {
         toast.success('Patient list exported successfully!');
     };
 
-    if (user?.role !== 'admin' && user?.role !== 'receptionist') {
+    if (user?.role !== 'admin' && user?.role !== 'super_admin' && user?.role !== 'receptionist') {
         return (
             <Layout>
                 <div className="bg-red-50 border border-red-200 p-6 rounded">
@@ -496,7 +496,7 @@ const PatientManagement = () => {
                                                 >
                                                     <FaEdit />
                                                 </button>
-                                                {user.role === 'admin' && (
+                                                {(user.role === 'admin' || user.role === 'super_admin') && (
                                                     <button
                                                         onClick={() => handleDeletePatient(patient._id)}
                                                         className="text-red-600 hover:text-red-800"

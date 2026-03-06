@@ -256,7 +256,7 @@ const FrontDeskChargeManagement = () => {
                     </h2>
                     <p className="text-gray-600 text-sm">Manage charges available for encounter creation at the front desk</p>
                 </div>
-                {user?.role === 'admin' && (
+                {(user?.role === 'admin' || user?.role === 'super_admin') && (
                     <div className="flex gap-2 flex-wrap">
                         <button onClick={handleDownloadTemplate} className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 flex items-center gap-2 text-sm">
                             <FaDownload /> Template
@@ -505,7 +505,7 @@ const FrontDeskChargeManagement = () => {
                                                     </td>
                                                     <td className="p-3">
                                                         <div className="flex gap-2">
-                                                            {user?.role === 'admin' && (
+                                                            {(user?.role === 'admin' || user?.role === 'super_admin') && (
                                                                 <button onClick={() => handleEdit(charge)} className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-sm">
                                                                     <FaEdit /> Edit
                                                                 </button>

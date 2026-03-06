@@ -7,6 +7,7 @@ const xlsx = require('xlsx');
 const createCharge = async (req, res) => {
     try {
         const { name, type, basePrice, department, description, code, resultTemplate, standardFee, retainershipFee, nhiaFee, kschmaFee } = req.body;
+        console.log('Creating Charge. labSpecialization:', req.body.labSpecialization);
 
         const charge = await Charge.create({
             name,
@@ -19,7 +20,8 @@ const createCharge = async (req, res) => {
             standardFee,
             retainershipFee,
             nhiaFee,
-            kschmaFee
+            kschmaFee,
+            labSpecialization: req.body.labSpecialization
         });
 
         res.status(201).json(charge);
@@ -52,6 +54,8 @@ const getCharges = async (req, res) => {
 const updateCharge = async (req, res) => {
     try {
         const charge = await Charge.findById(req.params.id);
+        console.log('Updating Charge ID:', req.params.id);
+        console.log('Update Body:', JSON.stringify(req.body, null, 2));
 
         if (charge) {
             charge.name = req.body.name || charge.name;
@@ -65,6 +69,10 @@ const updateCharge = async (req, res) => {
             charge.retainershipFee = req.body.retainershipFee !== undefined ? req.body.retainershipFee : charge.retainershipFee;
             charge.nhiaFee = req.body.nhiaFee !== undefined ? req.body.nhiaFee : charge.nhiaFee;
             charge.kschmaFee = req.body.kschmaFee !== undefined ? req.body.kschmaFee : charge.kschmaFee;
+
+            if (req.body.labSpecialization !== undefined) {
+                charge.labSpecialization = req.body.labSpecialization;
+            }
 
             const updatedCharge = await charge.save();
             res.json(updatedCharge);
@@ -148,6 +156,7 @@ const importChargesFromExcel = async (req, res) => {
                     department: department || row['Department'] || type,
                     description: row['Description'] || row['description'] || '',
                     code: row['Code'] || row['code'] || undefined,
+                    labSpecialization: row['Lab Specialization'] || row['labSpecialization'] || undefined,
                 });
 
                 results.success.push(charge);

@@ -18,11 +18,15 @@ const userSchema = mongoose.Schema({
     role: {
         type: String,
         required: true,
-        enum: ['admin', 'doctor', 'nurse', 'pharmacist', 'lab_technician', 'lab_scientist', 'radiologist', 'receptionist', 'cashier'],
+        enum: ['super_admin', 'admin', 'doctor', 'nurse', 'pharmacist', 'lab_technician', 'lab_scientist', 'radiologist', 'receptionist', 'cashier'],
     },
     assignedPharmacy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Pharmacy'
+    },
+    labSpecialization: {
+        type: String,
+        enum: ['', 'All Lab Test', 'Hematology', 'Chemical Pathology', 'Microbiology', 'Histopathology', 'Immunology / Serology', 'Blood Transfusion Science']
     },
     isActive: { type: Boolean, default: true },
     lastLogin: { type: Date },

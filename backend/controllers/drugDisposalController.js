@@ -46,7 +46,7 @@ const createDisposal = async (req, res) => {
         let userPharmacy;
 
         // Admin users can access main pharmacy even without assignedPharmacy
-        if (currentUser.role === 'admin' && !currentUser.assignedPharmacy) {
+        if ((currentUser.role === 'admin' || currentUser.role === 'super_admin') && !currentUser.assignedPharmacy) {
             const mainPharmacy = await Pharmacy.findOne({ isMainPharmacy: true });
             if (!mainPharmacy) {
                 return res.status(404).json({ message: 'Main pharmacy not found' });

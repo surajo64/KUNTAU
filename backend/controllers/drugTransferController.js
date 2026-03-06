@@ -118,7 +118,7 @@ const approveTransfer = async (req, res) => {
         const User = require('../models/userModel');
         const user = await User.findById(req.user._id).populate('assignedPharmacy');
 
-        if (user.role !== 'admin' && (!user.assignedPharmacy || !user.assignedPharmacy.isMainPharmacy)) {
+        if (user.role !== 'admin' && user.role !== 'super_admin' && (!user.assignedPharmacy || !user.assignedPharmacy.isMainPharmacy)) {
             return res.status(403).json({ message: 'Only admin or main pharmacy staff can approve transfers' });
         }
 
@@ -208,7 +208,7 @@ const rejectTransfer = async (req, res) => {
         const User = require('../models/userModel');
         const user = await User.findById(req.user._id).populate('assignedPharmacy');
 
-        if (user.role !== 'admin' && (!user.assignedPharmacy || !user.assignedPharmacy.isMainPharmacy)) {
+        if (user.role !== 'admin' && user.role !== 'super_admin' && (!user.assignedPharmacy || !user.assignedPharmacy.isMainPharmacy)) {
             return res.status(403).json({ message: 'Only admin or main pharmacy staff can reject transfers' });
         }
 

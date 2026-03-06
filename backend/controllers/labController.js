@@ -1,4 +1,5 @@
 const LabOrder = require('../models/labOrderModel');
+const EncounterCharge = require('../models/encounterChargeModel');
 
 // @desc    Create new lab order
 // @route   POST /api/lab
@@ -21,12 +22,22 @@ const createLabOrder = async (req, res) => {
         return res.status(403).json({ message: 'Not authorized to order labs.' });
     }
 
+    // Fetch the charge to get its specialization
+    let labSpecialization = null;
+    if (chargeId) {
+        const encounterCharge = await EncounterCharge.findById(chargeId).populate('charge');
+        if (encounterCharge && encounterCharge.charge) {
+            labSpecialization = encounterCharge.charge.labSpecialization;
+        }
+    }
+
     const order = await LabOrder.create({
         doctor: req.user._id, // In this case, the "doctor" field tracks who ordered it
         patient: patientId,
         visit: visitId,
         charge: chargeId,
         testName,
+        labSpecialization,
         notes,
     });
 
@@ -37,7 +48,27 @@ const createLabOrder = async (req, res) => {
 // @route   GET /api/lab
 // @access  Private
 const getLabOrders = async (req, res) => {
-    const orders = await LabOrder.find({})
+    let query = {};
+
+    // Filter by specialization for lab technicians and scientists
+    if (req.user.role === 'lab_technician' || req.user.role === 'lab_scientist') {
+        // If user has 'All Lab Test' specialization, they see everything
+        if (req.user.labSpecialization === 'All Lab Test') {
+            query = {};
+        } else {
+            // Only show orders that match user's specialization OR have no specialization
+            query = {
+                $or: [
+                    { labSpecialization: req.user.labSpecialization },
+                    { labSpecialization: { $exists: false } },
+                    { labSpecialization: null },
+                    { labSpecialization: '' }
+                ]
+            };
+        }
+    }
+
+    const orders = await LabOrder.find(query)
         .populate('doctor', 'name')
         .populate('patient', 'name mrn')
         .populate('charge', 'status')
@@ -51,7 +82,30 @@ const getLabOrders = async (req, res) => {
 // @route   GET /api/lab/visit/:id
 // @access  Private
 const getLabOrdersByVisit = async (req, res) => {
-    const orders = await LabOrder.find({ visit: req.params.id })
+    let query = { visit: req.params.id };
+
+    // Filter by specialization for lab technicians and scientists
+    if (req.user.role === 'lab_technician' || req.user.role === 'lab_scientist') {
+        if (req.user.labSpecialization === 'All Lab Test') {
+            query = { visit: req.params.id };
+        } else {
+            query = {
+                $and: [
+                    { visit: req.params.id },
+                    {
+                        $or: [
+                            { labSpecialization: req.user.labSpecialization },
+                            { labSpecialization: { $exists: false } },
+                            { labSpecialization: null },
+                            { labSpecialization: '' }
+                        ]
+                    }
+                ]
+            };
+        }
+    }
+
+    const orders = await LabOrder.find(query)
         .populate('doctor', 'name')
         .populate('charge', 'status')
         .populate('signedBy', 'name')
@@ -68,6 +122,15 @@ const updateLabResult = async (req, res) => {
     const order = await LabOrder.findById(req.params.id);
 
     if (order) {
+        // Specialization check
+        if ((req.user.role === 'lab_technician' || req.user.role === 'lab_scientist')) {
+            if (req.user.labSpecialization !== 'All Lab Test' &&
+                order.labSpecialization &&
+                order.labSpecialization !== req.user.labSpecialization) {
+                return res.status(403).json({ message: `This test requires ${order.labSpecialization} specialization.` });
+            }
+        }
+
         const isFirstSave = !order.result || order.status === 'pending';
 
         order.result = result;
@@ -106,6 +169,13 @@ const approveLabResult = async (req, res) => {
     if (order) {
         if (req.user.role !== 'lab_scientist') {
             return res.status(403).json({ message: 'Only Lab Scientists can approve results.' });
+        }
+
+        // Specialization check
+        if (req.user.labSpecialization !== 'All Lab Test' &&
+            order.labSpecialization &&
+            order.labSpecialization !== req.user.labSpecialization) {
+            return res.status(403).json({ message: `This test requires ${order.labSpecialization} specialization to approve.` });
         }
 
         order.approvedBy = req.user._id;

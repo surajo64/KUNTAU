@@ -428,7 +428,7 @@ _____________________________________
                     </h2>
                     <p className="text-gray-600 text-sm">Manage radiology test catalog, prices, and result templates</p>
                 </div>
-                {user?.role === 'admin' && (
+                {(user?.role === 'admin' || user?.role === 'super_admin') && (
                     <div className="flex gap-2 flex-wrap">
                         <button
                             onClick={handleDownloadTemplate}
@@ -718,7 +718,7 @@ _____________________________________"
                                         </td>
                                         <td className="p-3">
                                             <div className="flex gap-2">
-                                                {user?.role === 'admin' && (
+                                                {(user?.role === 'admin' || user?.role === 'super_admin') && (
                                                     <button
                                                         onClick={() => handleEdit(test)}
                                                         className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-sm"

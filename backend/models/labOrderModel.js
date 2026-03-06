@@ -6,6 +6,7 @@ const labOrderSchema = mongoose.Schema({
     visit: { type: mongoose.Schema.Types.ObjectId, ref: 'Visit' },
     charge: { type: mongoose.Schema.Types.ObjectId, ref: 'EncounterCharge' },
     testName: { type: String, required: true },
+    labSpecialization: { type: String },
     result: { type: String },
     status: { type: String, enum: ['pending', 'completed'], default: 'pending' },
     notes: { type: String },

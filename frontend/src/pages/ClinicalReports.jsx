@@ -99,7 +99,7 @@ const ClinicalReports = () => {
         toast.success('Report exported successfully!');
     };
 
-    if (user?.role !== 'admin') {
+    if (user?.role !== 'admin' && user?.role !== 'super_admin') {
         return (
             <Layout>
                 <div className="bg-red-50 border border-red-200 p-6 rounded">

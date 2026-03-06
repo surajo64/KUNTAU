@@ -1097,7 +1097,7 @@ const BillingDashboard = () => {
                                                         >
                                                             <FaPrint /> Print
                                                         </button>
-                                                        {user?.role === 'admin' && (
+                                                        {(user?.role === 'admin' || user?.role === 'super_admin') && (
                                                             <button
                                                                 onClick={() => handleReverseReceipt(receipt._id)}
                                                                 className="text-red-600 hover:underline flex items-center gap-1 text-sm"

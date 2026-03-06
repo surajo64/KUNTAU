@@ -14,7 +14,7 @@ const Inventory = () => {
     const { backendUrl } = useContext(AppContext);
 
     // Authorization Check
-    const isAdminOrMain = user?.role === 'admin' || (user?.role === 'pharmacist' && user?.assignedPharmacy?.isMainPharmacy);
+    const isAdminOrMain = user?.role === 'admin' || user?.role === 'super_admin' || (user?.role === 'pharmacist' && user?.assignedPharmacy?.isMainPharmacy);
 
     // States
     const [items, setItems] = useState([]);
@@ -276,7 +276,7 @@ const Inventory = () => {
         if (user.role === 'pharmacist' && user.assignedPharmacy) {
             // Branch pharmacist: default to their assigned pharmacy
             defaultPharmacy = user.assignedPharmacy._id || user.assignedPharmacy;
-        } else if (user.role === 'admin' || (user.role === 'pharmacist' && user.assignedPharmacy?.isMainPharmacy)) {
+        } else if (user.role === 'admin' || user.role === 'super_admin' || (user.role === 'pharmacist' && user.assignedPharmacy?.isMainPharmacy)) {
             // Admin or main pharmacist: default to Main Pharmacy
             defaultPharmacy = mainPharmacy?._id || selectedPharmacy || "";
         } else {
@@ -947,7 +947,7 @@ const Inventory = () => {
                             </div>
 
                             {/* Pharmacy Selector in Report Modal */}
-                            {(user?.role === 'admin' || (user?.role === 'pharmacist' && user?.assignedPharmacy?.isMainPharmacy)) && (
+                            {(user?.role === 'admin' || user?.role === 'super_admin' || (user?.role === 'pharmacist' && user?.assignedPharmacy?.isMainPharmacy)) && (
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-1">Pharmacy</label>
                                     <select

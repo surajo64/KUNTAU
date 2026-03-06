@@ -64,7 +64,7 @@ const DrugDisposal = () => {
     const isMainPharmacy = user.assignedPharmacy?.isMainPharmacy;
     const isBranchPharmacy = user.role === 'pharmacist' && !isMainPharmacy;
     // Make admin check case-insensitive
-    const isAdmin = user.role?.toLowerCase() === 'admin';
+    const isAdmin = user.role?.toLowerCase() === 'admin' || user.role?.toLowerCase() === 'super_admin';
     const isAdminOrMainPharmacy = isAdmin || isMainPharmacy;
 
     // Print drug details for supplier return from table

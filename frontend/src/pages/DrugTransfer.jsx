@@ -57,7 +57,7 @@ const DrugTransfer = () => {
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
 
-    const isAdminOrMainPharmacist = user.role === 'admin' ||
+    const isAdminOrMainPharmacist = user.role === 'admin' || user.role === 'super_admin' ||
         (user.role === 'pharmacist' && user.assignedPharmacy?.isMainPharmacy);
 
     useEffect(() => {

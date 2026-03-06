@@ -24,7 +24,8 @@ const LabTestManagement = () => {
         kschmaFee: '',
         description: '',
         code: '',
-        resultTemplate: ''
+        resultTemplate: '',
+        labSpecialization: ''
     });
 
     useEffect(() => {
@@ -71,7 +72,8 @@ const LabTestManagement = () => {
                 department: 'Laboratory',
                 description: formData.description,
                 code: formData.code,
-                resultTemplate: formData.resultTemplate
+                resultTemplate: formData.resultTemplate,
+                labSpecialization: formData.labSpecialization
             };
 
             if (editingTest) {
@@ -105,7 +107,8 @@ const LabTestManagement = () => {
             kschmaFee: (test.kschmaFee || 0).toString(),
             description: test.description || '',
             code: test.code || '',
-            resultTemplate: test.resultTemplate || ''
+            resultTemplate: test.resultTemplate || '',
+            labSpecialization: test.labSpecialization || ''
         });
         setShowForm(true);
     };
@@ -148,7 +151,8 @@ const LabTestManagement = () => {
             kschmaFee: '',
             description: '',
             code: '',
-            resultTemplate: ''
+            resultTemplate: '',
+            labSpecialization: ''
         });
         setEditingTest(null);
         setShowForm(false);
@@ -162,7 +166,8 @@ const LabTestManagement = () => {
             'Standard Fee': 1500,
             'Retainership Fee': 1200,
             'NHIA Fee': 800,
-            'KSCHMA Fee': 700
+            'KSCHMA Fee': 700,
+            'Lab Specialization': 'Hematology'
         }];
         const ws = XLSX.utils.json_to_sheet(templateData);
         const wb = XLSX.utils.book_new();
@@ -180,6 +185,7 @@ const LabTestManagement = () => {
             'Retainership Fee': t.retainershipFee || 0,
             'NHIA Fee': t.nhiaFee || 0,
             'KSCHMA Fee': t.kschmaFee || 0,
+            'Lab Specialization': t.labSpecialization || '',
             'Status': t.active ? 'Active' : 'Inactive'
         }));
         const ws = XLSX.utils.json_to_sheet(exportData);
@@ -410,7 +416,7 @@ RESULT:
                     </h2>
                     <p className="text-gray-600 text-sm">Manage lab test catalog, prices, and result templates</p>
                 </div>
-                {user?.role === 'admin' && (
+                {(user?.role === 'admin' || user?.role === 'super_admin') && (
                     <div className="flex gap-2 flex-wrap">
                         <button
                             onClick={handleDownloadTemplate}
@@ -459,6 +465,26 @@ RESULT:
                                     placeholder="e.g., Complete Blood Count (CBC)"
                                     required
                                 />
+                            </div>
+                            <div>
+                                <label className="block text-gray-700 mb-2 font-semibold">
+                                    Lab Specialization
+                                </label>
+                                <select
+                                    name="labSpecialization"
+                                    value={formData.labSpecialization}
+                                    onChange={handleInputChange}
+                                    className="w-full border p-2 rounded"
+                                >
+                                    <option value="">No Specialization</option>
+                                    <option value="All Lab Test">All Lab Test</option>
+                                    <option value="Hematology">Hematology</option>
+                                    <option value="Chemical Pathology">Chemical Pathology</option>
+                                    <option value="Microbiology">Microbiology</option>
+                                    <option value="Histopathology">Histopathology</option>
+                                    <option value="Immunology / Serology">Immunology / Serology</option>
+                                    <option value="Blood Transfusion Science">Blood Transfusion Science</option>
+                                </select>
                             </div>
                         </div>
 
@@ -637,6 +663,7 @@ _____________________________________"
                                 <tr>
                                     <th className="text-left p-3 font-semibold">Test Name</th>
                                     <th className="text-left p-3 font-semibold">Code</th>
+                                    <th className="text-left p-3 font-semibold">Specialization</th>
                                     <th className="text-left p-3 font-semibold">Price</th>
                                     <th className="text-left p-3 font-semibold">Template</th>
                                     <th className="text-left p-3 font-semibold">Actions</th>
@@ -653,6 +680,15 @@ _____________________________________"
                                         </td>
                                         <td className="p-3 text-sm text-gray-600">
                                             {test.code || '-'}
+                                        </td>
+                                        <td className="p-3">
+                                            {test.labSpecialization ? (
+                                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded">
+                                                    {test.labSpecialization}
+                                                </span>
+                                            ) : (
+                                                <span className="text-xs text-gray-400 italic">None</span>
+                                            )}
                                         </td>
                                         <td className="p-3">
                                             <div className="text-sm">
@@ -703,7 +739,7 @@ _____________________________________"
                                         </td>
                                         <td className="p-3">
                                             <div className="flex gap-2">
-                                                {user?.role === 'admin' && (
+                                                {(user?.role === 'admin' || user?.role === 'super_admin') && (
                                                     <button
                                                         onClick={() => handleEdit(test)}
                                                         className="text-blue-600 hover:text-blue-800 flex items-center gap-1 text-sm"

@@ -9,7 +9,7 @@ const createAppointment = async (req, res) => {
     // If doctorId is provided (by admin/receptionist), use it. Otherwise use logged-in user (if doctor).
     // Ideally add validation here to ensure only authorized roles can set doctorId.
     let assignedDoctor = req.user._id;
-    if (doctorId && (req.user.role === 'admin' || req.user.role === 'receptionist' || req.user.role === 'nurse')) {
+    if (doctorId && (req.user.role === 'admin' || req.user.role === 'super_admin' || req.user.role === 'receptionist' || req.user.role === 'nurse')) {
         assignedDoctor = doctorId;
     }
 

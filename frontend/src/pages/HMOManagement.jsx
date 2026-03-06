@@ -28,7 +28,7 @@ const HMOManagement = () => {
     const { backendUrl } = useContext(AppContext);
 
     useEffect(() => {
-        if (user && user.role === 'admin') {
+        if (user && (user.role === 'admin' || user.role === 'super_admin')) {
             fetchHMOs();
         }
     }, [user]);
@@ -220,7 +220,7 @@ const HMOManagement = () => {
         }
     };
 
-    if (!user || user.role !== 'admin') {
+    if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
         return (
             <Layout>
                 <div className="bg-red-50 border border-red-200 p-6 rounded">

@@ -18,6 +18,10 @@ const chargeSchema = mongoose.Schema({
     description: { type: String },
     code: { type: String, unique: true, sparse: true }, // Optional: CPT/ICD code
     resultTemplate: { type: String }, // Default template for results
+    labSpecialization: {
+        type: String,
+        enum: ['', 'All Lab Test', 'Hematology', 'Chemical Pathology', 'Microbiology', 'Histopathology', 'Immunology / Serology', 'Blood Transfusion Science']
+    },
 }, {
     timestamps: true,
 });

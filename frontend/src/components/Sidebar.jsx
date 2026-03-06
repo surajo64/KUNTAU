@@ -208,7 +208,7 @@ const Sidebar = () => {
                     </>
                 )}
 
-                {user.role === 'admin' && (
+                {(user.role === 'admin' || user.role === 'super_admin') && (
                     <>
                         <SidebarDropdown title="General Management" icon={<FaCogs />} name="general">
                             <Link to="/admin/users" className={`flex items-center gap-3 p-2 rounded hover:bg-green-600 transition ${isActive('/admin/users')}`}>
@@ -232,9 +232,12 @@ const Sidebar = () => {
                             <Link to="/admin/bank-management" className={`flex items-center gap-3 p-2 rounded hover:bg-green-600 transition ${isActive('/admin/bank-management')}`}>
                                 <FaUniversity size={14} /> Bank Management
                             </Link>
-                            <Link to="/admin/settings" className={`flex items-center gap-3 p-2 rounded hover:bg-green-600 transition ${isActive('/admin/settings')}`}>
-                                <FaCogs size={14} /> System Settings
-                            </Link>
+                            {/* System Settings - Super Admin only */}
+                            {user.role === 'super_admin' && (
+                                <Link to="/admin/settings" className={`flex items-center gap-3 p-2 rounded hover:bg-yellow-600 transition bg-yellow-500/20 ${isActive('/admin/settings')}`}>
+                                    <FaCogs size={14} /> System Settings
+                                </Link>
+                            )}
                         </SidebarDropdown>
 
                         <SidebarDropdown title="Service Management" icon={<FaHeart />} name="services">

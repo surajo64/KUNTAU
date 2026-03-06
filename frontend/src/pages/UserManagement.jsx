@@ -20,7 +20,8 @@ const UserManagement = () => {
         email: '',
         password: '',
         role: '',
-        assignedPharmacy: ''
+        assignedPharmacy: '',
+        labSpecialization: ''
     });
     const [newPassword, setNewPassword] = useState('');
     const [pharmacies, setPharmacies] = useState([]);
@@ -28,7 +29,7 @@ const UserManagement = () => {
     const { backendUrl } = useContext(AppContext);
 
     useEffect(() => {
-        if (user && user.role === 'admin') {
+        if (user && (user.role === 'admin' || user.role === 'super_admin')) {
             fetchUsers();
             fetchPharmacies();
         }
@@ -84,7 +85,7 @@ const UserManagement = () => {
             await axios.post(`${backendUrl}/api/users`, newUser, config);
             toast.success('User created successfully!');
             setShowAddModal(false);
-            setNewUser({ name: '', email: '', password: '', role: '', assignedPharmacy: '' });
+            setNewUser({ name: '', email: '', password: '', role: '', assignedPharmacy: '', labSpecialization: '' });
             fetchUsers();
         } catch (error) {
             console.error(error);
@@ -139,7 +140,7 @@ const UserManagement = () => {
         }
     };
 
-    if (user?.role !== 'admin') {
+    if (user?.role !== 'admin' && user?.role !== 'super_admin') {
         return (
             <Layout>
                 <div className="bg-red-50 border border-red-200 p-6 rounded">
@@ -182,6 +183,8 @@ const UserManagement = () => {
                             onChange={(e) => setRoleFilter(e.target.value)}
                         >
                             <option value="all">All Roles</option>
+                            <option value="super_admin">Super Admins</option>
+                            <option value="admin">Admins</option>
                             <option value="doctor">Doctors</option>
                             <option value="nurse">Nurses</option>
                             <option value="pharmacist">Pharmacists</option>
@@ -190,7 +193,6 @@ const UserManagement = () => {
                             <option value="radiologist">Radiologists</option>
                             <option value="cashier">Cashiers</option>
                             <option value="receptionist">Receptionists</option>
-                            <option value="admin">Admins</option>
                         </select>
                     </div>
                     <button
@@ -220,13 +222,15 @@ const UserManagement = () => {
                                     <td className="p-4 font-semibold">{u.name}</td>
                                     <td className="p-4 text-gray-600">{u.email}</td>
                                     <td className="p-4">
-                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${u.role === 'admin' ? 'bg-red-100 text-red-800' :
-                                            u.role === 'doctor' ? 'bg-blue-100 text-blue-800' :
-                                                u.role === 'nurse' ? 'bg-green-100 text-green-800' :
-                                                    u.role === 'pharmacist' ? 'bg-purple-100 text-purple-800' :
-                                                        'bg-gray-100 text-gray-800'
+                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${u.role === 'super_admin' ? 'bg-yellow-100 text-yellow-800' :
+                                            u.role === 'admin' ? 'bg-red-100 text-red-800' :
+                                                u.role === 'doctor' ? 'bg-blue-100 text-blue-800' :
+                                                    u.role === 'nurse' ? 'bg-green-100 text-green-800' :
+                                                        u.role === 'pharmacist' ? 'bg-purple-100 text-purple-800' :
+                                                            'bg-gray-100 text-gray-800'
                                             }`}>
                                             {u.role.replace('_', ' ').toUpperCase()}
+                                            {u.labSpecialization && ` (${u.labSpecialization})`}
                                         </span>
                                     </td>
                                     <td className="p-4">
@@ -359,6 +363,10 @@ const UserManagement = () => {
                                     onChange={(e) => setNewUser({ ...newUser, role: e.target.value })}
                                 >
                                     <option value="">-- Select Role --</option>
+                                    {user.role === 'super_admin' && (
+                                        <option value="super_admin">Super Admin</option>
+                                    )}
+                                    <option value="admin">Admin</option>
                                     <option value="doctor">Doctor</option>
                                     <option value="nurse">Nurse</option>
                                     <option value="pharmacist">Pharmacist</option>
@@ -367,9 +375,28 @@ const UserManagement = () => {
                                     <option value="radiologist">Radiologist</option>
                                     <option value="cashier">Cashier</option>
                                     <option value="receptionist">Receptionist</option>
-                                    <option value="admin">Admin</option>
                                 </select>
                             </div>
+                            {(newUser.role === 'lab_technician' || newUser.role === 'lab_scientist') && (
+                                <div>
+                                    <label className="block text-sm font-semibold mb-1">Lab Specialization</label>
+                                    <select
+                                        className="w-full border p-2 rounded"
+                                        value={newUser.labSpecialization}
+                                        onChange={(e) => setNewUser({ ...newUser, labSpecialization: e.target.value })}
+                                        required
+                                    >
+                                        <option value="">-- Select Specialization --</option>
+                                        <option value="All Lab Test">All Lab Test</option>
+                                        <option value="Hematology">Hematology</option>
+                                        <option value="Chemical Pathology">Chemical Pathology</option>
+                                        <option value="Microbiology">Microbiology</option>
+                                        <option value="Histopathology">Histopathology</option>
+                                        <option value="Immunology / Serology">Immunology / Serology</option>
+                                        <option value="Blood Transfusion Science">Blood Transfusion Science</option>
+                                    </select>
+                                </div>
+                            )}
                             {(newUser.role === 'pharmacist' || newUser.role === 'doctor') && (
                                 <div>
                                     <label className="block text-sm font-semibold mb-1">Assigned Pharmacy</label>
@@ -446,6 +473,10 @@ const UserManagement = () => {
                                     value={selectedUser.role}
                                     onChange={(e) => setSelectedUser({ ...selectedUser, role: e.target.value })}
                                 >
+                                    {user.role === 'super_admin' && (
+                                        <option value="super_admin">Super Admin</option>
+                                    )}
+                                    <option value="admin">Admin</option>
                                     <option value="doctor">Doctor</option>
                                     <option value="nurse">Nurse</option>
                                     <option value="pharmacist">Pharmacist</option>
@@ -453,9 +484,28 @@ const UserManagement = () => {
                                     <option value="radiologist">Radiologist</option>
                                     <option value="cashier">Cashier</option>
                                     <option value="receptionist">Receptionist</option>
-                                    <option value="admin">Admin</option>
                                 </select>
                             </div>
+                            {(selectedUser.role === 'lab_technician' || selectedUser.role === 'lab_scientist') && (
+                                <div>
+                                    <label className="block text-sm font-semibold mb-1">Lab Specialization</label>
+                                    <select
+                                        className="w-full border p-2 rounded"
+                                        value={selectedUser.labSpecialization || ''}
+                                        onChange={(e) => setSelectedUser({ ...selectedUser, labSpecialization: e.target.value })}
+                                        required
+                                    >
+                                        <option value="">-- Select Specialization --</option>
+                                        <option value="All Lab Test">All Lab Test</option>
+                                        <option value="Hematology">Hematology</option>
+                                        <option value="Chemical Pathology">Chemical Pathology</option>
+                                        <option value="Microbiology">Microbiology</option>
+                                        <option value="Histopathology">Histopathology</option>
+                                        <option value="Immunology / Serology">Immunology / Serology</option>
+                                        <option value="Blood Transfusion Science">Blood Transfusion Science</option>
+                                    </select>
+                                </div>
+                            )}
                             {(selectedUser.role === 'pharmacist' || selectedUser.role === 'doctor') && (
                                 <div>
                                     <label className="block text-sm font-semibold mb-1">Assigned Pharmacy</label>
