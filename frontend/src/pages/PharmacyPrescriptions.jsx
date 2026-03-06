@@ -199,7 +199,7 @@ const PharmacyPrescriptions = () => {
                                     <td>${med.name}</td>
                                     <td>${med.dosage}</td>
                                     <td>${med.frequency}</td>
-                                    <td>${med.duration}</td>
+                                    <td>${(med.duration && !isNaN(med.duration)) ? `${med.duration} days` : med.duration}</td>
                                     <td>${med.quantity || 1}</td>
                                 </tr>
                             `).join('')}
@@ -318,7 +318,7 @@ const PharmacyPrescriptions = () => {
         if (!Array.isArray(medicines)) return medicines || '';
         return medicines.map((med, idx) => (
             <div key={idx} className="mb-1">
-                <span className="font-semibold">{med.name}</span> - {med.dosage}, {med.frequency}, {med.duration}
+                <span className="font-semibold">{med.name}</span> - {med.dosage}, {med.frequency}, {(med.duration && !isNaN(med.duration)) ? `${med.duration} days` : med.duration}
             </div>
         ));
     };
@@ -636,7 +636,7 @@ const PharmacyPrescriptions = () => {
                                                     <input
                                                         type="text"
                                                         className="border p-2 rounded w-full"
-                                                        value={med.duration}
+                                                        value={(med.duration && !isNaN(med.duration)) ? `${med.duration} days` : med.duration}
                                                         onChange={(e) => updateMedicine(index, 'duration', e.target.value)}
                                                         placeholder="e.g., 7 days"
                                                     />

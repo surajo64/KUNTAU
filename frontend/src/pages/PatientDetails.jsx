@@ -768,7 +768,7 @@ const PatientDetails = () => {
             dosage: drugDosage || 'As directed',
             form: drugForm || 'As directed',
             frequency: drugFrequency || 'As directed',
-            duration: drugDuration || 'As directed'
+            duration: (drugDuration && !isNaN(drugDuration)) ? `${drugDuration} days` : (drugDuration || 'As directed')
         };
 
         setTempDrugs([...tempDrugs, newDrugItem]);
@@ -2024,7 +2024,7 @@ const PatientDetails = () => {
                                                                                                 <div className="text-sm text-gray-600 space-y-1 mt-1">
                                                                                                     <p><span className="font-medium">Dosage:</span> {med.dosage}</p>
                                                                                                     <p><span className="font-medium">Frequency:</span> {med.frequency}</p>
-                                                                                                    <p><span className="font-medium">Duration:</span> {med.duration}</p>
+                                                                                                    <p><span className="font-medium">Duration:</span> {(med.duration && !isNaN(med.duration)) ? `${med.duration} days` : med.duration}</p>
                                                                                                     {med.instructions && (
                                                                                                         <p><span className="font-medium">Instructions:</span> {med.instructions}</p>
                                                                                                     )}
@@ -3000,7 +3000,7 @@ const PatientDetails = () => {
                                                             <td className="p-2">{drug.dosage}</td>
                                                             <td className="p-2">{drug.form}</td>
                                                             <td className="p-2">{drug.frequency}</td>
-                                                            <td className="p-2">{drug.duration}</td>
+                                                            <td className="p-2">{(drug.duration && !isNaN(drug.duration)) ? `${drug.duration} days` : drug.duration}</td>
                                                             <td className="p-2">{drug.quantity}</td>
                                                             <td className="p-2">
                                                                 <button
