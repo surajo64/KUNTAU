@@ -71,43 +71,6 @@ const PatientDetails = () => {
     const [selectedBed, setSelectedBed] = useState('');
     const [availableBeds, setAvailableBeds] = useState([]);
 
-    useEffect(() => {
-        if (showSoapModal && encounter) {
-            setSoapNote({
-                presentingComplaints: encounter.presentingComplaints || '',
-                historyOfPresentingComplaint: encounter.historyOfPresentingComplaint || '',
-                systemReview: encounter.systemReview || '',
-                pastMedicalSurgicalHistory: encounter.pastMedicalSurgicalHistory || '',
-                socialFamilyHistory: encounter.socialFamilyHistory || '',
-                drugsHistory: encounter.drugsHistory || '',
-                functionalCognitiveStatus: encounter.functionalCognitiveStatus || '',
-                menstruationGynecologicalObstetricsHistory: encounter.menstruationGynecologicalObstetricsHistory || '',
-                pregnancyHistory: encounter.pregnancyHistory || '',
-                immunization: encounter.immunization || '',
-                nutritional: encounter.nutritional || '',
-                developmentalMilestones: encounter.developmentalMilestones || '',
-                // Physical Examination
-                generalAppearance: encounter.generalAppearance || '',
-                heent: encounter.heent || '',
-                neck: encounter.neck || '',
-                cvs: encounter.cvs || '',
-                resp: encounter.resp || '',
-                abd: encounter.abd || '',
-                neuro: encounter.neuro || '',
-                msk: encounter.msk || '',
-                skin: encounter.skin || '',
-                assessment: encounter.assessment || '',
-                plan: encounter.plan || '',
-                diagnosis: encounter.diagnosis || []
-            });
-        }
-        // Reset conversion state when modal closes
-        if (!showConvertModal) {
-            setSelectedWard('');
-            setSelectedBed('');
-        }
-    }, [showSoapModal, encounter, showConvertModal]);
-
     // Orders
     const [selectedLabTest, setSelectedLabTest] = useState('');
     const [tempLabOrders, setTempLabOrders] = useState([]); // Multi-select for Lab
@@ -284,6 +247,80 @@ const PatientDetails = () => {
     const [showVitalsModal, setShowVitalsModal] = useState(false);
     const [showNurseNoteModal, setShowNurseNoteModal] = useState(false);
     const [nursingNote, setNursingNote] = useState('');
+
+    useEffect(() => {
+        if (showSoapModal && encounter && patient) {
+            const initialSoap = {
+                presentingComplaints: encounter.presentingComplaints || '',
+                historyOfPresentingComplaint: encounter.historyOfPresentingComplaint || '',
+                systemReview: encounter.systemReview || '',
+                pastMedicalSurgicalHistory: encounter.pastMedicalSurgicalHistory || '',
+                socialFamilyHistory: encounter.socialFamilyHistory || '',
+                drugsHistory: encounter.drugsHistory || '',
+                functionalCognitiveStatus: encounter.functionalCognitiveStatus || '',
+                menstruationGynecologicalObstetricsHistory: encounter.menstruationGynecologicalObstetricsHistory || '',
+                pregnancyHistory: encounter.pregnancyHistory || '',
+                immunization: encounter.immunization || '',
+                nutritional: encounter.nutritional || '',
+                developmentalMilestones: encounter.developmentalMilestones || '',
+                // Physical Examination
+                generalAppearance: encounter.generalAppearance || '',
+                heent: encounter.heent || '',
+                neck: encounter.neck || '',
+                cvs: encounter.cvs || '',
+                resp: encounter.resp || '',
+                abd: encounter.abd || '',
+                neuro: encounter.neuro || '',
+                msk: encounter.msk || '',
+                skin: encounter.skin || '',
+                assessment: encounter.assessment || '',
+                plan: encounter.plan || '',
+                diagnosis: encounter.diagnosis || []
+            };
+
+            // Restore draft if exists
+            const saved = localStorage.getItem(`draft_soap_${patient._id}_${encounter._id}`);
+            if (saved) {
+                try {
+                    const draft = JSON.parse(saved);
+                    setSoapNote({ ...initialSoap, ...draft });
+                } catch (e) {
+                    console.error("Error parsing SOAP draft", e);
+                    setSoapNote(initialSoap);
+                }
+            } else {
+                setSoapNote(initialSoap);
+            }
+        }
+
+        // Reset conversion state when modal closes
+        if (!showConvertModal) {
+            setSelectedWard('');
+            setSelectedBed('');
+        }
+    }, [showSoapModal, encounter, showConvertModal, patient]);
+
+    // Auto-save SOAP Note
+    useEffect(() => {
+        if (showSoapModal && encounter && patient) {
+            localStorage.setItem(`draft_soap_${patient._id}_${encounter._id}`, JSON.stringify(soapNote));
+        }
+    }, [soapNote, showSoapModal, encounter, patient]);
+
+    // Auto-save Clinical Note
+    useEffect(() => {
+        if (showNoteModal && encounter && patient) {
+            localStorage.setItem(`draft_note_${patient._id}_${encounter._id}`, newNote);
+        }
+    }, [newNote, showNoteModal, encounter, patient]);
+
+    // Restore Clinical Note Draft
+    useEffect(() => {
+        if (showNoteModal && encounter && patient) {
+            const saved = localStorage.getItem(`draft_note_${patient._id}_${encounter._id}`);
+            if (saved) setNewNote(saved);
+        }
+    }, [showNoteModal, encounter, patient]);
     const [vitalsData, setVitalsData] = useState({
         temperature: '',
         bloodPressure: '',
@@ -535,6 +572,7 @@ const PatientDetails = () => {
                 config
             );
             toast.success('SOAP notes saved!');
+            localStorage.removeItem(`draft_soap_${patient._id}_${encounter._id}`);
             setShowSoapModal(false);
 
             // Refresh encounter to show updated SOAP notes
@@ -970,6 +1008,7 @@ const PatientDetails = () => {
                 config
             );
             setClinicalNotes(data);
+            localStorage.removeItem(`draft_note_${patient._id}_${encounter._id}`);
             setNewNote('');
             setShowNoteModal(false);
             toast.success('Note added successfully');
