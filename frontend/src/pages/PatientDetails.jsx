@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
@@ -401,11 +401,11 @@ const PatientDetails = () => {
     // 2. Outpatient: Active for 24 hours from creation
     const isEncounterActive = () => {
         if (!encounter) {
-            console.log('ðŸ” isEncounterActive: No encounter');
+            console.log('🔍 isEncounterActive: No encounter');
             return false;
         }
         if (viewingPastEncounter) {
-            console.log('ðŸ” isEncounterActive: Viewing past encounter');
+            console.log('🔍 isEncounterActive: Viewing past encounter');
             return false;
         }
 
@@ -414,7 +414,7 @@ const PatientDetails = () => {
             // Active statuses: admitted, in_progress, with_doctor, in_nursing, in_lab, in_radiology, in_pharmacy, in_ward
             const activeStatuses = ['admitted', 'in_progress', 'with_doctor', 'in_nursing', 'in_lab', 'in_radiology', 'in_pharmacy', 'in_ward'];
             const isActive = activeStatuses.includes(encounter.encounterStatus);
-            console.log('ðŸ” isEncounterActive: Inpatient encounter', {
+            console.log('🔍 isEncounterActive: Inpatient encounter', {
                 encounterStatus: encounter.encounterStatus,
                 isActive,
                 ward: encounter.ward,
@@ -428,7 +428,7 @@ const PatientDetails = () => {
             const now = new Date().getTime();
             const isActive = (now - created) < oneDay;
             const hoursOld = Math.floor((now - created) / (60 * 60 * 1000));
-            console.log('ðŸ” isEncounterActive: Non-inpatient encounter', {
+            console.log('🔍 isEncounterActive: Non-inpatient encounter', {
                 type: encounter.type,
                 createdAt: encounter.createdAt,
                 hoursOld,
@@ -981,6 +981,39 @@ const PatientDetails = () => {
         }
     };
 
+    const handleDeleteOrder = async (type, orderId) => {
+        if (!window.confirm(`Are you sure you want to delete this ${type} order? This will also remove the associated pending charge.`)) return;
+
+        try {
+            setLoading(true);
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            let endpoint = '';
+            if (type === 'lab') endpoint = `${backendUrl}/api/lab/${orderId}`;
+            else if (type === 'radiology') endpoint = `${backendUrl}/api/radiology/${orderId}`;
+            else if (type === 'prescription') endpoint = `${backendUrl}/api/prescriptions/${orderId}`;
+
+            await axios.delete(endpoint, config);
+            toast.success(`${type.charAt(0).toUpperCase() + type.slice(1)} order deleted successfully`);
+
+            // Refresh the relevant list
+            if (type === 'lab') {
+                const labRes = await axios.get(`${backendUrl}/api/lab/visit/${encounter._id}`, config);
+                setCurrentLabOrders(labRes.data);
+            } else if (type === 'radiology') {
+                const radRes = await axios.get(`${backendUrl}/api/radiology/visit/${encounter._id}`, config);
+                setCurrentRadOrders(radRes.data);
+            } else if (type === 'prescription') {
+                const rxRes = await axios.get(`${backendUrl}/api/prescriptions/visit/${encounter._id}`, config);
+                setCurrentPrescriptions(rxRes.data);
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error(error.response?.data?.message || `Error deleting ${type} order`);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const printReferral = (referral) => {
         const printWindow = window.open('', '_blank');
         printWindow.document.write(`
@@ -1122,7 +1155,7 @@ const PatientDetails = () => {
 
         switch (vitalType) {
             case 'temperature':
-                // Normal: 36.1-37.2Â°C
+                // Normal: 36.1-37.2°C
                 if (numValue < 36.1) return 'text-yellow-600 font-semibold';
                 if (numValue > 37.2) return 'text-red-600 font-semibold';
                 return '';
@@ -1140,7 +1173,7 @@ const PatientDetails = () => {
                 return '';
 
             case 'spo2':
-                // Normal: â‰¥95%
+                // Normal: ≥95%
                 if (numValue < 95) return 'text-red-600 font-semibold';
                 if (numValue < 90) return 'text-red-700 font-bold';
                 return '';
@@ -1323,7 +1356,7 @@ const PatientDetails = () => {
                                             <div>
                                                 <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-2 mb-4">
                                                     <div className="bg-blue-50 p-2 rounded text-center">
-                                                        <p className="text-xs text-gray-600">Temp (Â°C)</p>
+                                                        <p className="text-xs text-gray-600">Temp (°C)</p>
                                                         <p className={`font-bold ${getVitalColorClass('temperature', vitals.temperature)}`}>
                                                             {vitals.temperature || '-'}
                                                         </p>
@@ -1844,6 +1877,15 @@ const PatientDetails = () => {
                                                                 <span className={`text-xs px-3 py-1 rounded ${order.status === 'completed' ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-600'}`}>
                                                                     {order.status}
                                                                 </span>
+                                                                {canEdit && (user.role === 'admin' || order.doctor === user._id || order.doctor?._id === user._id) && order.status !== 'completed' && order.charge?.status !== 'paid' && (
+                                                                    <button
+                                                                        onClick={() => handleDeleteOrder('lab', order._id)}
+                                                                        className="p-1.5 text-red-600 hover:bg-red-100 rounded-full transition-colors"
+                                                                        title="Delete Order"
+                                                                    >
+                                                                        <FaTrash />
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                         </div>
                                                         {order.signedBy && (
@@ -1937,6 +1979,15 @@ const PatientDetails = () => {
                                                                 <span className={`text-xs px-3 py-1 rounded ${order.status === 'completed' ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-600'}`}>
                                                                     {order.status}
                                                                 </span>
+                                                                {canEdit && (user.role === 'admin' || order.doctor === user._id || order.doctor?._id === user._id) && order.status !== 'completed' && order.charge?.status !== 'paid' && (
+                                                                    <button
+                                                                        onClick={() => handleDeleteOrder('radiology', order._id)}
+                                                                        className="p-1.5 text-red-600 hover:bg-red-100 rounded-full transition-colors"
+                                                                        title="Delete Order"
+                                                                    >
+                                                                        <FaTrash />
+                                                                    </button>
+                                                                )}
                                                             </div>
                                                         </div>
                                                         {order.signedBy && (
@@ -2042,6 +2093,15 @@ const PatientDetails = () => {
                                                                                         <span className={`text-xs px-3 py-1 rounded text-center ${rx.status === 'dispensed' ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-600'}`}>
                                                                                             {rx.status}
                                                                                         </span>
+                                                                                        {canEdit && (user.role === 'admin' || rx.doctor === user._id || rx.doctor?._id === user._id) && rx.status !== 'dispensed' && rx.charge?.status !== 'paid' && (
+                                                                                            <button
+                                                                                                onClick={() => handleDeleteOrder('prescription', rx._id)}
+                                                                                                className="p-1.5 text-red-600 hover:bg-red-100 rounded-full transition-colors"
+                                                                                                title="Delete Prescription"
+                                                                                            >
+                                                                                                <FaTrash />
+                                                                                            </button>
+                                                                                        )}
                                                                                     </div>
                                                                                 </div>
                                                                                 {rx.dispensedBy && (
@@ -2643,7 +2703,7 @@ const PatientDetails = () => {
                                                             }}
                                                         >
                                                             <div className="font-semibold">{charge.name}</div>
-                                                            <div className="text-xs text-gray-500">â‚¦{charge.basePrice}</div>
+                                                            <div className="text-xs text-gray-500">₦{charge.basePrice}</div>
                                                         </div>
                                                     ))
                                                 ) : (
@@ -2676,7 +2736,7 @@ const PatientDetails = () => {
                                                 {tempLabOrders.map(test => (
                                                     <tr key={test._id} className="border-b">
                                                         <td className="p-2">{test.name}</td>
-                                                        <td className="p-2">â‚¦{test.basePrice}</td>
+                                                        <td className="p-2">₦{test.basePrice}</td>
                                                         <td className="p-2">
                                                             <button
                                                                 onClick={() => handleRemoveLabFromQueue(test._id)}
@@ -2755,7 +2815,7 @@ const PatientDetails = () => {
                                                             }}
                                                         >
                                                             <div className="font-semibold">{charge.name}</div>
-                                                            <div className="text-xs text-gray-500">â‚¦{charge.basePrice}</div>
+                                                            <div className="text-xs text-gray-500">₦{charge.basePrice}</div>
                                                         </div>
                                                     ))
                                                 ) : (
@@ -2788,7 +2848,7 @@ const PatientDetails = () => {
                                                 {tempRadOrders.map(scan => (
                                                     <tr key={scan._id} className="border-b">
                                                         <td className="p-2">{scan.name}</td>
-                                                        <td className="p-2">â‚¦{scan.basePrice}</td>
+                                                        <td className="p-2">₦{scan.basePrice}</td>
                                                         <td className="p-2">
                                                             <button
                                                                 onClick={() => handleRemoveRadFromQueue(scan._id)}
@@ -2865,7 +2925,7 @@ const PatientDetails = () => {
                                                             onClick={() => handleSelectDrugFromSearch(drug)}
                                                         >
                                                             <div className="font-semibold">{drug.name}</div>
-                                                            <div className="text-xs text-gray-500">Stock: {drug.quantity} | â‚¦{drug.price}</div>
+                                                            <div className="text-xs text-gray-500">Stock: {drug.quantity} | ₦{drug.price}</div>
                                                         </div>
                                                     ))}
                                                 </div>
@@ -3094,7 +3154,7 @@ const PatientDetails = () => {
                             <div className="mb-4 p-3 bg-blue-50 rounded text-sm text-blue-800">
                                 <p className="font-bold">Provider: {patient.provider}</p>
                                 <p>
-                                    Rate: â‚¦{wards.find(w => w._id === selectedWard)?.rates?.[patient.provider] ||
+                                    Rate: ₦{wards.find(w => w._id === selectedWard)?.rates?.[patient.provider] ||
                                         wards.find(w => w._id === selectedWard)?.rates?.Standard ||
                                         wards.find(w => w._id === selectedWard)?.dailyRate || 0}
                                 </p>

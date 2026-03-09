@@ -6,7 +6,8 @@ const {
     getRadiologyOrdersByVisit,
     updateRadiologyReport,
     uploadRadiologyImages,
-    deleteRadiologyImage
+    deleteRadiologyImage,
+    deleteRadiologyOrder
 } = require('../controllers/radiologyController');
 const { protect } = require('../middleware/authMiddleware');
 const upload = require('../config/multerConfig');
@@ -21,5 +22,7 @@ router.put('/:id/report', protect, updateRadiologyReport);
 // Image upload and deletion routes
 router.post('/:id/upload-images', protect, upload.array('images', 10), uploadRadiologyImages);
 router.delete('/:id/images/:imageId', protect, deleteRadiologyImage);
+
+router.delete('/:id', protect, deleteRadiologyOrder);
 
 module.exports = router;

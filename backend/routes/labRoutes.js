@@ -5,7 +5,8 @@ const {
     getLabOrders,
     getLabOrdersByVisit,
     updateLabResult,
-    approveLabResult
+    approveLabResult,
+    deleteLabOrder
 } = require('../controllers/labController');
 const { protect } = require('../middleware/authMiddleware');
 
@@ -16,5 +17,6 @@ router.route('/')
 router.get('/visit/:id', protect, getLabOrdersByVisit);
 router.put('/:id/result', protect, updateLabResult);
 router.put('/:id/approve', protect, approveLabResult);
+router.delete('/:id', protect, deleteLabOrder);
 
 module.exports = router;

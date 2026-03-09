@@ -193,10 +193,42 @@ const approveLabResult = async (req, res) => {
     }
 };
 
+// @desc    Delete lab order
+// @route   DELETE /api/lab/:id
+// @access  Private (Doctor or Admin)
+const deleteLabOrder = async (req, res) => {
+    const order = await LabOrder.findById(req.params.id);
+
+    if (!order) {
+        return res.status(404).json({ message: 'Order not found' });
+    }
+
+    // Verify permissions: Only Admin or the Doctor who created the order
+    if (req.user.role !== 'admin' && order.doctor.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ message: 'Not authorized to delete this order.' });
+    }
+
+    // Check if there's an associated charge
+    if (order.charge) {
+        const encounterCharge = await EncounterCharge.findById(order.charge);
+        if (encounterCharge) {
+            if (encounterCharge.status !== 'pending') {
+                return res.status(400).json({ message: 'Cannot delete order because the charge has already been processed (paid or cancelled).' });
+            }
+            // Delete the encounter charge
+            await encounterCharge.deleteOne();
+        }
+    }
+
+    await order.deleteOne();
+    res.json({ message: 'Lab order and associated pending charge deleted.' });
+};
+
 module.exports = {
     createLabOrder,
     getLabOrders,
     getLabOrdersByVisit,
     updateLabResult,
     approveLabResult,
+    deleteLabOrder,
 };

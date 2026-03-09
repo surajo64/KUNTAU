@@ -1,4 +1,5 @@
 const Prescription = require('../models/prescriptionModel');
+const EncounterCharge = require('../models/encounterChargeModel');
 const Visit = require('../models/visitModel');
 
 // @desc    Create new prescription
@@ -415,6 +416,42 @@ const dispenseWithInventory = async (req, res) => {
     }
 };
 
+// @desc    Delete prescription
+// @route   DELETE /api/prescriptions/:id
+// @access  Private (Doctor or Admin)
+const deletePrescription = async (req, res) => {
+    const prescription = await Prescription.findById(req.params.id);
+
+    if (!prescription) {
+        return res.status(404).json({ message: 'Prescription not found' });
+    }
+
+    // Verify permissions: Only Admin or the Doctor who created the prescription
+    if (req.user.role !== 'admin' && prescription.doctor.toString() !== req.user._id.toString()) {
+        return res.status(403).json({ message: 'Not authorized to delete this prescription.' });
+    }
+
+    // Safety check: Cannot delete if dispensed
+    if (prescription.status === 'dispensed') {
+        return res.status(400).json({ message: 'Cannot delete a prescription that has already been dispensed.' });
+    }
+
+    // Check if there's an associated charge
+    if (prescription.charge) {
+        const encounterCharge = await EncounterCharge.findById(prescription.charge);
+        if (encounterCharge) {
+            if (encounterCharge.status !== 'pending') {
+                return res.status(400).json({ message: 'Cannot delete prescription because the charge has already been processed (paid or cancelled).' });
+            }
+            // Delete the encounter charge
+            await encounterCharge.deleteOne();
+        }
+    }
+
+    await prescription.deleteOne();
+    res.json({ message: 'Prescription and associated pending charge deleted.' });
+};
+
 module.exports = {
     createPrescription,
     getPrescriptions,
@@ -423,4 +460,5 @@ module.exports = {
     generatePrescriptionCharge,
     dispensePrescription,
     dispenseWithInventory,
+    deletePrescription,
 };
