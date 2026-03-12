@@ -1090,7 +1090,6 @@ const PatientDetails = () => {
                             ${systemSettings?.phone && systemSettings?.email ? ' | ' : ''}
                             ${systemSettings?.email ? `Email: ${systemSettings.email}` : ''}
                         </div>
-                        ${systemSettings?.reportHeader ? `<div class="hospital-info" style="margin-top: 10px; font-style: italic;">${systemSettings.reportHeader}</div>` : ''}
                         
                         <div class="doc-title">Referral Form</div>
                     </div>
@@ -1283,19 +1282,48 @@ const PatientDetails = () => {
                 </div>
             </div>
             {
-                user.role === 'doctor' && (
+                (user.role === 'doctor' || user.role === 'receptionist') && (
                     <div className="flex justify-end mb-4">
+                        {user.role === 'doctor' && (
+                            <button
+                                onClick={() => setShowAppointmentModal(true)}
+                                className="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-blue-700"
+                            >
+                                <FaCalendarPlus /> Schedule Follow-up
+                            </button>
+                        )}
                         <button
-                            onClick={() => setShowAppointmentModal(true)}
-                            className="bg-blue-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-blue-700"
-                        >
-                            <FaCalendarPlus /> Schedule Follow-up
-                        </button>
-                        <button
-                            onClick={() => setShowReferralModal(true)}
+                            onClick={() => {
+                                if (user.role === 'receptionist') {
+                                    setActiveTab('referrals');
+                                    document.getElementById('visit-sections')?.scrollIntoView({ behavior: 'smooth' });
+                                    return;
+                                }
+                                if (encounter) {
+                                    const diagStr = (encounter.diagnosis || []).map(d => `${d.code}: ${d.description}`).join(', ');
+
+                                    const historyParts = [];
+                                    if (encounter.pastMedicalSurgicalHistory) historyParts.push(`PMH: ${encounter.pastMedicalSurgicalHistory}`);
+                                    if (encounter.socialFamilyHistory) historyParts.push(`Social/Family: ${encounter.socialFamilyHistory}`);
+                                    if (encounter.drugsHistory) historyParts.push(`Drugs: ${encounter.drugsHistory}`);
+
+                                    // Add latest clinical note if any
+                                    if (clinicalNotes && clinicalNotes.length > 0) {
+                                        const latestNote = clinicalNotes[clinicalNotes.length - 1];
+                                        historyParts.push(`Latest Note: ${latestNote.text}`);
+                                    }
+
+                                    setReferralData({
+                                        ...referralData,
+                                        diagnosis: diagStr || '',
+                                        medicalHistory: historyParts.join('\n')
+                                    });
+                                }
+                                setShowReferralModal(true);
+                            }}
                             className="bg-purple-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-purple-700 ml-2"
                         >
-                            <FaFileMedical /> Referral
+                            <FaFileMedical /> {user.role === 'receptionist' ? 'View Referrals' : 'Referral'}
                         </button>
                     </div>
                 )
