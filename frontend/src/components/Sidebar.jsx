@@ -1,9 +1,10 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { FaUserMd, FaPills, FaFlask, FaXRay, FaUserInjured, FaCalendarAlt, FaNotesMedical, FaSignOutAlt, FaTachometerAlt, FaDollarSign, FaFileInvoiceDollar, FaHeart, FaHospital, FaBed, FaChevronDown, FaChevronRight, FaCogs, FaMoneyBillWave, FaExchangeAlt, FaTrash, FaUniversity, FaChartLine, FaFileMedicalAlt } from 'react-icons/fa';
+import { FaUserMd, FaPills, FaFlask, FaXRay, FaUserInjured, FaCalendarAlt, FaNotesMedical, FaSignOutAlt, FaTachometerAlt, FaDollarSign, FaFileInvoiceDollar, FaHeart, FaHospital, FaBed, FaChevronDown, FaChevronRight, FaCogs, FaMoneyBillWave, FaExchangeAlt, FaTrash, FaUniversity, FaChartLine, FaFileMedicalAlt, FaLock } from 'react-icons/fa';
 import { useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { AppContext } from '../context/AppContext';
 import AuthContext from '../context/AuthContext';
+import ChangePasswordModal from './ChangePasswordModal';
 
 const Sidebar = () => {
     const { backendUrl } = useContext(AppContext);
@@ -11,6 +12,7 @@ const Sidebar = () => {
     const location = useLocation();
     const navigate = useNavigate();
     const [openDropdown, setOpenDropdown] = useState('');
+    const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
     const [hospitalName, setHospitalName] = useState('SUD EMR');
     const [hospitalLogo, setHospitalLogo] = useState(null);
@@ -304,13 +306,26 @@ const Sidebar = () => {
                         <p className="text-xs text-green-300 capitalize">{user.role}</p>
                     </div>
                 </div>
-                <button
-                    onClick={handleLogout}
-                    className="w-full flex items-center justify-center gap-2 bg-red-600 p-2 rounded hover:bg-red-700 transition"
-                >
-                    <FaSignOutAlt /> Logout
-                </button>
+                <div className="space-y-2">
+                    <button
+                        onClick={() => setIsPasswordModalOpen(true)}
+                        className="w-full flex items-center justify-center gap-2 bg-green-700 p-2 rounded hover:bg-green-600 transition text-sm"
+                    >
+                        <FaLock /> Change Password
+                    </button>
+                    <button
+                        onClick={handleLogout}
+                        className="w-full flex items-center justify-center gap-2 bg-red-600 p-2 rounded hover:bg-red-700 transition text-sm"
+                    >
+                        <FaSignOutAlt /> Logout
+                    </button>
+                </div>
             </div>
+
+            <ChangePasswordModal 
+                isOpen={isPasswordModalOpen} 
+                onClose={() => setIsPasswordModalOpen(false)} 
+            />
         </div>
     );
 };

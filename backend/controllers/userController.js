@@ -218,6 +218,36 @@ const resetUserPassword = async (req, res) => {
     }
 };
 
+// @desc    Change user password
+// @route   PUT /api/users/profile/password
+// @access  Private
+const changePassword = async (req, res) => {
+    try {
+        const { currentPassword, newPassword } = req.body;
+
+        const user = await User.findById(req.user._id);
+
+        if (!user) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        if (!(await user.matchPassword(currentPassword))) {
+            return res.status(401).json({ message: 'Incorrect current password' });
+        }
+
+        if (!newPassword || newPassword.length < 6) {
+            return res.status(400).json({ message: 'New password must be at least 6 characters' });
+        }
+
+        user.password = newPassword;
+        await user.save();
+
+        res.json({ message: 'Password changed successfully' });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     registerUser,
     loginUser,
@@ -227,4 +257,5 @@ module.exports = {
     deleteUser,
     resetUserPassword,
     getDoctors,
+    changePassword,
 };
