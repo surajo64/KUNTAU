@@ -29,13 +29,24 @@ const AdminDashboard = () => {
     const [revenueByDepartment, setRevenueByDepartment] = useState([]);
     const [recentActivity, setRecentActivity] = useState([]);
     const [activeTab, setActiveTab] = useState('overview'); // overview, reports, users
+    const [settings, setSettings] = useState(null);
     const [showRegisterPatientModal, setShowRegisterPatientModal] = useState(false);
 
     useEffect(() => {
         if (user && (user.role === 'admin' || user.role === 'super_admin')) {
             fetchDashboardData();
+            fetchSettings();
         }
     }, [user]);
+
+    const fetchSettings = async () => {
+        try {
+            const { data } = await axios.get(`${backendUrl}/api/settings`);
+            setSettings(data);
+        } catch (error) {
+            console.error(error);
+        }
+    };
 
     const fetchDashboardData = async () => {
         try {
@@ -327,10 +338,10 @@ const AdminDashboard = () => {
                             <div>
                                 <h4 className="font-semibold text-gray-700 mb-3">Application Details</h4>
                                 <div className="space-y-2 text-sm">
-                                    <p><span className="font-semibold">Name:</span> SUD EMR</p>
-                                    <p><span className="font-semibold">Version:</span> 4.0</p>
-                                    <p><span className="font-semibold">Environment:</span> Production</p>
-                                    <p><span className="font-semibold">Database:</span> MongoDB</p>
+                                    <p><span className="font-semibold">Name:</span> {settings?.hospitalName || 'SUD EMR'}</p>
+                                    <p><span className="font-semibold">Version:</span> {settings?.systemVersion || '4.0'}</p>
+                                    <p><span className="font-semibold">Environment:</span> {settings?.environment || 'Production'}</p>
+                                    <p><span className="font-semibold">Database:</span> {settings?.database || 'MongoDB'}</p>
                                 </div>
                             </div>
                             <div>

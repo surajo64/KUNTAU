@@ -19,6 +19,8 @@ const Settings = () => {
         email: '',
         website: '',
         systemVersion: '',
+        environment: '',
+        database: '',
         reportHeader: '',
         reportFooter: '',
         currencySymbol: '₦',
@@ -106,7 +108,7 @@ const Settings = () => {
                             </h2>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div className="md:col-span-2">
-                                    <label className="block text-sm font-semibold mb-1 text-gray-700">Hospital Name</label>
+                                    <label className="block text-sm font-semibold mb-1 text-gray-700">Emr Name</label>
                                     <input
                                         type="text"
                                         name="hospitalName"
@@ -264,6 +266,28 @@ const Settings = () => {
                                     onChange={handleInputChange}
                                     className="w-full border p-2 rounded bg-gray-50 font-mono"
                                     placeholder="1.0.0"
+                                />
+                            </div>
+                            <div className="mt-4">
+                                <label className="block text-sm font-semibold mb-1 text-gray-700">Environment</label>
+                                <input
+                                    type="text"
+                                    name="environment"
+                                    value={settings.environment}
+                                    onChange={handleInputChange}
+                                    className="w-full border p-2 rounded bg-gray-50"
+                                    placeholder="Production"
+                                />
+                            </div>
+                            <div className="mt-4">
+                                <label className="block text-sm font-semibold mb-1 text-gray-700">Database</label>
+                                <input
+                                    type="text"
+                                    name="database"
+                                    value={settings.database}
+                                    onChange={handleInputChange}
+                                    className="w-full border p-2 rounded bg-gray-50"
+                                    placeholder="MongoDB"
                                 />
                             </div>
                             <div className="mt-4">

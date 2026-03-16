@@ -1,6 +1,6 @@
 import { useState, useContext } from 'react';
 import { useNavigate } from 'react-router-dom';
-import AuthContext from '../context/AuthContext';
+import { AuthContext } from '../context/AuthContext';
 import LoadingOverlay from '../components/loadingOverlay';
 import useHospitalSettings from '../hooks/useHospitalSettings';
 
@@ -27,57 +27,144 @@ const Login = () => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-100">
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 sm:p-8">
             {loading && <LoadingOverlay />}
-            <div className="bg-white p-8 rounded shadow-md w-96">
-                {/* Hospital Branding */}
-                <div className="text-center mb-6">
-                    {settings.hospitalLogo && (
+
+
+            <div className="max-w-5xl w-full bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col md:flex-row transform transition-all duration-500 hover:shadow-3xl">
+                {/* Left Side: CareFlow EMR Branding (Hidden on small screens) */}
+                <div className="hidden md:flex md:w-1/2 bg-gradient-to-br from-green-600 via-emerald-700 to-teal-900 p-12 flex-col justify-between relative overflow-hidden text-white">
+                    {/* Decorative Background Elements */}
+                    <div className="absolute top-0 left-0 w-64 h-64 bg-white opacity-5 rounded-full -translate-x-1/2 -translate-y-1/2"></div>
+                    <div className="absolute bottom-0 right-0 w-80 h-80 bg-green-400 opacity-10 rounded-full translate-x-1/3 translate-y-1/3"></div>
+
+                    {/* Animated gradient overlay */}
+                    <div className="absolute inset-0 bg-gradient-to-tr from-green-600/20 via-transparent to-teal-900/20 animate-pulse"></div>
+
+                    <div className="relative z-10 animate-fade-in-up">
+                        <h2 className="text-4xl font-extrabold tracking-tight mb-2">
+                            CareFlow<sup className="text-2xl">360</sup>
+                        </h2>
+                        <div className="w-16 h-1 bg-green-300 rounded mb-6"></div>
+                        <p className="text-lg text-green-100 font-medium leading-relaxed italic">
+                            “Connecting Every Point of Patient Care.”
+                        </p>
+                    </div>
+
+                    <div className="relative z-10 flex justify-center my-8">
                         <img
-                            src={settings.hospitalLogo}
-                            alt="Hospital Logo"
-                            className="h-20 w-auto mx-auto mb-3 object-contain"
+                            src="/emrlogo.png"
+                            alt="EMR Logo"
+                            className="h-48 w-auto object-contain drop-shadow-2xl filter brightness-110 contrast-125"
                         />
-                    )}
-                    {settings.hospitalName && (
-                        <h1 className="text-xl font-bold text-gray-800 mb-2">
-                            {settings.hospitalName}
-                        </h1>
-                    )}
+                    </div>
+
+                    <div className="relative z-10 mt-auto">
+                        <p className="text-sm text-green-200 opacity-80">
+                            Empowering healthcare professionals with an intuitive, seamless, and secure digital experience.
+                        </p>
+                    </div>
                 </div>
 
+                {/* Right Side: Login Form */}
+                <div className="w-full md:w-1/2 p-8 sm:p-12 flex flex-col justify-center bg-white relative">
+                    {/* Decorative top border */}
+                    <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-green-600 via-emerald-500 to-teal-600"></div>
 
-                {error && <p className="text-red-500 mb-4">{error}</p>}
-                <form onSubmit={handleSubmit}>
-                    <div className="mb-4">
-                        <label className="block text-gray-700 text-sm font-bold mb-2">Email</label>
-                        <input
-                            type="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
-                            className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
+                    <div className="mb-8 text-center">
+                        {/* Hospital Branding */}
+                        {settings.hospitalLogo ? (
+                            <img
+                                src={settings.hospitalLogo}
+                                alt="Hospital Logo"
+                                className="h-20 w-auto mx-auto mb-4 object-contain transition-transform duration-300 hover:scale-105"
+                            />
+                        ) : (
+                            <div className="h-20 w-20 bg-gradient-to-br from-green-100 to-emerald-100 text-green-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-inner transform transition-transform duration-300 hover:scale-105 hover:rotate-3">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                </svg>
+                            </div>
+                        )}
+                        <h1 className="text-3xl font-bold text-gray-800 tracking-tight">
+                            {settings.reportHeader || 'Welcome Back'}
+                        </h1>
+                        <p className="text-sm text-gray-500 mt-2">Please sign in to your account</p>
+                    </div>
+
+                    {error && (
+                        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-6 rounded-md animate-pulse">
+                            <p className="text-sm text-red-700 font-medium">{error}</p>
+                        </div>
+                    )}
+
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        <div>
+                            <label className="block text-sm font-semibold text-gray-700 mb-2">Email Address</label>
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-300 shadow-sm hover:shadow-md"
+                                placeholder="Enter your email"
+                                required
+                            />
+                        </div>
+                        <div>
+                            <div className="flex items-center justify-between mb-2">
+                                <label className="block text-sm font-semibold text-gray-700">Password</label>
+                            </div>
+                            <input
+                                type="password"
+                                value={password}
+                                onChange={(e) => setPassword(e.target.value)}
+                                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 transition-all duration-300 shadow-sm hover:shadow-md"
+                                placeholder="Enter your password"
+                                required
+                            />
+                        </div>
+
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className={`w-full py-3 px-4 flex justify-center items-center rounded-lg text-white font-semibold text-lg transition-all duration-300 shadow-md transform
+                        ${loading ? 'bg-green-400 cursor-not-allowed' : 'bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 hover:shadow-xl hover:-translate-y-0.5 active:translate-y-0'}
+                    `}
+                        >
+                            {loading ? (
+                                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            ) : (
+                                "Sign In"
+                            )}
+                        </button>
+                    </form>
+
+                    {/* Mobile Branding - Centered */}
+                    <div className="mt-8 text-center md:hidden">
+                        <div className="relative">
+                            <div className="absolute inset-0 flex items-center">
+                                <div className="w-full border-t border-gray-200"></div>
+                            </div>
+                            <div className="relative flex justify-center">
+                                <span className="px-3 bg-white text-xs text-gray-400 font-medium">
+                                    CareFlow<sup>360</sup>
+                                </span>
+                            </div>
+                        </div>
+                        <p className="text-xs text-gray-400 font-medium italic mt-4 mb-3">“Connecting Every Point of Patient Care.”</p>
+                        <img
+                            src="/emrlogo.png"
+                            alt="EMR Logo"
+                            className="h-14 w-auto mx-auto object-contain opacity-80"
                         />
                     </div>
-                    <div className="mb-6">
-                        <label className="block text-gray-700 text-sm font-bold mb-2">Password</label>
-                        <input
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            className="w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                        />
-                    </div>
-                    <button
-                        type="submit"
-                        className="w-full bg-green-600 text-white py-2 rounded hover:bg-green-700 transition duration-200"
-                    >
-                        Login
-                    </button>
-                </form>
+                </div>
             </div>
         </div>
+
     );
 };
 

@@ -8,6 +8,8 @@ const settingSchema = mongoose.Schema({
     email: { type: String, default: '' },
     website: { type: String, default: '' },
     systemVersion: { type: String, default: '1.0.0' },
+    environment: { type: String, default: 'Production' },
+    database: { type: String, default: 'MongoDB' },
     reportHeader: { type: String, default: '' },
     reportFooter: { type: String, default: '' },
     currencySymbol: { type: String, default: '₦' },

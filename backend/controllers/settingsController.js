@@ -34,6 +34,8 @@ const updateSettings = async (req, res) => {
             settings.email = req.body.email || settings.email;
             settings.website = req.body.website || settings.website;
             settings.systemVersion = req.body.systemVersion || settings.systemVersion;
+            settings.environment = req.body.environment || settings.environment;
+            settings.database = req.body.database || settings.database;
             settings.reportHeader = req.body.reportHeader || settings.reportHeader;
             settings.reportFooter = req.body.reportFooter || settings.reportFooter;
             settings.currencySymbol = req.body.currencySymbol || settings.currencySymbol;

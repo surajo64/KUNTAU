@@ -47,7 +47,7 @@ const Layout = ({ children }) => {
                             />
                         )}
                         <h2 className="text-xl font-semibold text-gray-800">
-                            {settings.hospitalName || 'SUD Electronic Medical Records'}
+                            {settings.reportHeader || 'CareFlow 360'}
                         </h2>
                     </div>
                     <div className="text-sm text-gray-500">

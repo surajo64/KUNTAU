@@ -4,7 +4,12 @@ import LoadingOverlay from '../components/loadingOverlay';
 import useInactivityTimeout from '../hooks/useInactivityTimeout';
 import { AppContext } from './AppContext';
 
-const AuthContext = createContext();
+export const AuthContext = createContext({
+    user: null,
+    loading: true,
+    login: async () => ({ success: false, message: 'Context not initialized' }),
+    logout: () => {},
+});
 
 export const AuthProvider = ({ children }) => {
     const [user, setUser] = useState(null);
@@ -60,5 +65,6 @@ export const AuthProvider = ({ children }) => {
         </AuthContext.Provider>
     );
 };
+
 
 export default AuthContext;

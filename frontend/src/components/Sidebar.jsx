@@ -3,7 +3,7 @@ import { FaUserMd, FaPills, FaFlask, FaXRay, FaUserInjured, FaCalendarAlt, FaNot
 import { useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { AppContext } from '../context/AppContext';
-import AuthContext from '../context/AuthContext';
+import { AuthContext } from '../context/AuthContext';
 import ChangePasswordModal from './ChangePasswordModal';
 
 const Sidebar = () => {
@@ -14,7 +14,7 @@ const Sidebar = () => {
     const [openDropdown, setOpenDropdown] = useState('');
     const [isPasswordModalOpen, setIsPasswordModalOpen] = useState(false);
 
-    const [hospitalName, setHospitalName] = useState('SUD EMR');
+    const [hospitalName, setHospitalName] = useState('CareFlow');
     const [hospitalLogo, setHospitalLogo] = useState(null);
 
 
@@ -73,12 +73,8 @@ const Sidebar = () => {
     return (
         <div className="w-64 bg-green-800 text-white min-h-screen flex flex-col">
             <div className="p-6 text-2xl font-bold border-b border-green-700 flex items-center gap-2">
-                {hospitalLogo ? (
-                    <img src={hospitalLogo} alt="Hospital Logo" className="h-10 w-10 object-contain" />
-                ) : (
-                    <FaNotesMedical />
-                )}
-                {hospitalName}
+
+                {hospitalName}<sup className="text-xl">360</sup>
             </div>
 
             <nav className="flex-1 p-4 space-y-2 overflow-y-auto">
@@ -322,9 +318,9 @@ const Sidebar = () => {
                 </div>
             </div>
 
-            <ChangePasswordModal 
-                isOpen={isPasswordModalOpen} 
-                onClose={() => setIsPasswordModalOpen(false)} 
+            <ChangePasswordModal
+                isOpen={isPasswordModalOpen}
+                onClose={() => setIsPasswordModalOpen(false)}
             />
         </div>
     );
