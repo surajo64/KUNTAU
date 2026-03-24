@@ -14,9 +14,10 @@ const FrontDeskChargeManagement = () => {
     const [showForm, setShowForm] = useState(false);
     const [editingCharge, setEditingCharge] = useState(null);
     const [searchTerm, setSearchTerm] = useState('');
+    const [filterType, setFilterType] = useState('all');
     const [formData, setFormData] = useState({
         name: '',
-        type: 'consultation',
+        type: 'other',
         basePrice: '',
         standardFee: '',
         retainershipFee: '',
@@ -35,9 +36,7 @@ const FrontDeskChargeManagement = () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             const { data } = await axios.get(`${backendUrl}/api/charges`, config);
-            // Filter to only show consultation charges
-            const consultationCharges = data.filter(charge => charge.type === 'consultation');
-            setCharges(consultationCharges);
+            setCharges(data);
         } catch (error) {
             console.error(error);
             toast.error('Error fetching charges');
@@ -143,7 +142,7 @@ const FrontDeskChargeManagement = () => {
     const resetForm = () => {
         setFormData({
             name: '',
-            type: 'consultation',
+            type: 'other',
             basePrice: '',
             standardFee: '',
             retainershipFee: '',
@@ -219,11 +218,14 @@ const FrontDeskChargeManagement = () => {
         radiology: 'Radiology Investigation',
         drugs: 'Drug Purchase',
         nursing: 'Nursing Service',
+        labour: 'Labour Fee',
+        theatre: 'Theatre Fee',
         other: 'Other'
     };
 
     const activeCharges = charges
         .filter(c => c.active)
+        .filter(c => filterType === 'all' || c.type === filterType)
         .filter(c =>
             c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             (c.code || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -232,6 +234,7 @@ const FrontDeskChargeManagement = () => {
 
     const inactiveCharges = charges
         .filter(c => !c.active)
+        .filter(c => filterType === 'all' || c.type === filterType)
         .filter(c =>
             c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
             (c.code || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -307,13 +310,16 @@ const FrontDeskChargeManagement = () => {
                                     onChange={handleInputChange}
                                     className="w-full border p-2 rounded"
                                     required
-                                    disabled
                                 >
                                     <option value="consultation">Consultation</option>
+                                    <option value="lab">Lab Investigation</option>
+                                    <option value="radiology">Radiology Investigation</option>
+                                    <option value="drugs">Drug Purchase</option>
+                                    <option value="nursing">Nursing Service</option>
+                                    <option value="labour">Labour Fee</option>
+                                    <option value="theatre">Theatre Fee</option>
+                                    <option value="other">Other</option>
                                 </select>
-                                <p className="text-xs text-gray-500 mt-1">
-                                    This page manages consultation charges only
-                                </p>
                             </div>
                         </div>
 
@@ -445,15 +451,30 @@ const FrontDeskChargeManagement = () => {
                 </div>
             )}
 
-            {/* Search */}
-            <div className="mb-4">
+            {/* Search & Filter */}
+            <div className="mb-4 flex gap-3">
                 <input
                     type="text"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full border p-2 rounded"
+                    className="flex-1 border p-2 rounded"
                     placeholder="Search charges by name, code, or type..."
                 />
+                <select
+                    value={filterType}
+                    onChange={(e) => setFilterType(e.target.value)}
+                    className="border p-2 rounded text-sm"
+                >
+                    <option value="all">All Types</option>
+                    <option value="consultation">Consultation</option>
+                    <option value="lab">Lab</option>
+                    <option value="radiology">Radiology</option>
+                    <option value="drugs">Drugs</option>
+                    <option value="nursing">Nursing</option>
+                    <option value="labour">Labour Fee</option>
+                    <option value="theatre">Theatre Fee</option>
+                    <option value="other">Other</option>
+                </select>
             </div>
 
             {/* Active Charges List - Grouped by Type */}

@@ -35,6 +35,12 @@ const FrontDeskDashboard = () => {
     const [showConvertModal, setShowConvertModal] = useState(false);
     const [selectedEncounterId, setSelectedEncounterId] = useState(null);
 
+    // Add Charges Modal State
+    const [showAddChargesModal, setShowAddChargesModal] = useState(false);
+    const [addChargesPatient, setAddChargesPatient] = useState(null);
+    const [addChargesEncounterId, setAddChargesEncounterId] = useState(null);
+    const [selectedAdditionalCharges, setSelectedAdditionalCharges] = useState([]);
+
     const { user } = useContext(AuthContext);
     const { backendUrl } = useContext(AppContext);
 
@@ -128,12 +134,9 @@ const FrontDeskDashboard = () => {
 
     const fetchCharges = async () => {
         try {
-
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             const { data } = await axios.get(`${backendUrl}/api/charges?active=true`, config);
-            // Filter to only show consultation charges
-            const consultationCharges = data.filter(charge => charge.type === 'consultation');
-            setCharges(consultationCharges);
+            setCharges(data);
         } catch (error) {
             console.error(error);
             toast.error('Error fetching charges');
@@ -328,8 +331,10 @@ const FrontDeskDashboard = () => {
         }
     };
 
-    // Group charges by type
+    // Group charges by type (Filter out Lab, Radiology, Drugs, Nursing for Front Desk)
+    const allowedFrontDeskTypes = ['consultation', 'labour', 'theatre', 'other'];
     const chargesByType = charges.reduce((acc, charge) => {
+        if (!allowedFrontDeskTypes.includes(charge.type)) return acc;
         if (!acc[charge.type]) {
             acc[charge.type] = [];
         }
@@ -344,8 +349,72 @@ const FrontDeskDashboard = () => {
         radiology: 'Radiology Investigation',
         drugs: 'Drug Purchase',
         nursing: 'Nursing Service',
+        labour: 'Labour Fee',
+        theatre: 'Theatre Fee',
         other: 'Other'
     };
+
+    // --- Add Charges to Existing Encounter ---
+    const handleAddChargesClick = (patient) => {
+        const encounters = patientEncounters[patient._id] || [];
+        const today = new Date().toDateString();
+        const activeEncounter = encounters.find(e => {
+            const eDate = new Date(e.createdAt).toDateString();
+            return eDate === today || (e.type !== 'discharged');
+        });
+        if (!activeEncounter) {
+            toast.error('No active encounter found for this patient today');
+            return;
+        }
+        setAddChargesPatient(patient);
+        setAddChargesEncounterId(activeEncounter._id);
+        setSelectedAdditionalCharges([]);
+        setShowAddChargesModal(true);
+    };
+
+    const handleToggleAdditionalCharge = (chargeId) => {
+        setSelectedAdditionalCharges(prev =>
+            prev.includes(chargeId) ? prev.filter(id => id !== chargeId) : [...prev, chargeId]
+        );
+    };
+
+    const handleSubmitAdditionalCharges = async () => {
+        if (selectedAdditionalCharges.length === 0) {
+            toast.error('Please select at least one charge');
+            return;
+        }
+        try {
+            setLoading(true);
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            for (const chargeId of selectedAdditionalCharges) {
+                await axios.post(`${backendUrl}/api/encounter-charges`, {
+                    encounterId: addChargesEncounterId,
+                    patientId: addChargesPatient._id,
+                    chargeId,
+                    quantity: 1,
+                    notes: 'Added at front desk'
+                }, config);
+            }
+            toast.success(`${selectedAdditionalCharges.length} charge(s) added successfully! Patient can now pay at the cashier.`);
+            setShowAddChargesModal(false);
+            setAddChargesPatient(null);
+            setAddChargesEncounterId(null);
+            setSelectedAdditionalCharges([]);
+        } catch (error) {
+            console.error(error);
+            toast.error(error.response?.data?.message || 'Error adding charges');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Group all charges by type for the add-charges modal (Filter out Lab, Radiology, Drugs, Nursing)
+    const allChargesByType = charges.reduce((acc, charge) => {
+        if (!allowedFrontDeskTypes.includes(charge.type)) return acc;
+        if (!acc[charge.type]) acc[charge.type] = [];
+        acc[charge.type].push(charge);
+        return acc;
+    }, {});
 
 
     const handleEditClick = (patient) => {
@@ -559,7 +628,13 @@ const FrontDeskDashboard = () => {
                                         <FaCalendarCheck /> Create Encounter
                                     </button>
                                     {hasTodayEncounter && (
-                                        <>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => handleAddChargesClick(patient)}
+                                                className="bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-green-700 text-sm"
+                                            >
+                                                <FaDollarSign /> Add Charges
+                                            </button>
                                             {hasActiveInpatientEncounter(patient._id) ? (
                                                 <button
                                                     onClick={() => window.location.href = `/patient/${patient._id}`}
@@ -575,7 +650,7 @@ const FrontDeskDashboard = () => {
                                                     <FaBed /> Edit / Admit
                                                 </button>
                                             )}
-                                        </>
+                                        </div>
                                     )}
                                 </div>
                             );
@@ -626,7 +701,13 @@ const FrontDeskDashboard = () => {
                                         <FaCalendarCheck /> Create Encounter
                                     </button>
                                     {hasTodayEncounter && (
-                                        <>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => handleAddChargesClick(patient)}
+                                                className="bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-green-700 text-sm"
+                                            >
+                                                <FaDollarSign /> Add Charges
+                                            </button>
                                             {hasActiveInpatientEncounter(patient._id) ? (
                                                 <button
                                                     onClick={() => window.location.href = `/patient/${patient._id}`}
@@ -642,7 +723,7 @@ const FrontDeskDashboard = () => {
                                                     <FaBed /> Edit / Admit
                                                 </button>
                                             )}
-                                        </>
+                                        </div>
                                     )}
                                 </div>
                             );
@@ -992,6 +1073,134 @@ const FrontDeskDashboard = () => {
                                     className={`px-4 py-2 rounded text-white ${!selectedWard || !selectedBed ? 'bg-purple-300 cursor-not-allowed' : 'bg-purple-600 hover:bg-purple-700'}`}
                                 >
                                     Convert & Admit
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ===================== ADD CHARGES MODAL ===================== */}
+            {showAddChargesModal && addChargesPatient && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[85vh] flex flex-col">
+                        {/* Modal Header */}
+                        <div className="bg-green-600 text-white p-4 rounded-t-lg flex justify-between items-center">
+                            <div>
+                                <h3 className="text-xl font-bold flex items-center gap-2">
+                                    <FaDollarSign /> Add Charges to Patient
+                                </h3>
+                                <p className="text-green-100 text-sm mt-1">
+                                    {addChargesPatient.name} &mdash; MRN: {addChargesPatient.mrn}
+                                </p>
+                            </div>
+                            <button
+                                onClick={() => {
+                                    setShowAddChargesModal(false);
+                                    setSelectedAdditionalCharges([]);
+                                }}
+                                className="text-white hover:text-gray-200"
+                            >
+                                <FaTimes size={24} />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-6 overflow-y-auto flex-1">
+                            {charges.filter(c => c.active).length === 0 ? (
+                                <p className="text-gray-500 text-center py-8">No charges available. Ask an admin to create charges first.</p>
+                            ) : (
+                                <div className="space-y-5">
+                                    {Object.keys(allChargesByType).sort().map(type => (
+                                        <div key={type}>
+                                            <h4 className="text-sm font-bold text-gray-500 uppercase tracking-wide mb-2 border-b pb-1">
+                                                {chargeTypeLabels[type] || type}
+                                            </h4>
+                                            <div className="space-y-2">
+                                                {allChargesByType[type].filter(c => c.active).map(charge => {
+                                                    const isSelected = selectedAdditionalCharges.includes(charge._id);
+                                                    // Determine fee based on patient provider
+                                                    let fee = charge.standardFee || charge.basePrice || 0;
+                                                    if (addChargesPatient.provider === 'Retainership') fee = charge.retainershipFee || fee;
+                                                    else if (addChargesPatient.provider === 'NHIA') fee = charge.nhiaFee || fee;
+                                                    else if (addChargesPatient.provider === 'KSCHMA') fee = charge.kschmaFee || fee;
+                                                    return (
+                                                        <label
+                                                            key={charge._id}
+                                                            className={`flex items-center justify-between p-3 rounded border cursor-pointer transition-colors ${
+                                                                isSelected
+                                                                    ? 'bg-green-50 border-green-400'
+                                                                    : 'bg-white border-gray-200 hover:bg-gray-50'
+                                                            }`}
+                                                        >
+                                                            <div className="flex items-center gap-3">
+                                                                <input
+                                                                    type="checkbox"
+                                                                    checked={isSelected}
+                                                                    onChange={() => handleToggleAdditionalCharge(charge._id)}
+                                                                    className="w-4 h-4 accent-green-600"
+                                                                />
+                                                                <div>
+                                                                    <p className="font-semibold text-gray-800">{charge.name}</p>
+                                                                    {charge.description && (
+                                                                        <p className="text-xs text-gray-500">{charge.description}</p>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <span className="font-bold text-green-700 whitespace-nowrap ml-4">
+                                                                ₦{fee.toLocaleString()}
+                                                            </span>
+                                                        </label>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
+                        {/* Modal Footer */}
+                        <div className="p-4 border-t bg-gray-50 rounded-b-lg flex justify-between items-center">
+                            <div className="text-sm text-gray-600">
+                                {selectedAdditionalCharges.length > 0 ? (
+                                    <span className="font-semibold text-green-700">
+                                        {selectedAdditionalCharges.length} charge(s) selected &mdash; Total: ₦{
+                                            charges
+                                                .filter(c => selectedAdditionalCharges.includes(c._id))
+                                                .reduce((sum, c) => {
+                                                    let fee = c.standardFee || c.basePrice || 0;
+                                                    if (addChargesPatient.provider === 'Retainership') fee = c.retainershipFee || fee;
+                                                    else if (addChargesPatient.provider === 'NHIA') fee = c.nhiaFee || fee;
+                                                    else if (addChargesPatient.provider === 'KSCHMA') fee = c.kschmaFee || fee;
+                                                    return sum + fee;
+                                                }, 0).toLocaleString()
+                                        }
+                                    </span>
+                                ) : (
+                                    <span>Select charges to add</span>
+                                )}
+                            </div>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => {
+                                        setShowAddChargesModal(false);
+                                        setSelectedAdditionalCharges([]);
+                                    }}
+                                    className="bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSubmitAdditionalCharges}
+                                    disabled={selectedAdditionalCharges.length === 0}
+                                    className={`px-6 py-2 rounded text-white font-semibold flex items-center gap-2 ${
+                                        selectedAdditionalCharges.length === 0
+                                            ? 'bg-green-300 cursor-not-allowed'
+                                            : 'bg-green-600 hover:bg-green-700'
+                                    }`}
+                                >
+                                    <FaDollarSign /> Add to Encounter
                                 </button>
                             </div>
                         </div>
