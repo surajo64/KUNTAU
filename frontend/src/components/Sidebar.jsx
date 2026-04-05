@@ -74,7 +74,7 @@ const Sidebar = () => {
         <div className="w-64 bg-green-800 text-white min-h-screen flex flex-col">
             <div className="p-6 text-2xl font-bold border-b border-green-700 flex items-center gap-2">
 
-                {hospitalName}<sup className="text-xl">360</sup>
+                {hospitalName}
             </div>
 
             <nav className="flex-1 p-4 space-y-2 overflow-y-auto">

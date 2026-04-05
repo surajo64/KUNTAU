@@ -5,6 +5,7 @@ import { useEffect, useContext } from 'react';
 import AuthContext from '../context/AuthContext';
 import axios from 'axios';
 import useHospitalSettings from '../hooks/useHospitalSettings';
+import PharmacyNotification from './PharmacyNotification';
 
 
 const Layout = ({ children }) => {
@@ -50,8 +51,11 @@ const Layout = ({ children }) => {
                             {settings.reportHeader || 'CareFlow 360'}
                         </h2>
                     </div>
-                    <div className="text-sm text-gray-500">
-                        {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                    <div className="flex items-center gap-6">
+                        <PharmacyNotification />
+                        <div className="text-sm text-gray-500 hidden sm:block">
+                            {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                        </div>
                     </div>
                 </header>
                 <main className="p-8 flex-1 overflow-y-auto">

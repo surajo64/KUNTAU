@@ -59,7 +59,6 @@ const FrontDeskDashboard = () => {
     });
 
     useEffect(() => {
-        fetchPatientEncounters();
         fetchPatients();
         fetchRecentPatients();
         fetchCharges();
@@ -156,6 +155,7 @@ const FrontDeskDashboard = () => {
     };
 
     const fetchPatientEncounters = async (patientId) => {
+        if (!patientId) return [];
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
@@ -270,7 +270,7 @@ const FrontDeskDashboard = () => {
             return;
         }
 
-        if (encounterType !== 'External Investigation' && encounterType !== 'Inpatient' && selectedCharges.length === 0) {
+        if (encounterType !== 'External Investigation' && encounterType !== 'External Pharmacy' && encounterType !== 'Inpatient' && selectedCharges.length === 0) {
             toast.error('Please select at least one charge');
             return;
         }
@@ -310,7 +310,7 @@ const FrontDeskDashboard = () => {
             const selectedChargeObjects = charges.filter(c => selectedCharges.includes(c._id));
             const totalAmount = selectedChargeObjects.reduce((sum, c) => sum + c.basePrice, 0);
 
-            if (encounterType !== 'External Investigation' && encounterType !== 'Inpatient') {
+            if (encounterType !== 'External Investigation' && encounterType !== 'External Pharmacy' && encounterType !== 'Inpatient') {
                 const newStatus = totalAmount > 0 ? 'payment_pending' : 'in_nursing';
                 await axios.put(
                     `${backendUrl}/api/visits/${visitResponse.data._id}`,
@@ -810,6 +810,7 @@ const FrontDeskDashboard = () => {
                                     <option value="Emergency">Emergency</option>
                                     <option value="Follow-up">Follow-up</option>
                                     <option value="External Investigation">External Investigation</option>
+                                    <option value="External Pharmacy">External Pharmacy</option>
                                     <option value="Consultation">Consultation</option>
                                 </select>
                             </div>

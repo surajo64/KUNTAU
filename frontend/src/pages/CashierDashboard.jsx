@@ -191,6 +191,10 @@ const CashierDashboard = () => {
 
     const handlePrintReceipt = (receipt) => {
         const printWindow = window.open('', '', 'width=600,height=600');
+        if (!printWindow) {
+            toast.error('Browser blocked the popup. Please allow popups for this site to print receipts.');
+            return;
+        }
         printWindow.document.write(`
             <html>
                 <head>

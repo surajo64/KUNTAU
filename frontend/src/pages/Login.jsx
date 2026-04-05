@@ -43,7 +43,7 @@ const Login = () => {
 
                     <div className="relative z-10 animate-fade-in-up">
                         <h2 className="text-4xl font-extrabold tracking-tight mb-2">
-                            CareFlow<sup className="text-2xl">360</sup>
+                            MedKare360
                         </h2>
                         <div className="w-16 h-1 bg-green-300 rounded mb-6"></div>
                         <p className="text-lg text-green-100 font-medium leading-relaxed italic">

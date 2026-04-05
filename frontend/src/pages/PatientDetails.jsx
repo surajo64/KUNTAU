@@ -481,7 +481,7 @@ const PatientDetails = () => {
     const fetchCharges = async () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get(`${backendUrl}/api/charges?active=true`, config);
+            const { data } = await axios.get(`${backendUrl}/api/charges`, config);
 
             setLabCharges(data.filter(c => c.type === 'lab'));
             setRadiologyCharges(data.filter(c => c.type === 'radiology'));
@@ -617,6 +617,12 @@ const PatientDetails = () => {
     const handleAddLabToQueue = () => {
         if (!selectedLabTest) return;
         const test = labCharges.find(c => c._id === selectedLabTest);
+        
+        if (test && test.active === false) {
+            toast.error('This investigation is currently inactive or out of reagent.');
+            return;
+        }
+
         if (test && !tempLabOrders.find(t => t._id === test._id)) {
             setTempLabOrders([...tempLabOrders, test]);
             setSelectedLabTest(''); // Reset selection
@@ -692,6 +698,12 @@ const PatientDetails = () => {
     const handleAddRadToQueue = () => {
         if (!selectedRadTest) return;
         const scan = radiologyCharges.find(c => c._id === selectedRadTest);
+        
+        if (scan && scan.active === false) {
+            toast.error('This investigation is currently inactive or out of reagent.');
+            return;
+        }
+
         if (scan && !tempRadOrders.find(s => s._id === scan._id)) {
             setTempRadOrders([...tempRadOrders, scan]);
             setSelectedRadTest(''); // Reset selection
@@ -795,6 +807,16 @@ const PatientDetails = () => {
 
         const drugData = inventoryDrugs.find(d => d._id === selectedDrug);
         if (!drugData) return;
+
+        if (drugData.expiryDate && new Date(drugData.expiryDate) < new Date()) {
+            toast.error('Cannot prescribe: This drug is expired.');
+            return;
+        }
+
+        if (drugData.quantity < drugQuantity) {
+            toast.error(`Cannot prescribe: Insufficient inventory. Only ${drugData.quantity} available.`);
+            return;
+        }
 
         const newDrugItem = {
             id: Date.now(), // Temp ID
@@ -1303,14 +1325,31 @@ const PatientDetails = () => {
                                     const diagStr = (encounter.diagnosis || []).map(d => `${d.code}: ${d.description}`).join(', ');
 
                                     const historyParts = [];
+                                    
+                                    // Encounter (SOAP) Details
+                                    if (encounter.presentingComplaints) historyParts.push(`Presenting Complaints: ${encounter.presentingComplaints}`);
+                                    if (encounter.historyOfPresentingComplaint) historyParts.push(`HPC: ${encounter.historyOfPresentingComplaint}`);
                                     if (encounter.pastMedicalSurgicalHistory) historyParts.push(`PMH: ${encounter.pastMedicalSurgicalHistory}`);
                                     if (encounter.socialFamilyHistory) historyParts.push(`Social/Family: ${encounter.socialFamilyHistory}`);
-                                    if (encounter.drugsHistory) historyParts.push(`Drugs: ${encounter.drugsHistory}`);
+                                    if (encounter.drugsHistory) historyParts.push(`Drug History: ${encounter.drugsHistory}`);
 
-                                    // Add latest clinical note if any
+                                    // Add all clinical notes
                                     if (clinicalNotes && clinicalNotes.length > 0) {
-                                        const latestNote = clinicalNotes[clinicalNotes.length - 1];
-                                        historyParts.push(`Latest Note: ${latestNote.text}`);
+                                        historyParts.push('\n--- Clinical Notes ---');
+                                        clinicalNotes.forEach(note => {
+                                            historyParts.push(`- ${note.text}`);
+                                        });
+                                    }
+
+                                    // Add Vitals
+                                    if (vitals) {
+                                        historyParts.push('\n--- Recent Vitals ---');
+                                        if (vitals.bloodPressure) historyParts.push(`BP: ${vitals.bloodPressure}`);
+                                        if (vitals.heartRate) historyParts.push(`HR: ${vitals.heartRate} bpm`);
+                                        if (vitals.temperature) historyParts.push(`Temp: ${vitals.temperature} °C`);
+                                        if (vitals.weight) historyParts.push(`Weight: ${vitals.weight} kg`);
+                                        if (vitals.respiratoryRate) historyParts.push(`RR: ${vitals.respiratoryRate} resp/min`);
+                                        if (vitals.spo2) historyParts.push(`SpO2: ${vitals.spo2}%`);
                                     }
 
                                     setReferralData({
