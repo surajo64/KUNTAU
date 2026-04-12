@@ -9,7 +9,7 @@ const LoadingOverlay = () => {
 
         {/* eDokta Text inside */}
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-green-600 font-bold text-sm">CareFlow</span>
+          <span className="text-green-600 font-bold text-sm">MedKare360</span>
         </div>
       </div>
     </div>
