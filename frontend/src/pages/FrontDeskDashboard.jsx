@@ -428,7 +428,7 @@ const FrontDeskDashboard = () => {
         const today = new Date().toDateString();
         const activeEncounter = encounters.find(e => {
             const eDate = new Date(e.createdAt).toDateString();
-            return eDate === today || (e.type === 'Outpatient' && e.encounterStatus !== 'completed');
+            return eDate === today || ((e.type === 'Outpatient' || e.type === 'Emergency') && e.encounterStatus !== 'completed');
         });
 
         if (!activeEncounter) {

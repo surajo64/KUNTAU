@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useContext } from 'react';
+import { useState, useEffect, useContext } from 'react';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import { AppContext } from '../context/AppContext';
@@ -759,8 +759,8 @@ const NurseTriage = () => {
                                                     {encounter.paymentValidated ? 'Paid' : 'Pending'}
                                                 </span>
 
-                                                {/* Admit Button (Outpatient -> Inpatient) */}
-                                                {encounter.type === 'Outpatient' && encounter.encounterStatus !== 'completed' && (
+                                                {/* Admit Button (Outpatient/Emergency -> Inpatient) */}
+                                                {(encounter.type === 'Outpatient' || encounter.type === 'Emergency') && encounter.encounterStatus !== 'completed' && (
                                                     <button
                                                         onClick={(e) => handleOpenConvertModal(e, encounter)}
                                                         className="text-xs bg-purple-600 text-white px-2 py-1 rounded hover:bg-purple-700 z-10"
@@ -1455,7 +1455,7 @@ const NurseTriage = () => {
                         <div className="p-6">
                             <div className="mb-4 bg-purple-50 p-3 rounded">
                                 <p className="font-bold">{selectedPatient?.name}</p>
-                                <p className="text-sm">Converting Outpatient encounter to Inpatient admission.</p>
+                                <p className="text-sm">Converting {encounterToConvert?.type} encounter to Inpatient admission.</p>
                             </div>
 
                             <div className="mb-4">
