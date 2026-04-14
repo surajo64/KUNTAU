@@ -22,7 +22,10 @@ const getLabRevenue = async (req, res) => {
             createdAt: { $gte: start, $lte: end }
         })
             .populate('patient', 'name mrn')
-            .populate('charge')
+            .populate({
+                path: 'charge',
+                populate: { path: 'receipt' }
+            })
             .sort({ createdAt: -1 });
 
         const totalTests = labOrders.length;
@@ -36,6 +39,51 @@ const getLabRevenue = async (req, res) => {
         const pendingRevenue = labOrders
             .filter(o => o.charge?.status === 'pending')
             .reduce((sum, o) => sum + (o.charge?.totalAmount || 0), 0);
+
+        // Calculate pending revenue breakdown
+        let pendingInsuranceRevenue = 0;
+        let pendingPatientRevenue = 0;
+
+        labOrders.forEach(o => {
+            const c = o.charge;
+            if (c?.status === 'pending') {
+                if (c.hmoPortion !== undefined || c.patientPortion !== undefined) {
+                    pendingInsuranceRevenue += (c.hmoPortion || 0);
+                    pendingPatientRevenue += (c.patientPortion || 0);
+                } else {
+                    pendingPatientRevenue += (c.totalAmount || 0);
+                }
+            }
+        });
+
+        // Calculate Pending HMO Amount
+        let pendingHMOAmount = 0;
+        const paidInsuranceCharges = labOrders
+            .filter(o => o.charge?.status === 'paid' && o.charge?.receipt?.paymentMethod === 'insurance')
+            .map(o => o.charge);
+
+        if (paidInsuranceCharges.length > 0) {
+            const Claim = require('../models/claimModel');
+            const insuranceEncIds = [...new Set(paidInsuranceCharges.map(c =>
+                (c.encounter?._id || c.encounter)?.toString()
+            ).filter(id => id))];
+
+            if (insuranceEncIds.length > 0) {
+                const unpaidClaims = await Claim.find({
+                    encounter: { $in: insuranceEncIds },
+                    status: { $ne: 'paid' }
+                });
+
+                const unpaidClaimEncounters = new Set(unpaidClaims.map(c => c.encounter.toString()));
+
+                pendingHMOAmount = paidInsuranceCharges
+                    .filter(c => {
+                        const encId = (c.encounter?._id || c.encounter)?.toString();
+                        return encId && unpaidClaimEncounters.has(encId);
+                    })
+                    .reduce((sum, c) => sum + (c.hmoPortion || 0), 0);
+            }
+        }
 
         // Group by test type
         const byTestType = {};
@@ -65,6 +113,9 @@ const getLabRevenue = async (req, res) => {
                 paidTests,
                 totalRevenue,
                 pendingRevenue,
+                pendingInsuranceRevenue,
+                pendingPatientRevenue,
+                pendingHMOAmount,
                 dateRange: { start, end }
             },
             byTestType,
@@ -90,7 +141,10 @@ const getRadiologyRevenue = async (req, res) => {
             createdAt: { $gte: start, $lte: end }
         })
             .populate('patient', 'name mrn')
-            .populate('charge')
+            .populate({
+                path: 'charge',
+                populate: { path: 'receipt' }
+            })
             .sort({ createdAt: -1 });
 
         const totalScans = radOrders.length;
@@ -104,6 +158,51 @@ const getRadiologyRevenue = async (req, res) => {
         const pendingRevenue = radOrders
             .filter(o => o.charge?.status === 'pending')
             .reduce((sum, o) => sum + (o.charge?.totalAmount || 0), 0);
+
+        // Calculate pending revenue breakdown
+        let pendingInsuranceRevenue = 0;
+        let pendingPatientRevenue = 0;
+
+        radOrders.forEach(o => {
+            const c = o.charge;
+            if (c?.status === 'pending') {
+                if (c.hmoPortion !== undefined || c.patientPortion !== undefined) {
+                    pendingInsuranceRevenue += (c.hmoPortion || 0);
+                    pendingPatientRevenue += (c.patientPortion || 0);
+                } else {
+                    pendingPatientRevenue += (c.totalAmount || 0);
+                }
+            }
+        });
+
+        // Calculate Pending HMO Amount
+        let pendingHMOAmount = 0;
+        const paidInsuranceCharges = radOrders
+            .filter(o => o.charge?.status === 'paid' && o.charge?.receipt?.paymentMethod === 'insurance')
+            .map(o => o.charge);
+
+        if (paidInsuranceCharges.length > 0) {
+            const Claim = require('../models/claimModel');
+            const insuranceEncIds = [...new Set(paidInsuranceCharges.map(c =>
+                (c.encounter?._id || c.encounter)?.toString()
+            ).filter(id => id))];
+
+            if (insuranceEncIds.length > 0) {
+                const unpaidClaims = await Claim.find({
+                    encounter: { $in: insuranceEncIds },
+                    status: { $ne: 'paid' }
+                });
+
+                const unpaidClaimEncounters = new Set(unpaidClaims.map(c => c.encounter.toString()));
+
+                pendingHMOAmount = paidInsuranceCharges
+                    .filter(c => {
+                        const encId = (c.encounter?._id || c.encounter)?.toString();
+                        return encId && unpaidClaimEncounters.has(encId);
+                    })
+                    .reduce((sum, c) => sum + (c.hmoPortion || 0), 0);
+            }
+        }
 
         // Group by scan type
         const byScanType = {};
@@ -133,6 +232,9 @@ const getRadiologyRevenue = async (req, res) => {
                 paidScans,
                 totalRevenue,
                 pendingRevenue,
+                pendingInsuranceRevenue,
+                pendingPatientRevenue,
+                pendingHMOAmount,
                 dateRange: { start, end }
             },
             byScanType,
@@ -159,7 +261,10 @@ const getPharmacyRevenue = async (req, res) => {
         })
             .populate('patient', 'name mrn')
             .populate('doctor', 'name')
-            .populate('charge')
+            .populate({
+                path: 'charge',
+                populate: { path: 'receipt' }
+            })
             .sort({ createdAt: -1 });
 
         const totalPrescriptions = prescriptions.length;
@@ -173,6 +278,51 @@ const getPharmacyRevenue = async (req, res) => {
         const pendingRevenue = prescriptions
             .filter(p => p.charge?.status === 'pending')
             .reduce((sum, p) => sum + (p.charge?.totalAmount || 0), 0);
+
+        // Calculate pending revenue breakdown
+        let pendingInsuranceRevenue = 0;
+        let pendingPatientRevenue = 0;
+
+        prescriptions.forEach(p => {
+            const c = p.charge;
+            if (c?.status === 'pending') {
+                if (c.hmoPortion !== undefined || c.patientPortion !== undefined) {
+                    pendingInsuranceRevenue += (c.hmoPortion || 0);
+                    pendingPatientRevenue += (c.patientPortion || 0);
+                } else {
+                    pendingPatientRevenue += (c.totalAmount || 0);
+                }
+            }
+        });
+
+        // Calculate Pending HMO Amount
+        let pendingHMOAmount = 0;
+        const paidInsuranceCharges = prescriptions
+            .filter(p => p.charge?.status === 'paid' && p.charge?.receipt?.paymentMethod === 'insurance')
+            .map(p => p.charge);
+
+        if (paidInsuranceCharges.length > 0) {
+            const Claim = require('../models/claimModel');
+            const insuranceEncIds = [...new Set(paidInsuranceCharges.map(c =>
+                (c.encounter?._id || c.encounter)?.toString()
+            ).filter(id => id))];
+
+            if (insuranceEncIds.length > 0) {
+                const unpaidClaims = await Claim.find({
+                    encounter: { $in: insuranceEncIds },
+                    status: { $ne: 'paid' }
+                });
+
+                const unpaidClaimEncounters = new Set(unpaidClaims.map(c => c.encounter.toString()));
+
+                pendingHMOAmount = paidInsuranceCharges
+                    .filter(c => {
+                        const encId = (c.encounter?._id || c.encounter)?.toString();
+                        return encId && unpaidClaimEncounters.has(encId);
+                    })
+                    .reduce((sum, c) => sum + (c.hmoPortion || 0), 0);
+            }
+        }
 
         // Group by drug
         const byDrug = {};
@@ -196,6 +346,9 @@ const getPharmacyRevenue = async (req, res) => {
                 paidPrescriptions,
                 totalRevenue,
                 pendingRevenue,
+                pendingInsuranceRevenue,
+                pendingPatientRevenue,
+                pendingHMOAmount,
                 dateRange: { start, end }
             },
             byDrug,
