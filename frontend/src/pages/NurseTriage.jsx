@@ -1124,7 +1124,7 @@ const NurseTriage = () => {
                                                                                                                 </div>
                                                                                                             )}
                                                                                                         </div>
-                                                                                                    ) : <span className="text-gray-200">â€”</span>}
+                                                                                                    ) : <span className="text-gray-200">-</span>}
                                                                                                 </td>
                                                                                             );
                                                                                         })}
