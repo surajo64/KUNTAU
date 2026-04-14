@@ -45,6 +45,7 @@ app.use('/api/claims', require('./routes/claimRoutes'));
 app.use('/api/hmo-transactions', require('./routes/hmoTransactionRoutes'));
 app.use('/api/banks', require('./routes/bankRoutes'));
 app.use('/api/settings', require('./routes/settingRoutes'));
+app.use('/api/drug-administration', require('./routes/drugAdministrationRoutes'));
 
 
 

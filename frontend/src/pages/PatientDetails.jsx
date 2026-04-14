@@ -866,6 +866,8 @@ const PatientDetails = () => {
                     dosage: drugItem.dosage,
                     frequency: drugItem.frequency,
                     duration: drugItem.duration,
+                    route: drugItem.route,
+                    form: drugItem.form,
                     quantity: drugItem.quantity
                 }],
                 notes: 'Doctor prescribed'
