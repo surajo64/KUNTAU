@@ -61,8 +61,10 @@ const createVisit = async (req, res) => {
         admissionDate: type === 'Inpatient' ? new Date() : undefined,
         ward: type === 'Inpatient' ? ward : undefined,
         bed: type === 'Inpatient' ? bed : undefined,
-        paymentValidated: type === 'External Investigation',
-        encounterStatus: type === 'External Investigation' ? 'awaiting_services' : (type === 'Inpatient' ? 'admitted' : (req.body.encounterStatus || 'registered')),
+        paymentValidated: ['External Investigation', 'External Pharmacy', 'External Lab/Radiology'].includes(type),
+        encounterStatus: ['External Investigation', 'External Pharmacy', 'External Lab/Radiology'].includes(type) 
+            ? 'awaiting_services' 
+            : (type === 'Inpatient' ? 'admitted' : (req.body.encounterStatus || 'registered')),
         reasonForVisit
     });
 
@@ -103,8 +105,19 @@ const createVisit = async (req, res) => {
 // @route   GET /api/visits
 // @access  Private
 const getVisits = async (req, res) => {
-    const visits = await Visit.find({})
-        .populate('patient', 'name')
+    const { type, encounterStatus } = req.query;
+    let query = {};
+    if (type) query.type = type;
+    if (encounterStatus) {
+        if (encounterStatus.includes(',')) {
+            query.encounterStatus = { $in: encounterStatus.split(',') };
+        } else {
+            query.encounterStatus = encounterStatus;
+        }
+    }
+
+    const visits = await Visit.find(query)
+        .populate('patient', 'name mrn age gender')
         .populate('doctor', 'name')
         .populate('clinic', 'name department')
         .populate('ward', 'name dailyRate');

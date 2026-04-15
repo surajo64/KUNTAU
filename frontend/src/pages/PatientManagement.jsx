@@ -158,7 +158,7 @@ const PatientManagement = () => {
 
     const handleCreateEncounter = async () => {
         if (!encounterPatient) return;
-        if (encounterType !== 'External Investigation' && encounterType !== 'Inpatient' && selectedCharges.length === 0) {
+        if (!['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && selectedCharges.length === 0) {
             toast.error('Please select at least one charge');
             return;
         }
@@ -188,7 +188,7 @@ const PatientManagement = () => {
                 }, config);
             }
             const total = charges.filter(c => selectedCharges.includes(c._id)).reduce((s, c) => s + c.basePrice, 0);
-            if (encounterType !== 'External Investigation' && encounterType !== 'Inpatient') {
+            if (!['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType)) {
                 await axios.put(`${backendUrl}/api/visits/${visitResponse.data._id}`,
                     { encounterStatus: total > 0 ? 'payment_pending' : 'in_nursing' }, config);
             }
@@ -966,7 +966,8 @@ const PatientManagement = () => {
                                     <option value="Inpatient">Inpatient</option>
                                     <option value="Emergency">Emergency</option>
                                     <option value="Follow-up">Follow-up</option>
-                                    <option value="External Investigation">External Investigation</option>
+                                    <option value="External Lab/Radiology">External Lab/Radiology</option>
+                                    <option value="External Pharmacy">External Pharmacy</option>
                                     <option value="Consultation">Consultation</option>
                                 </select>
                             </div>
@@ -1043,7 +1044,7 @@ const PatientManagement = () => {
                             )}
 
                             {/* Charges */}
-                            {encounterType !== 'External Investigation' && encounterType !== 'Inpatient' && (
+                            {!['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && (
                                 <div className="mb-6">
                                     <label className="block text-gray-700 font-semibold mb-2">
                                         Consultation Charges <span className="text-red-500">*</span>
@@ -1079,7 +1080,7 @@ const PatientManagement = () => {
                             <div className="flex gap-3 pt-4 border-t">
                                 <button
                                     onClick={handleCreateEncounter}
-                                    disabled={loading}
+                                    disabled={loading || (!['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && selectedCharges.length === 0)}
                                     className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:bg-gray-400 flex items-center justify-center gap-2"
                                 >
                                     <FaCalendarCheck /> {loading ? 'Creating...' : 'Create Encounter'}

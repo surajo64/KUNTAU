@@ -270,7 +270,7 @@ const FrontDeskDashboard = () => {
             return;
         }
 
-        if (encounterType !== 'External Investigation' && encounterType !== 'External Pharmacy' && encounterType !== 'Inpatient' && selectedCharges.length === 0) {
+        if (!['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && selectedCharges.length === 0) {
             toast.error('Please select at least one charge');
             return;
         }
@@ -310,7 +310,7 @@ const FrontDeskDashboard = () => {
             const selectedChargeObjects = charges.filter(c => selectedCharges.includes(c._id));
             const totalAmount = selectedChargeObjects.reduce((sum, c) => sum + c.basePrice, 0);
 
-            if (encounterType !== 'External Investigation' && encounterType !== 'External Pharmacy' && encounterType !== 'Inpatient') {
+            if (!['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType)) {
                 const newStatus = totalAmount > 0 ? 'payment_pending' : 'in_nursing';
                 await axios.put(
                     `${backendUrl}/api/visits/${visitResponse.data._id}`,
@@ -809,7 +809,7 @@ const FrontDeskDashboard = () => {
                                     <option value="Inpatient">Inpatient</option>
                                     <option value="Emergency">Emergency</option>
                                     <option value="Follow-up">Follow-up</option>
-                                    <option value="External Investigation">External Investigation</option>
+                                    <option value="External Lab/Radiology">External Lab/Radiology</option>
                                     <option value="External Pharmacy">External Pharmacy</option>
                                     <option value="Consultation">Consultation</option>
                                 </select>
@@ -899,7 +899,7 @@ const FrontDeskDashboard = () => {
                             )}
 
                             {/* Charges Selection */}
-                            {encounterType !== 'External Investigation' && encounterType !== 'Inpatient' && (
+                            {!['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && (
                                 <div className="mb-6">
                                     <label className="block text-gray-700 font-semibold mb-2">
                                         Select Charges <span className="text-red-500">*</span>
@@ -986,7 +986,7 @@ const FrontDeskDashboard = () => {
                             <button
                                 onClick={handleCreateEncounter}
                                 className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 flex items-center gap-2"
-                                disabled={encounterType !== 'External Investigation' && encounterType !== 'Inpatient' && selectedCharges.length === 0}
+                                disabled={!['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && selectedCharges.length === 0}
                             >
                                 <FaPlus /> Create Encounter
                             </button>

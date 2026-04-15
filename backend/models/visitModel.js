@@ -1,10 +1,12 @@
 const mongoose = require('mongoose');
 
+const encounterTypes = ['Outpatient', 'Inpatient', 'Emergency', 'Follow-up', 'Consultation', 'External Investigation', 'External Lab/Radiology', 'External Pharmacy'];
+
 const visitSchema = mongoose.Schema({
     patient: { type: mongoose.Schema.Types.ObjectId, ref: 'Patient', required: true },
     doctor: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     appointment: { type: mongoose.Schema.Types.ObjectId, ref: 'Appointment' },
-    type: { type: String, enum: ['Outpatient', 'Inpatient', 'Emergency', 'External Investigation'], required: true },
+    type: { type: String, enum: encounterTypes, required: true },
     status: { type: String, enum: ['Admitted', 'Discharged', 'In Progress'], default: 'In Progress' },
 
     // Structured Clinical Documentation (replaces traditional SOAP S/O)
@@ -90,7 +92,7 @@ const visitSchema = mongoose.Schema({
     clinic: { type: mongoose.Schema.Types.ObjectId, ref: 'Clinic' },
     encounterType: {
         type: String,
-        enum: ['Outpatient', 'Emergency', 'Follow-up', 'Inpatient', 'Consultation', 'External Investigation'],
+        enum: encounterTypes,
         default: 'Outpatient'
     },
 }, {

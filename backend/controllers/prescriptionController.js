@@ -15,8 +15,8 @@ const createPrescription = async (req, res) => {
     // Check permissions
     if (req.user.role === 'pharmacist') {
         const visit = await Visit.findById(visitId);
-        if (!visit || visit.type !== 'External Investigation') {
-            return res.status(403).json({ message: 'Pharmacists can only prescribe for External Investigations.' });
+        if (!visit || (visit.type !== 'External Investigation' && visit.type !== 'External Pharmacy')) {
+            return res.status(403).json({ message: 'Pharmacists can only prescribe for External Investigations and External Pharmacy.' });
         }
     } else if (req.user.role !== 'doctor') {
         return res.status(403).json({ message: 'Not authorized to create prescriptions.' });

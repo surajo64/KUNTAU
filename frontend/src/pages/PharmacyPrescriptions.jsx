@@ -1,4 +1,5 @@
 import { useState, useEffect, useContext } from 'react';
+import { useLocation } from 'react-router-dom';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import { AppContext } from '../context/AppContext';
@@ -18,6 +19,7 @@ const PharmacyPrescriptions = () => {
     const [systemSettings, setSystemSettings] = useState(null);
     const { user } = useContext(AuthContext);
     const { backendUrl } = useContext(AppContext);
+    const location = useLocation();
 
     useEffect(() => {
         const fetchSystemSettings = async () => {
@@ -31,6 +33,20 @@ const PharmacyPrescriptions = () => {
         fetchSystemSettings();
         if (user) fetchPrescriptions();
     }, [user]);
+
+    // Pre-fill search if navigating from dashboard
+    useEffect(() => {
+        if (location.state && location.state.searchTerm && prescriptions.length > 0) {
+            setSearchTerm(location.state.searchTerm);
+        }
+    }, [location.state, prescriptions.length]);
+
+    // Add search term to reactive filter
+    useEffect(() => {
+        if (searchTerm.trim() && prescriptions.length > 0) {
+            handleSearch();
+        }
+    }, [searchTerm, prescriptions.length]);
 
     const fetchPrescriptions = async () => {
         if (!user) return;
@@ -273,6 +289,8 @@ const PharmacyPrescriptions = () => {
                         newStatus = 'checkout';
                     } else if (visit.encounterType === 'Inpatient') {
                         newStatus = 'in_ward';
+                    } else if (visit.encounterType === 'External Pharmacy') {
+                        newStatus = 'completed';
                     }
 
                     if (newStatus !== visit.encounterStatus) {
