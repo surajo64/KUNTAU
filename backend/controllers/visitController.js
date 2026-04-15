@@ -394,6 +394,10 @@ const convertToInpatient = async (req, res) => {
         }
 
         res.json(updatedVisit);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
 
 // @desc    Change encounter type (e.g. from External to Outpatient/Inpatient)
 // @route   PUT /api/visits/:id/change-type
