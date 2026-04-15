@@ -41,6 +41,10 @@ const FrontDeskDashboard = () => {
     const [addChargesEncounterId, setAddChargesEncounterId] = useState(null);
     const [selectedAdditionalCharges, setSelectedAdditionalCharges] = useState([]);
 
+    // Change Encounter Type State
+    const [showChangeEncounterModal, setShowChangeEncounterModal] = useState(false);
+    const [changeEncounterVisit, setChangeEncounterVisit] = useState(null);
+
     const { user } = useContext(AuthContext);
     const { backendUrl } = useContext(AppContext);
 
@@ -448,6 +452,81 @@ const FrontDeskDashboard = () => {
         setShowConvertModal(true);
     };
 
+    const getActiveExternalEncounter = (patientId) => {
+        const encounters = patientEncounters[patientId] || [];
+        const today = new Date().toDateString();
+        return encounters.find(e => {
+            const eDate = new Date(e.createdAt).toDateString();
+            return eDate === today && ['External Investigation', 'External Pharmacy', 'External Lab/Radiology'].includes(e.type);
+        });
+    };
+
+    const openChangeEncounterModal = (patient) => {
+        const externalEnc = getActiveExternalEncounter(patient._id);
+        if (!externalEnc) {
+            toast.error('No qualifying external encounter found for this patient today');
+            return;
+        }
+        setChangeEncounterVisit(externalEnc);
+        setSelectedPatient(patient);
+        setEncounterType('Outpatient'); // Default new type
+        setSelectedClinic(externalEnc.clinic?._id || externalEnc.clinic || '');
+        setReasonForVisit(externalEnc.reasonForVisit || '');
+        setSelectedCharges([]);
+        setSelectedWard('');
+        setSelectedBed('');
+        setShowChangeEncounterModal(true);
+    };
+
+    const handleChangeEncounterSubmission = async () => {
+        if (!['Inpatient', 'Outpatient', 'Emergency'].includes(encounterType) && selectedCharges.length === 0) {
+            toast.error('Please select at least one charge for the new encounter type');
+            return;
+        }
+
+        if (encounterType === 'Inpatient' && (!selectedWard || !selectedBed)) {
+            toast.error('Ward and Bed are required for Inpatient admission');
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+
+            // 1. Update Encounter Type & Details
+            await axios.put(`${backendUrl}/api/visits/${changeEncounterVisit._id}/change-type`, {
+                type: encounterType,
+                encounterType: encounterType,
+                clinic: selectedClinic || undefined,
+                reasonForVisit: reasonForVisit,
+                ward: encounterType === 'Inpatient' ? selectedWard : undefined,
+                bed: encounterType === 'Inpatient' ? selectedBed : undefined
+            }, config);
+
+            // 2. Add New Charges
+            for (const chargeId of selectedCharges) {
+                await axios.post(`${backendUrl}/api/encounter-charges`, {
+                    encounterId: changeEncounterVisit._id,
+                    patientId: selectedPatient._id,
+                    chargeId: chargeId,
+                    quantity: 1,
+                    notes: 'Added during encounter type change'
+                }, config);
+            }
+
+            toast.success('Encounter type changed and charges added!');
+            setShowChangeEncounterModal(false);
+            setChangeEncounterVisit(null);
+            setSelectedPatient(null);
+            fetchRecentPatients();
+        } catch (error) {
+            console.error(error);
+            toast.error(error.response?.data?.message || 'Error changing encounter type');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleConvertFromFrontDesk = async () => {
         if (!selectedWard || !selectedBed) {
             toast.error('Please select Ward and Bed');
@@ -629,26 +708,37 @@ const FrontDeskDashboard = () => {
                                     </button>
                                     {hasTodayEncounter && (
                                         <div className="flex gap-2">
-                                            <button
-                                                onClick={() => handleAddChargesClick(patient)}
-                                                className="bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-green-700 text-sm"
-                                            >
-                                                <FaDollarSign /> Add Charges
-                                            </button>
-                                            {hasActiveInpatientEncounter(patient._id) ? (
+                                            {getActiveExternalEncounter(patient._id) ? (
                                                 <button
-                                                    onClick={() => window.location.href = `/patient/${patient._id}`}
-                                                    className="bg-red-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-red-700"
+                                                    onClick={() => openChangeEncounterModal(patient)}
+                                                    className="bg-orange-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-orange-700"
                                                 >
-                                                    <FaBed /> Discharge
+                                                    <FaCalendarAlt /> Change Encounter Type
                                                 </button>
                                             ) : (
-                                                <button
-                                                    onClick={() => handleEditClick(patient)}
-                                                    className="bg-purple-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-purple-700"
-                                                >
-                                                    <FaBed /> Edit / Admit
-                                                </button>
+                                                <>
+                                                    <button
+                                                        onClick={() => handleAddChargesClick(patient)}
+                                                        className="bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-green-700 text-sm"
+                                                    >
+                                                        <FaDollarSign /> Add Charges
+                                                    </button>
+                                                    {hasActiveInpatientEncounter(patient._id) ? (
+                                                        <button
+                                                            onClick={() => window.location.href = `/patient/${patient._id}`}
+                                                            className="bg-red-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-red-700"
+                                                        >
+                                                            <FaBed /> Discharge
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => handleEditClick(patient)}
+                                                            className="bg-purple-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-purple-700"
+                                                        >
+                                                            <FaBed /> Edit / Admit
+                                                        </button>
+                                                    )}
+                                                </>
                                             )}
                                         </div>
                                     )}
@@ -702,26 +792,37 @@ const FrontDeskDashboard = () => {
                                     </button>
                                     {hasTodayEncounter && (
                                         <div className="flex gap-2">
-                                            <button
-                                                onClick={() => handleAddChargesClick(patient)}
-                                                className="bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-green-700 text-sm"
-                                            >
-                                                <FaDollarSign /> Add Charges
-                                            </button>
-                                            {hasActiveInpatientEncounter(patient._id) ? (
+                                            {getActiveExternalEncounter(patient._id) ? (
                                                 <button
-                                                    onClick={() => window.location.href = `/patient/${patient._id}`}
-                                                    className="bg-red-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-red-700"
+                                                    onClick={() => openChangeEncounterModal(patient)}
+                                                    className="bg-orange-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-orange-700"
                                                 >
-                                                    <FaBed /> Discharge
+                                                    <FaCalendarAlt /> Change Encounter Type
                                                 </button>
                                             ) : (
-                                                <button
-                                                    onClick={() => handleEditClick(patient)}
-                                                    className="bg-purple-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-purple-700"
-                                                >
-                                                    <FaBed /> Edit / Admit
-                                                </button>
+                                                <>
+                                                    <button
+                                                        onClick={() => handleAddChargesClick(patient)}
+                                                        className="bg-green-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-green-700 text-sm"
+                                                    >
+                                                        <FaDollarSign /> Add Charges
+                                                    </button>
+                                                    {hasActiveInpatientEncounter(patient._id) ? (
+                                                        <button
+                                                            onClick={() => window.location.href = `/patient/${patient._id}`}
+                                                            className="bg-red-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-red-700"
+                                                        >
+                                                            <FaBed /> Discharge
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => handleEditClick(patient)}
+                                                            className="bg-purple-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-purple-700"
+                                                        >
+                                                            <FaBed /> Edit / Admit
+                                                        </button>
+                                                    )}
+                                                </>
                                             )}
                                         </div>
                                     )}
@@ -1208,8 +1309,234 @@ const FrontDeskDashboard = () => {
                     </div>
                 </div>
             )}
+            {/* ===================== CHANGE ENCOUNTER TYPE MODAL ===================== */}
+            {showChangeEncounterModal && selectedPatient && changeEncounterVisit && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                        {/* Modal Header */}
+                        <div className="bg-orange-600 text-white p-4 rounded-t-lg flex justify-between items-center sticky top-0">
+                            <h3 className="text-xl font-bold flex items-center gap-2">
+                                <FaCalendarAlt /> Change Encounter Type
+                            </h3>
+                            <button
+                                onClick={() => setShowChangeEncounterModal(false)}
+                                className="text-white hover:text-gray-200"
+                            >
+                                <FaTimes size={24} />
+                            </button>
+                        </div>
+
+                        {/* Modal Body */}
+                        <div className="p-6">
+                            <div className="bg-orange-50 p-4 rounded mb-6 border border-orange-100">
+                                <h4 className="font-bold text-orange-800 mb-1">Current Encounter: {changeEncounterVisit.type}</h4>
+                                <p className="text-sm text-orange-700">You are changing the type of the encounter created today for this patient. This is typically used to upgrade an external service to a full consultation or admission.</p>
+                            </div>
+
+                            {/* Patient Info */}
+                            <div className="bg-gray-50 p-4 rounded mb-6">
+                                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                    <div>
+                                        <p className="text-sm text-gray-600">Name</p>
+                                        <p className="font-semibold">{selectedPatient.name}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-gray-600">MRN</p>
+                                        <p className="font-semibold">{selectedPatient.mrn}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-gray-600">Gender</p>
+                                        <p className="font-semibold capitalize">{selectedPatient.gender}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-sm text-gray-600">Provider</p>
+                                        <p className="font-semibold">{selectedPatient.provider}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                {/* Left Side: Configuration */}
+                                <div>
+                                    <div className="mb-6">
+                                        <label className="block text-gray-700 font-semibold mb-2">New Encounter Type</label>
+                                        <select
+                                            className="w-full border p-2 rounded focus:ring-2 focus:ring-orange-500"
+                                            value={encounterType}
+                                            onChange={(e) => setEncounterType(e.target.value)}
+                                        >
+                                            <option value="Outpatient">Outpatient Consultation</option>
+                                            <option value="Inpatient">Inpatient Admission</option>
+                                            <option value="Emergency">Emergency</option>
+                                            <option value="External Pharmacy">External Pharmacy</option>
+                                            <option value="External Lab/Radiology">External Lab/Radiology</option>
+                                            <option value="External Investigation">External Investigation</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="mb-6">
+                                        <label className="block text-gray-700 font-semibold mb-2">Assign to Clinic</label>
+                                        <select
+                                            className="w-full border p-2 rounded"
+                                            value={selectedClinic}
+                                            onChange={(e) => setSelectedClinic(e.target.value)}
+                                        >
+                                            <option value="">-- Select Clinic --</option>
+                                            {clinics.map(clinic => (
+                                                <option key={clinic._id} value={clinic._id}>{clinic.name} ({clinic.department})</option>
+                                            ))}
+                                        </select>
+                                    </div>
+
+                                    <div className="mb-6">
+                                        <label className="block text-gray-700 font-semibold mb-2">Reason for Change / Visit</label>
+                                        <textarea
+                                            className="w-full border p-2 rounded h-24"
+                                            placeholder="Enter reason for visit or change..."
+                                            value={reasonForVisit}
+                                            onChange={(e) => setReasonForVisit(e.target.value)}
+                                        ></textarea>
+                                    </div>
+                                </div>
+
+                                {/* Right Side: Dynamic Content (Charges or Ward/Bed) */}
+                                <div>
+                                    {encounterType === 'Inpatient' ? (
+                                        <div className="bg-purple-50 p-6 rounded-lg border border-purple-200 h-full flex flex-col">
+                                            <h4 className="text-purple-800 font-bold mb-4 flex items-center gap-2 text-lg">
+                                                <FaBed className="text-purple-600" /> Ward Admission Assignment
+                                            </h4>
+                                            <p className="text-sm text-purple-700 mb-6">Allocate a ward and bed for this patient to complete the admission process.</p>
+                                            
+                                            <div className="space-y-6 flex-1">
+                                                <div>
+                                                    <label className="block text-sm text-gray-700 font-bold mb-2 uppercase tracking-wider">Select Ward</label>
+                                                    <select
+                                                        className="w-full border-2 border-purple-200 p-3 rounded-lg focus:border-purple-500 transition-colors"
+                                                        value={selectedWard}
+                                                        onChange={(e) => setSelectedWard(e.target.value)}
+                                                    >
+                                                        <option value="">-- Choose Ward --</option>
+                                                        {wards.map(ward => (
+                                                            <option key={ward._id} value={ward._id}>{ward.name} ({ward.type})</option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+
+                                                <div>
+                                                    <label className="block text-sm text-gray-700 font-bold mb-2 uppercase tracking-wider">Select Bed</label>
+                                                    <select
+                                                        className="w-full border-2 border-purple-200 p-3 rounded-lg focus:border-purple-500 transition-colors"
+                                                        value={selectedBed}
+                                                        onChange={(e) => setSelectedBed(e.target.value)}
+                                                        disabled={!selectedWard}
+                                                    >
+                                                        <option value="">-- Choose Bed --</option>
+                                                        {availableBeds.map(bed => (
+                                                            <option key={bed._id} value={bed.number}>{bed.number}</option>
+                                                        ))}
+                                                    </select>
+                                                    {selectedWard && availableBeds.length === 0 && (
+                                                        <p className="text-red-500 text-sm mt-2 font-semibold">⚠ No beds available in this ward.</p>
+                                                    )}
+                                                </div>
+
+                                                {selectedWard && selectedPatient?.provider && (
+                                                    <div className="mt-8 p-4 bg-white rounded shadow-sm border border-purple-100">
+                                                        <p className="text-xs text-purple-400 font-bold uppercase mb-1">Billing Summary</p>
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="text-gray-600">Daily Rate ({selectedPatient.provider}):</span>
+                                                            <span className="text-xl font-bold text-purple-800">
+                                                                ₦{(wards.find(w => w._id === selectedWard)?.rates?.[selectedPatient.provider] ||
+                                                                    wards.find(w => w._id === selectedWard)?.rates?.Standard ||
+                                                                    wards.find(w => w._id === selectedWard)?.dailyRate || 0).toLocaleString()}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ) : (
+                                        <div className="flex flex-col h-full overflow-hidden">
+                                            <h4 className="text-gray-700 font-bold mb-3 flex items-center gap-2">
+                                                <FaDollarSign className="text-green-600" /> Select New Charges (Consultation Fee, etc.)
+                                            </h4>
+                                            <div className="border rounded-lg overflow-hidden flex flex-col flex-1 max-h-[500px]">
+                                                <div className="p-4 bg-gray-50 border-b">
+                                                    <p className="text-sm text-gray-500 italic">Select the charges to be added for this new encounter type.</p>
+                                                </div>
+                                                <div className="flex-1 overflow-y-auto p-4 space-y-4">
+                                                    {Object.keys(chargesByType).map(type => (
+                                                        <div key={type} className="mb-4">
+                                                            <h5 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">{chargeTypeLabels[type] || type}</h5>
+                                                            <div className="space-y-2">
+                                                                {chargesByType[type].map(charge => {
+                                                                    const isSelected = selectedCharges.includes(charge._id);
+                                                                    let fee = charge.standardFee || charge.basePrice || 0;
+                                                                    if (selectedPatient.provider === 'Retainership') fee = charge.retainershipFee || fee;
+                                                                    else if (selectedPatient.provider === 'NHIA') fee = charge.nhiaFee || fee;
+                                                                    else if (selectedPatient.provider === 'KSCHMA') fee = charge.kschmaFee || fee;
+                                                                    
+                                                                    return (
+                                                                        <div
+                                                                            key={charge._id}
+                                                                            onClick={() => handleChargeToggle(charge._id)}
+                                                                            className={`flex items-center justify-between p-3 rounded border cursor-pointer transition-all ${isSelected ? 'bg-blue-50 border-blue-400 ring-1 ring-blue-400' : 'bg-white border-gray-200 hover:bg-gray-50'}`}
+                                                                        >
+                                                                            <div className="flex items-center gap-3">
+                                                                                <div className={`w-5 h-5 rounded border flex items-center justify-center ${isSelected ? 'bg-blue-600 border-blue-600 text-white' : 'bg-white border-gray-300'}`}>
+                                                                                    {isSelected && <FaPlus size={10} />}
+                                                                                </div>
+                                                                                <span className="font-semibold text-gray-800">{charge.name}</span>
+                                                                            </div>
+                                                                            <span className="font-bold text-blue-700">₦{fee.toLocaleString()}</span>
+                                                                        </div>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                                <div className="p-4 bg-gray-100 border-t flex justify-between items-center">
+                                                    <span className="text-gray-600 text-sm font-semibold">{selectedCharges.length} item(s) selected</span>
+                                                    <span className="text-lg font-bold text-gray-800">
+                                                        Total: ₦{charges.filter(c => selectedCharges.includes(c._id)).reduce((sum, c) => {
+                                                            let fee = c.standardFee || c.basePrice || 0;
+                                                            if (selectedPatient.provider === 'Retainership') fee = c.retainershipFee || fee;
+                                                            else if (selectedPatient.provider === 'NHIA') fee = c.nhiaFee || fee;
+                                                            else if (selectedPatient.provider === 'KSCHMA') fee = c.kschmaFee || fee;
+                                                            return sum + fee;
+                                                        }, 0).toLocaleString()}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* Modal Footer */}
+                            <div className="mt-8 pt-6 border-t flex justify-end gap-4">
+                                <button
+                                    onClick={() => setShowChangeEncounterModal(false)}
+                                    className="px-6 py-2 bg-gray-200 text-gray-800 rounded font-bold hover:bg-gray-300"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleChangeEncounterSubmission}
+                                    className="px-8 py-2 bg-orange-600 text-white rounded font-bold hover:bg-orange-700 shadow-lg flex items-center gap-2"
+                                >
+                                    <FaCalendarAlt /> Update Encounter & Add Charges
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
         </Layout>
     );
 };
 
 export default FrontDeskDashboard;
+
