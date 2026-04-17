@@ -18,6 +18,8 @@ const PatientManagement = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [startDate, setStartDate] = useState('');
     const [endDate, setEndDate] = useState('');
+    const [filterProvider, setFilterProvider] = useState('');
+    const [filterHMO, setFilterHMO] = useState('');
     const [currentPage, setCurrentPage] = useState(1);
     const PATIENTS_PER_PAGE = 5;
     const [selectedPatient, setSelectedPatient] = useState(null);
@@ -82,7 +84,7 @@ const PatientManagement = () => {
 
     useEffect(() => {
         filterPatients();
-    }, [searchTerm, startDate, endDate, patients]);
+    }, [searchTerm, startDate, endDate, patients, filterProvider, filterHMO]);
 
     const fetchPatients = async () => {
         try {
@@ -222,6 +224,20 @@ const PatientManagement = () => {
             const end = new Date(endDate);
             end.setHours(23, 59, 59, 999);
             filtered = filtered.filter(p => new Date(p.createdAt) <= end);
+        }
+
+        // Provider filter
+        if (filterProvider) {
+            if (filterProvider === 'Standard') {
+                filtered = filtered.filter(p => !p.provider || p.provider === 'Standard');
+            } else {
+                filtered = filtered.filter(p => p.provider === filterProvider);
+            }
+        }
+
+        // HMO filter
+        if (['Retainership', 'NHIA'].includes(filterProvider) && filterHMO) {
+            filtered = filtered.filter(p => p.hmo === filterHMO);
         }
 
         // Sort: newest first
@@ -390,6 +406,45 @@ const PatientManagement = () => {
                             />
                         </div>
                     </div>
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-4">
+                        <div>
+                            <label className="block text-sm font-semibold mb-1">Provider Type</label>
+                            <select
+                                className="w-full border p-2 rounded"
+                                value={filterProvider}
+                                onChange={(e) => {
+                                    setFilterProvider(e.target.value);
+                                    setFilterHMO('');
+                                }}
+                            >
+                                <option value="">All Providers</option>
+                                <option value="Standard">Standard Patient</option>
+                                <option value="Retainership">Retainership</option>
+                                <option value="NHIA">NHIA</option>
+                                <option value="KSCHMA">State Insurance</option>
+                            </select>
+                        </div>
+                        {(filterProvider === 'Retainership' || filterProvider === 'NHIA') && (
+                            <div className="md:col-span-2">
+                                <label className="block text-sm font-semibold mb-1">HMO</label>
+                                <select
+                                    className="w-full border p-2 rounded"
+                                    value={filterHMO}
+                                    onChange={(e) => setFilterHMO(e.target.value)}
+                                >
+                                    <option value="">All HMOs</option>
+                                    {hmos
+                                        .filter(hmo => hmo.category === filterProvider)
+                                        .map(hmo => (
+                                            <option key={hmo._id} value={hmo.name}>
+                                                {hmo.name}
+                                            </option>
+                                        ))
+                                    }
+                                </select>
+                            </div>
+                        )}
+                    </div>
                     <div className="mt-4 flex gap-2">
                         <button
                             onClick={() => setShowRegisterPatientModal(true)}
@@ -408,6 +463,8 @@ const PatientManagement = () => {
                                 setSearchTerm('');
                                 setStartDate('');
                                 setEndDate('');
+                                setFilterProvider('');
+                                setFilterHMO('');
                             }}
                             className="bg-gray-400 text-white px-6 py-2 rounded-lg hover:bg-gray-500"
                         >
