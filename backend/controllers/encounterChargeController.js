@@ -228,7 +228,7 @@ const deleteEncounterCharge = async (req, res) => {
             return res.status(400).json({ message: 'Cannot delete a processed charge' });
         }
 
-        await charge.remove();
+        await charge.deleteOne();
         res.json({ message: 'Charge removed' });
     } catch (error) {
         res.status(500).json({ message: error.message });

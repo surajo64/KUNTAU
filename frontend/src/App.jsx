@@ -67,6 +67,7 @@ function App() {
             <Route path="/radiology/external-investigations" element={<ExternalRadiology />} />
             <Route path="/pharmacy/external-investigations" element={<ExternalPharmacy />} />
             <Route path="/appointments" element={<Appointments />} />
+            <Route path="/hmo-management" element={<HMOManagement />} />
             <Route path="/nurse/triage" element={<NurseTriage />} />
             <Route path="/nurse/services" element={<NursingServiceManagement />} />
             <Route path="/billing" element={<BillingDashboard />} />

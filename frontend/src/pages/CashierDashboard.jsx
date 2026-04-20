@@ -3,7 +3,7 @@ import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
-import { FaDollarSign, FaReceipt, FaPrint, FaSearch, FaCheckCircle } from 'react-icons/fa';
+import { FaDollarSign, FaReceipt, FaPrint, FaSearch, FaCheckCircle, FaTrashAlt } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import LoadingOverlay from '../components/loadingOverlay';
 
@@ -155,6 +155,27 @@ const CashierDashboard = () => {
             setSelectedCharges(selectedCharges.filter(id => id !== chargeId));
         } else {
             setSelectedCharges([...selectedCharges, chargeId]);
+        }
+    };
+
+    const handleDeleteCharge = async (chargeId) => {
+        if (!window.confirm('Are you sure you want to delete this charge? This action cannot be undone.')) return;
+        try {
+            setLoading(true);
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            await axios.delete(`${backendUrl}/api/encounter-charges/${chargeId}`, config);
+            toast.success('Charge deleted successfully');
+            // Refresh encounter charges
+            await handleSelectEncounter(selectedEncounter);
+            // Refresh pending badges for this patient
+            await handleSelectPatient(selectedPatient);
+            // Re-select the encounter so the user stays on the charge list
+            setSelectedEncounter(selectedEncounter);
+        } catch (error) {
+            console.error(error);
+            toast.error(error.response?.data?.message || 'Error deleting charge');
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -484,7 +505,18 @@ const CashierDashboard = () => {
                                                     <p className="text-sm text-gray-600">Qty: {charge.quantity}</p>
                                                 </div>
                                             </div>
-                                            <p className="font-bold text-green-600">₦{(charge.patientPortion !== undefined ? charge.patientPortion : charge.totalAmount).toFixed(2)}</p>
+                                            <div className="flex items-center gap-3">
+                                                <p className="font-bold text-green-600">₦{(charge.patientPortion !== undefined ? charge.patientPortion : charge.totalAmount).toFixed(2)}</p>
+                                                {user?.role === 'admin' && (
+                                                    <button
+                                                        onClick={() => handleDeleteCharge(charge._id)}
+                                                        title="Delete charge (Admin only)"
+                                                        className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded transition-colors"
+                                                    >
+                                                        <FaTrashAlt size={14} />
+                                                    </button>
+                                                )}
+                                            </div>
                                         </div>
                                     ))}
                                 </div>

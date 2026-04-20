@@ -113,6 +113,9 @@ const Sidebar = () => {
                         <Link to="/front-desk/patients" className={`flex items-center gap-3 p-3 rounded hover:bg-green-700 transition ${isActive('/front-desk/patients')}`}>
                             <FaUserInjured /> Patient Management
                         </Link>
+                        <Link to="/hmo-management" className={`flex items-center gap-3 p-2 rounded hover:bg-green-600 transition ${isActive('/admin/hmo-management')}`}>
+                            <FaHospital size={14} /> HMO/Retainership
+                        </Link>
                         <Link to="/appointments" className={`flex items-center gap-3 p-3 rounded hover:bg-green-700 transition ${isActive('/appointments')}`}>
                             <FaCalendarAlt /> Appointments
                         </Link>
@@ -225,7 +228,7 @@ const Sidebar = () => {
                                 <FaCalendarAlt size={14} /> Appointments
                             </Link>
                             <Link to="/admin/hmo-management" className={`flex items-center gap-3 p-2 rounded hover:bg-green-600 transition ${isActive('/admin/hmo-management')}`}>
-                                <FaHospital size={14} /> HMO Management
+                                <FaHospital size={14} /> HMO/Retainership
                             </Link>
                             <Link to="/admin/bank-management" className={`flex items-center gap-3 p-2 rounded hover:bg-green-600 transition ${isActive('/admin/bank-management')}`}>
                                 <FaUniversity size={14} /> Bank Management
@@ -281,11 +284,14 @@ const Sidebar = () => {
                         </SidebarDropdown>
 
                         <SidebarDropdown title="Financials" icon={<FaMoneyBillWave />} name="financials">
+                            <Link to="/cashier" className={`flex items-center gap-3 p-2 rounded hover:bg-green-600 transition ${isActive('/cashier')}`}>
+                                <FaDollarSign size={14} /> Cashier Dashboard
+                            </Link>
                             <Link to="/billing" className={`flex items-center gap-3 p-2 rounded hover:bg-green-600 transition ${isActive('/billing')}`}>
                                 <FaFileInvoiceDollar size={14} /> Billing
                             </Link>
-                            <Link to="/admin/claims-management" className={`flex items-center gap-3 p-3 rounded hover:bg-green-700 transition ${isActive('/admin/claims-management')}`}>
-                                <FaFileInvoiceDollar /> HMO Claims
+                            <Link to="/admin/claims-management" className={`flex items-center gap-3 p-2 rounded hover:bg-green-600 transition ${isActive('/admin/claims-management')}`}>
+                                <FaFileInvoiceDollar size={14} /> HMO Claims
                             </Link>
                         </SidebarDropdown>
                     </>
