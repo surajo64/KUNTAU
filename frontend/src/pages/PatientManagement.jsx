@@ -506,6 +506,7 @@ const PatientManagement = () => {
                                 <th className="p-4 text-left">Name</th>
                                 <th className="p-4 text-left">Age/Gender</th>
                                 <th className="p-4 text-left">Phone</th>
+                                <th className="p-4 text-left">Provider</th>
                                 <th className="p-4 text-left">Registered</th>
                                 <th className="p-4 text-left">Actions</th>
                             </tr>
@@ -521,6 +522,17 @@ const PatientManagement = () => {
                                             {patient.age || 'N/A'} / {patient.gender || 'N/A'}
                                         </td>
                                         <td className="p-4 text-gray-600">{patient.contact || 'N/A'}</td>
+                                        <td className="p-4">
+                                            <span className={`px-2 py-1 rounded-full text-xs font-semibold ${patient.provider === 'Standard' ? 'bg-gray-100 text-gray-800' : 'bg-blue-100 text-blue-800'
+                                                }`}>
+                                                {patient.provider || 'Standard'}
+                                            </span>
+                                            {patient.hmo && (
+                                                <div className="text-[10px] text-gray-500 mt-1 italic line-clamp-1 max-w-[120px]">
+                                                    {patient.hmo}
+                                                </div>
+                                            )}
+                                        </td>
                                         <td className="p-4 text-sm text-gray-600">
                                             {new Date(patient.createdAt).toLocaleDateString()}
                                         </td>
