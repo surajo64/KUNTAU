@@ -24,6 +24,12 @@ const CashierDashboard = () => {
     const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
     const [encounterPendingCharges, setEncounterPendingCharges] = useState({});
+    const [summaryData, setSummaryData] = useState({
+        collectedToday: 0,
+        totalPendingHMO: 0,
+        pendingPatientFees: 0,
+        totalReceiptsToday: 0
+    });
 
 
 
@@ -43,6 +49,7 @@ const CashierDashboard = () => {
         };
         fetchSystemSettings();
         fetchReceipts();
+        fetchSummary();
     }, []);
 
     // --- Patient Billing Functions ---
@@ -58,6 +65,16 @@ const CashierDashboard = () => {
             toast.error('Error fetching receipts');
         } finally {
             setLoading(false);
+        }
+    };
+
+    const fetchSummary = async () => {
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const { data } = await axios.get(`${backendUrl}/api/financials/dashboard-summary`, config);
+            setSummaryData(data);
+        } catch (error) {
+            console.error('Error fetching summary:', error);
         }
     };
 
@@ -171,6 +188,8 @@ const CashierDashboard = () => {
             await handleSelectPatient(selectedPatient);
             // Re-select the encounter so the user stays on the charge list
             setSelectedEncounter(selectedEncounter);
+            // Refresh global summary
+            fetchSummary();
         } catch (error) {
             console.error(error);
             toast.error(error.response?.data?.message || 'Error deleting charge');
@@ -202,6 +221,7 @@ const CashierDashboard = () => {
 
             handleSelectEncounter(selectedEncounter);
             fetchReceipts();
+            fetchSummary();
         } catch (error) {
             console.error(error);
             toast.error(error.response?.data?.message || 'Error collecting payment');
@@ -328,21 +348,24 @@ const CashierDashboard = () => {
 
 
             {/* Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                <div className="bg-green-50 p-6 rounded shadow">
-                    <p className="text-green-700 text-sm font-semibold">Collected Today</p>
-                    <p className="text-3xl font-bold text-green-800">₦{totalCollectedToday.toLocaleString()}</p>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                <div className="bg-green-50 p-4 rounded shadow border-l-4 border-green-500">
+                    <p className="text-green-700 text-xs font-semibold uppercase">Collected Today</p>
+                    <p className="text-2xl font-bold text-green-800">₦{summaryData.collectedToday.toLocaleString()}</p>
                 </div>
-                <div className="bg-yellow-50 p-6 rounded shadow">
-                    <p className="text-yellow-700 text-sm font-semibold">Pending to HMOs</p>
-                    <p className="text-3xl font-bold text-yellow-800">₦{totalPendingHMO.toLocaleString()}</p>
-                    <p className="text-xs text-yellow-600 mt-1">{pendingHMOReceipts.length} pending receipts</p>
+                <div className="bg-yellow-50 p-4 rounded shadow border-l-4 border-yellow-500">
+                    <p className="text-yellow-700 text-xs font-semibold uppercase">Pending to HMOs</p>
+                    <p className="text-2xl font-bold text-yellow-800">₦{summaryData.totalPendingHMO.toLocaleString()}</p>
+                    <p className="text-[10px] text-yellow-600 mt-1">Uncollected + Unpaid Claims</p>
                 </div>
-                <div className="bg-blue-50 p-6 rounded shadow">
-                    <p className="text-blue-700 text-sm font-semibold">Total Receipts Today</p>
-                    <p className="text-3xl font-bold text-blue-800">
-                        {receipts.filter(r => new Date(r.createdAt).toDateString() === new Date().toDateString()).length}
-                    </p>
+                <div className="bg-red-50 p-4 rounded shadow border-l-4 border-red-500">
+                    <p className="text-red-700 text-xs font-semibold uppercase">Outstanding Patient Fees</p>
+                    <p className="text-2xl font-bold text-red-800">₦{summaryData.pendingPatientFees.toLocaleString()}</p>
+                    <p className="text-[10px] text-red-600 mt-1">Total pending cash collections</p>
+                </div>
+                <div className="bg-blue-50 p-4 rounded shadow border-l-4 border-blue-500">
+                    <p className="text-blue-700 text-xs font-semibold uppercase">Receipts Today</p>
+                    <p className="text-2xl font-bold text-blue-800">{summaryData.totalReceiptsToday}</p>
                 </div>
             </div>
 

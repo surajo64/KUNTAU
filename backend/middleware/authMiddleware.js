@@ -48,4 +48,12 @@ const pharmacy = (req, res, next) => {
     }
 };
 
-module.exports = { protect, admin, superAdmin, pharmacy };
+const adminOrReceptionist = (req, res, next) => {
+    if (req.user && (req.user.role === 'admin' || req.user.role === 'super_admin' || req.user.role === 'receptionist')) {
+        next();
+    } else {
+        res.status(401).json({ message: 'Not authorized. Admin or Receptionist access required.' });
+    }
+};
+
+module.exports = { protect, admin, superAdmin, pharmacy, adminOrReceptionist };

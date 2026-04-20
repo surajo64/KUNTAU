@@ -113,7 +113,7 @@ const Sidebar = () => {
                         <Link to="/front-desk/patients" className={`flex items-center gap-3 p-3 rounded hover:bg-green-700 transition ${isActive('/front-desk/patients')}`}>
                             <FaUserInjured /> Patient Management
                         </Link>
-                        <Link to="/hmo-management" className={`flex items-center gap-3 p-2 rounded hover:bg-green-600 transition ${isActive('/admin/hmo-management')}`}>
+                        <Link to="/hmo-management" className={`flex items-center gap-3 p-2 rounded hover:bg-green-600 transition ${isActive('/hmo-management')}`}>
                             <FaHospital size={14} /> HMO/Retainership
                         </Link>
                         <Link to="/appointments" className={`flex items-center gap-3 p-3 rounded hover:bg-green-700 transition ${isActive('/appointments')}`}>
