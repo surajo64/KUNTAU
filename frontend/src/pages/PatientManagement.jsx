@@ -486,13 +486,13 @@ const PatientManagement = () => {
                     <div className="bg-white p-6 rounded-lg shadow">
                         <p className="text-gray-600 text-sm font-semibold mb-2">Male Patients</p>
                         <p className="text-3xl font-bold text-purple-600">
-                            {patients.filter(p => p.gender?.toLowerCase() === 'male').length}
+                            {filteredPatients.filter(p => p.gender?.toLowerCase() === 'male').length}
                         </p>
                     </div>
                     <div className="bg-white p-6 rounded-lg shadow">
                         <p className="text-gray-600 text-sm font-semibold mb-2">Female Patients</p>
                         <p className="text-3xl font-bold text-pink-600">
-                            {patients.filter(p => p.gender?.toLowerCase() === 'female').length}
+                            {filteredPatients.filter(p => p.gender?.toLowerCase() === 'female').length}
                         </p>
                     </div>
                 </div>
