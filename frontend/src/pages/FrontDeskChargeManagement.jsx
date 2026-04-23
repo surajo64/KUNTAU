@@ -215,6 +215,7 @@ const FrontDeskChargeManagement = () => {
         consultation: 'Consultation',
         card: 'Hospital Card',
         lab: 'Lab Investigation',
+        family: 'Family File Registration',
         radiology: 'Radiology Investigation',
         drugs: 'Drug Purchase',
         nursing: 'Nursing Service',
@@ -316,6 +317,7 @@ const FrontDeskChargeManagement = () => {
                                     <option value="radiology">Radiology Investigation</option>
                                     <option value="drugs">Drug Purchase</option>
                                     <option value="nursing">Nursing Service</option>
+                                    <option value="family">Family File Registration</option>
                                     <option value="labour">Labour Fee</option>
                                     <option value="theatre">Theatre Fee</option>
                                     <option value="other">Other</option>

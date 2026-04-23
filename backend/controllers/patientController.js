@@ -1,4 +1,5 @@
 const Patient = require('../models/patientModel');
+const FamilyFile = require('../models/familyFileModel');
 const { generateMRN } = require('../utils/mrnGenerator');
 
 
@@ -6,37 +7,83 @@ const { generateMRN } = require('../utils/mrnGenerator');
 // @route   POST /api/patients
 // @access  Private
 const registerPatient = async (req, res) => {
-    const { name, age, gender, contact, address, state, lga, medicalHistory, provider, hmo, insuranceNumber, emergencyContactName, emergencyContactPhone } = req.body;
+    try {
+        const { name, age, gender, contact, address, state, lga, medicalHistory, provider, hmo, insuranceNumber, emergencyContactName, emergencyContactPhone, isFamilyMember, familyFileId } = req.body;
 
-    // Generate MRN using new format: PREFIX-YEAR-0001
-    const mrn = await generateMRN();
+        // Validation for Family File
+        let linkedFamilyFile = null;
+        if (isFamilyMember && familyFileId) {
+            linkedFamilyFile = await FamilyFile.findById(familyFileId);
+            if (!linkedFamilyFile) {
+                return res.status(404).json({ message: 'Family File not found' });
+            }
 
-    const patient = await Patient.create({
-        mrn,
-        name,
-        age,
-        gender,
-        contact,
-        address,
-        state,
-        lga,
-        medicalHistory,
-        provider,
-        hmo,
-        insuranceNumber,
-        emergencyContactName,
-        emergencyContactPhone
-    });
+            if (linkedFamilyFile.type === 'Family of 5' && linkedFamilyFile.memberCount >= 5) {
+                return res.status(400).json({ message: 'This Family File has reached its limit of 5 members' });
+            }
+        }
 
-    res.status(201).json(patient);
+        // Generate MRN using new format: PREFIX-YEAR-0001
+        const mrn = await generateMRN();
+
+        const patientData = {
+            mrn,
+            name,
+            age,
+            gender,
+            contact,
+            address,
+            state,
+            lga,
+            medicalHistory,
+            provider,
+            hmo,
+            insuranceNumber,
+            emergencyContactName,
+            emergencyContactPhone,
+            isFamilyMember: !!isFamilyMember,
+            familyFile: familyFileId || undefined
+        };
+
+        const patient = await Patient.create(patientData);
+
+        // Increment member count if linked to a family file
+        if (linkedFamilyFile) {
+            linkedFamilyFile.memberCount += 1;
+            await linkedFamilyFile.save();
+        }
+
+        res.status(201).json(patient);
+    } catch (error) {
+        console.error('Error in registerPatient:', error);
+        res.status(500).json({ message: error.message });
+    }
 };
 
 // @desc    Get all patients
 // @route   GET /api/patients
 // @access  Private
 const getPatients = async (req, res) => {
-    const patients = await Patient.find({});
-    res.json(patients);
+    try {
+        const { familyFile } = req.query;
+        let filter = {};
+        
+        if (familyFile) {
+            // If familyFile query is provided, we strictly filter by it
+            const mongoose = require('mongoose');
+            try {
+                filter.familyFile = new mongoose.Types.ObjectId(familyFile);
+            } catch (err) {
+                // If invalid ID provided, return no patients rather than all
+                return res.json([]);
+            }
+        }
+
+        const patients = await Patient.find(filter).populate('familyFile');
+        res.json(patients);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
 };
 
 // @desc    Update patient

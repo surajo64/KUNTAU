@@ -529,7 +529,12 @@ const PatientManagement = () => {
                                             </span>
                                             {patient.hmo && (
                                                 <div className="text-[10px] text-gray-500 mt-1 italic line-clamp-1 max-w-[120px]">
-                                                    {patient.hmo}
+                                                    HMO: {patient.hmo}
+                                                </div>
+                                            )}
+                                            {patient.familyFile && (
+                                                <div className="text-[10px] text-green-600 mt-1 italic font-semibold line-clamp-1 max-w-[120px]">
+                                                    Family: {typeof patient.familyFile === 'object' ? patient.familyFile.familyName : 'Linked'}
                                                 </div>
                                             )}
                                         </td>

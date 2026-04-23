@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { FaUserMd, FaPills, FaFlask, FaXRay, FaUserInjured, FaCalendarAlt, FaNotesMedical, FaSignOutAlt, FaTachometerAlt, FaDollarSign, FaFileInvoiceDollar, FaHeart, FaHospital, FaBed, FaChevronDown, FaChevronRight, FaCogs, FaMoneyBillWave, FaExchangeAlt, FaTrash, FaUniversity, FaChartLine, FaFileMedicalAlt, FaLock } from 'react-icons/fa';
+import { FaUserMd, FaPills, FaFlask, FaXRay, FaUserInjured, FaCalendarAlt, FaNotesMedical, FaSignOutAlt, FaTachometerAlt, FaDollarSign, FaFileInvoiceDollar, FaHeart, FaHospital, FaBed, FaChevronDown, FaChevronRight, FaCogs, FaMoneyBillWave, FaExchangeAlt, FaTrash, FaUniversity, FaChartLine, FaFileMedicalAlt, FaLock, FaUserFriends } from 'react-icons/fa';
 import { useContext, useState, useEffect } from 'react';
 import axios from 'axios';
 import { AppContext } from '../context/AppContext';
@@ -113,6 +113,9 @@ const Sidebar = () => {
                         <Link to="/front-desk/patients" className={`flex items-center gap-3 p-3 rounded hover:bg-green-700 transition ${isActive('/front-desk/patients')}`}>
                             <FaUserInjured /> Patient Management
                         </Link>
+                        <Link to="/front-desk/family-files" className={`flex items-center gap-3 p-3 rounded hover:bg-green-700 transition ${isActive('/front-desk/family-files')}`}>
+                            <FaUserFriends /> Family Files
+                        </Link>
                         <Link to="/hmo-management" className={`flex items-center gap-3 p-2 rounded hover:bg-green-600 transition ${isActive('/hmo-management')}`}>
                             <FaHospital size={14} /> HMO/Retainership
                         </Link>
@@ -217,6 +220,9 @@ const Sidebar = () => {
                             </Link>
                             <Link to="/admin/patients" className={`flex items-center gap-3 p-2 rounded hover:bg-green-600 transition ${isActive('/admin/patients')}`}>
                                 <FaUserInjured size={14} /> Patients
+                            </Link>
+                            <Link to="/admin/family-files" className={`flex items-center gap-3 p-2 rounded hover:bg-green-600 transition ${isActive('/admin/family-files')}`}>
+                                <FaUserFriends size={14} /> Family Files
                             </Link>
                             <Link to="/admin/clinics" className={`flex items-center gap-3 p-2 rounded hover:bg-green-600 transition ${isActive('/admin/clinics')}`}>
                                 <FaHospital size={14} /> Clinics

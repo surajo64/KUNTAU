@@ -2,7 +2,8 @@ const mongoose = require('mongoose');
 
 const receiptSchema = mongoose.Schema({
     invoice: { type: mongoose.Schema.Types.ObjectId, ref: 'Invoice' },
-    patient: { type: mongoose.Schema.Types.ObjectId, ref: 'Patient', required: true },
+    patient: { type: mongoose.Schema.Types.ObjectId, ref: 'Patient' },
+    familyFile: { type: mongoose.Schema.Types.ObjectId, ref: 'FamilyFile' },
     amountPaid: { type: Number, required: true },
     paymentMethod: { type: String, enum: ['cash', 'card', 'insurance', 'deposit', 'retainership'], default: 'cash' },
     cashier: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },

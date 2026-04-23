@@ -44,6 +44,7 @@ import DrugDisposal from './pages/DrugDisposal';
 import HMOManagement from './pages/HMOManagement';
 import ClaimsManagement from './pages/ClaimsManagement';
 import BankManagement from './pages/BankManagement';
+import FamilyFileManagement from './pages/FamilyFileManagement';
 
 function App() {
   return (
@@ -73,6 +74,7 @@ function App() {
             <Route path="/billing" element={<BillingDashboard />} />
             <Route path="/front-desk" element={<FrontDeskDashboard />} />
             <Route path="/front-desk/patients" element={<PatientManagement />} />
+            <Route path="/front-desk/family-files" element={<FamilyFileManagement />} />
             <Route path="/cashier" element={<CashierDashboard />} />
 
             {/* Admin Routes */}
@@ -82,6 +84,7 @@ function App() {
             <Route path="/admin/clinical-reports" element={<ClinicalReports />} />
             <Route path="/admin/patients" element={<PatientManagement />} />
             <Route path="/admin/clinics" element={<ClinicManagement />} />
+            <Route path="/admin/family-files" element={<FamilyFileManagement />} />
             <Route path="/admin/front-desk-charges" element={<FrontDeskChargeManagement />} />
             <Route path="/admin/wards" element={<WardManagement />} />
             <Route path="/admin/drug-metadata" element={<DrugMetadataManagement />} />

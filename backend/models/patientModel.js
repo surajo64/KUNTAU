@@ -36,6 +36,10 @@ const patientSchema = mongoose.Schema({
         notes: String
     }],
     pastSurgeries: [{ type: String }],
+
+    // Family File Integration
+    isFamilyMember: { type: Boolean, default: false },
+    familyFile: { type: mongoose.Schema.Types.ObjectId, ref: 'FamilyFile' },
 }, {
     timestamps: true,
 });

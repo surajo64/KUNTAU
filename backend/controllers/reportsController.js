@@ -649,13 +649,7 @@ const getOverallRevenue = async (req, res) => {
         }
 
         // Group by department - use same revenue logic as totalRevenue
-        const byDepartment = {
-            lab: { revenue: 0, count: 0 },
-            radiology: { revenue: 0, count: 0 },
-            pharmacy: { revenue: 0, count: 0 },
-            consultation: { revenue: 0, count: 0 },
-            other: { revenue: 0, count: 0 }
-        };
+        const byDepartment = {};
 
         // Create a set of encounter IDs with paid claims for quick lookup
         const paidClaimEncounterSet = new Set();
@@ -680,50 +674,56 @@ const getOverallRevenue = async (req, res) => {
             const type = charge.charge?.type || 'other';
             const dept = type === 'drugs' ? 'pharmacy' : type;
 
-            if (byDepartment[dept]) {
-                byDepartment[dept].count++;
-
-                // Calculate revenue based on payment method
-                let chargeRevenue = 0;
-                if (charge.receipt?.paymentMethod === 'insurance') {
-                    // Insurance: add patient portion (if any)
-                    chargeRevenue += (charge.patientPortion || 0);
-
-                    // Insurance: add HMO portion only if claim is paid
-                    const encId = (charge.encounter?._id || charge.encounter)?.toString();
-                    if (encId && paidClaimEncounterSet.has(encId)) {
-                        chargeRevenue += (charge.hmoPortion || 0);
-                    }
-                } else if (charge.receipt) {
-                    // Non-insurance: add full amount
-                    chargeRevenue = charge.totalAmount;
-                }
-
-                byDepartment[dept].revenue += chargeRevenue;
-            } else {
-                byDepartment.other.count++;
-
-                // Same logic for 'other' department
-                let chargeRevenue = 0;
-                if (charge.receipt?.paymentMethod === 'insurance') {
-                    chargeRevenue += (charge.patientPortion || 0);
-                    const encId = (charge.encounter?._id || charge.encounter)?.toString();
-                    if (encId && paidClaimEncounterSet.has(encId)) {
-                        chargeRevenue += (charge.hmoPortion || 0);
-                    }
-                } else if (charge.receipt) {
-                    chargeRevenue = charge.totalAmount;
-                }
-
-                byDepartment.other.revenue += chargeRevenue;
+            if (!byDepartment[dept]) {
+                byDepartment[dept] = { revenue: 0, count: 0 };
             }
+
+            byDepartment[dept].count++;
+
+            // Calculate revenue based on payment method
+            let chargeRevenue = 0;
+            if (charge.receipt?.paymentMethod === 'insurance') {
+                // Insurance: add patient portion (if any)
+                chargeRevenue += (charge.patientPortion || 0);
+
+                // Insurance: add HMO portion only if claim is paid
+                const encId = (charge.encounter?._id || charge.encounter)?.toString();
+                if (encId && paidClaimEncounterSet.has(encId)) {
+                    chargeRevenue += (charge.hmoPortion || 0);
+                }
+            } else if (charge.receipt) {
+                // Non-insurance: add full amount
+                chargeRevenue = charge.totalAmount;
+            }
+
+            byDepartment[dept].revenue += chargeRevenue;
         });
+
+        // --- NEW: Include Family Registration Receipts ---
+        const familyReceipts = await Receipt.find({
+            familyFile: { $exists: true },
+            createdAt: { $gte: start, $lte: end }
+        });
+
+        if (familyReceipts.length > 0) {
+            if (!byDepartment['family']) {
+                byDepartment['family'] = { revenue: 0, count: 0 };
+            }
+
+            familyReceipts.forEach(r => {
+                byDepartment['family'].count++;
+                byDepartment['family'].revenue += r.amountPaid;
+            });
+        }
+
+        const totalFamilyRevenue = familyReceipts.reduce((sum, r) => sum + r.amountPaid, 0);
+        const finalTotalRevenue = totalRevenue + totalFamilyRevenue;
 
         res.json({
             summary: {
                 totalCharges,
                 paidCharges: paidChargesCount,
-                totalRevenue,
+                totalRevenue: finalTotalRevenue,
                 pendingRevenue,
                 pendingInsuranceRevenue,
                 pendingPatientRevenue,
@@ -1248,6 +1248,97 @@ const getClinicalReport = async (req, res) => {
     }
 };
 
+// @desc    Get theatre revenue report by date range
+// @route   GET /api/reports/theatre-revenue?startDate=&endDate=
+// @access  Private (Admin)
+const getTheatreRevenue = async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+        const start = startDate ? new Date(startDate) : new Date(0);
+        const end = endDate ? new Date(endDate) : new Date();
+        end.setHours(23, 59, 59, 999);
+
+        const allCharges = await EncounterCharge.find({
+            createdAt: { $gte: start, $lte: end }
+        })
+            .populate('charge')
+            .populate('patient', 'name mrn')
+            .populate('encounter')
+            .populate('receipt')
+            .sort({ createdAt: -1 });
+
+        const theatreCharges = allCharges.filter(c => c.charge?.type === 'theatre');
+        const totalCharges = theatreCharges.length;
+        const paidChargesCount = theatreCharges.filter(c => c.status === 'paid').length;
+
+        const paidCharges = theatreCharges.filter(c => c.status === 'paid');
+        const insuranceCharges = paidCharges.filter(c => c.receipt?.paymentMethod === 'insurance');
+        const nonInsuranceCharges = paidCharges.filter(c => c.receipt && c.receipt.paymentMethod !== 'insurance');
+
+        const nonInsuranceRevenue = nonInsuranceCharges.reduce((sum, c) => sum + c.totalAmount, 0);
+        const insurancePatientRevenue = insuranceCharges
+            .filter(c => (c.patientPortion || 0) > 0)
+            .reduce((sum, c) => sum + c.patientPortion, 0);
+
+        const totalRevenue = nonInsuranceRevenue + insurancePatientRevenue; // simplified for theatre
+
+        res.json({
+            summary: {
+                totalCharges,
+                paidCharges: paidChargesCount,
+                totalRevenue,
+                pendingRevenue: theatreCharges.filter(c => c.status === 'pending').reduce((sum, c) => sum + c.totalAmount, 0),
+                dateRange: { start, end }
+            },
+            charges: theatreCharges
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Get family registration revenue report
+// @route   GET /api/reports/family-revenue?startDate=&endDate=
+// @access  Private (Admin)
+const getFamilyRevenue = async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+        const start = startDate ? new Date(startDate) : new Date(0);
+        const end = endDate ? new Date(endDate) : new Date();
+        end.setHours(23, 59, 59, 999);
+
+        const familyReceipts = await Receipt.find({
+            familyFile: { $exists: true },
+            createdAt: { $gte: start, $lte: end }
+        }).populate({ path: 'familyFile', model: 'FamilyFile' });
+
+        const totalRevenue = familyReceipts.reduce((sum, r) => sum + r.amountPaid, 0);
+
+        res.json({
+            summary: {
+                totalCharges: familyReceipts.length,
+                paidCharges: familyReceipts.length,
+                totalRevenue,
+                pendingRevenue: 0,
+                dateRange: { start, end }
+            },
+            charges: familyReceipts.map(r => ({
+                _id: r._id,
+                createdAt: r.createdAt,
+                amountPaid: r.amountPaid,
+                totalAmount: r.amountPaid,
+                status: 'paid',
+                paymentMethod: r.paymentMethod,
+                receiptNumber: r.receiptNumber,
+                patient: { name: r.familyFile?.familyName || 'Family File' },
+                charge: { name: 'Family Registration', type: 'family' }
+            }))
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     getLabRevenue,
     getRadiologyRevenue,
@@ -1256,5 +1347,7 @@ module.exports = {
     getNurseTriageRevenue,
     getOverallRevenue,
     getDashboardStats,
-    getClinicalReport
+    getClinicalReport,
+    getTheatreRevenue,
+    getFamilyRevenue
 };

@@ -496,7 +496,7 @@ const ClaimsManagement = () => {
         return classes[status] || 'bg-gray-100 text-gray-800';
     };
 
-    if (user?.role !== 'admin' && user?.role !== 'super_admin') {
+    if (user?.role !== 'admin' && user?.role !== 'super_admin' && user?.role !== 'cashier') {
         return (
             <Layout>
                 <div className="bg-red-50 border border-red-200 p-6 rounded">

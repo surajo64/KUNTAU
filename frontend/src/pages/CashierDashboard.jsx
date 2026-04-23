@@ -3,7 +3,7 @@ import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
-import { FaDollarSign, FaReceipt, FaPrint, FaSearch, FaCheckCircle, FaTrashAlt } from 'react-icons/fa';
+import { FaDollarSign, FaReceipt, FaPrint, FaSearch, FaCheckCircle, FaTrashAlt, FaUserFriends } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import LoadingOverlay from '../components/loadingOverlay';
 
@@ -30,6 +30,12 @@ const CashierDashboard = () => {
         pendingPatientFees: 0,
         totalReceiptsToday: 0
     });
+
+    // Family File State
+    const [familySearchTerm, setFamilySearchTerm] = useState('');
+    const [familyFiles, setFamilyFiles] = useState([]);
+    const [selectedFamilyFile, setSelectedFamilyFile] = useState(null);
+    const [activeTab, setActiveTab] = useState('patient'); // 'patient' or 'family'
 
 
 
@@ -236,6 +242,12 @@ const CashierDashboard = () => {
             toast.error('Browser blocked the popup. Please allow popups for this site to print receipts.');
             return;
         }
+
+        const isFamily = !!receipt.familyFile;
+        const name = isFamily ? (receipt.familyFile?.familyName || 'N/A') : (receipt.patient?.name || 'N/A');
+        const idLabel = isFamily ? 'File #' : 'MRN';
+        const idVal = isFamily ? (receipt.familyFile?.fileNumber || 'N/A') : (receipt.patient?.mrn || 'N/A');
+
         printWindow.document.write(`
             <html>
                 <head>
@@ -265,8 +277,8 @@ const CashierDashboard = () => {
                     </div>
                     <div class="info-row"><span>Receipt #:</span> <strong>${receipt.receiptNumber}</strong></div>
                     <div class="info-row"><span>Date:</span> <span>${new Date(receipt.paymentDate).toLocaleString()}</span></div>
-                    <div class="info-row"><span>Patient:</span> <strong>${receipt.patient?.name}</strong></div>
-                    <div class="info-row"><span>MRN:</span> <span>${receipt.patient?.mrn || 'N/A'}</span></div>
+                    <div class="info-row"><span>${isFamily ? 'Family' : 'Patient'}:</span> <strong>${name}</strong></div>
+                    <div class="info-row"><span>${idLabel}:</span> <span>${idVal}</span></div>
                     <div class="info-row"><span>Cashier:</span> <strong>${receipt.cashier?.name || 'Unknown'}</strong></div>
                     <div class="info-row"><span>Method:</span> <span style="text-transform: uppercase;">${receipt.paymentMethod}</span></div>
 
@@ -278,7 +290,12 @@ const CashierDashboard = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            ${receipt.charges?.map(c => `
+                            ${isFamily ? `
+                                <tr>
+                                    <td>Family Registration Fee</td>
+                                    <td style="text-align: right;">₦${receipt.amountPaid.toFixed(2)}</td>
+                                </tr>
+                            ` : (receipt.charges?.map(c => `
                                 <tr>
                                     <td>
                                         ${c.itemName || c.charge?.name || c.itemType || 'Service'} 
@@ -286,7 +303,7 @@ const CashierDashboard = () => {
                                     </td>
                                     <td style="text-align: right;">₦${c.totalAmount.toFixed(2)}</td>
                                 </tr>
-                            `).join('') || '<tr><td colspan="2">No items</td></tr>'}
+                            `).join('') || '<tr><td colspan="2">No items</td></tr>')}
                         </tbody>
                     </table>
 
@@ -304,6 +321,52 @@ const CashierDashboard = () => {
         `);
         printWindow.document.close();
         printWindow.print();
+    };
+
+    // --- Family Payment Functions ---
+
+    const searchFamilyFiles = async () => {
+        if (!familySearchTerm) return;
+        try {
+            setLoading(true);
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const { data } = await axios.get(`${backendUrl}/api/family-files?search=${familySearchTerm}`, config);
+            setFamilyFiles(data);
+        } catch (error) {
+            console.error(error);
+            toast.error('Error searching family files');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCollectFamilyPayment = async () => {
+        if (!selectedFamilyFile) return;
+
+        try {
+            setLoading(true);
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const { data } = await axios.post(
+                `${backendUrl}/api/receipts/family-file`,
+                {
+                    familyFileId: selectedFamilyFile._id,
+                    paymentMethod
+                },
+                config
+            );
+            toast.success(`Payment collected for ${selectedFamilyFile.familyName}!`);
+            handlePrintReceipt(data);
+            setSelectedFamilyFile(null);
+            setFamilyFiles([]);
+            setFamilySearchTerm('');
+            fetchReceipts();
+            fetchSummary();
+        } catch (error) {
+            console.error(error);
+            toast.error(error.response?.data?.message || 'Error collecting payment');
+        } finally {
+            setLoading(false);
+        }
     };
 
     // --- Render Helpers ---
@@ -347,219 +410,335 @@ const CashierDashboard = () => {
             </div>
 
 
-            {/* Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                <div className="bg-green-50 p-4 rounded shadow border-l-4 border-green-500">
-                    <p className="text-green-700 text-xs font-semibold uppercase">Collected Today</p>
-                    <p className="text-2xl font-bold text-green-800">₦{summaryData.collectedToday.toLocaleString()}</p>
-                </div>
-                <div className="bg-yellow-50 p-4 rounded shadow border-l-4 border-yellow-500">
-                    <p className="text-yellow-700 text-xs font-semibold uppercase">Pending to HMOs</p>
-                    <p className="text-2xl font-bold text-yellow-800">₦{summaryData.totalPendingHMO.toLocaleString()}</p>
-                    <p className="text-[10px] text-yellow-600 mt-1">Uncollected + Unpaid Claims</p>
-                </div>
-                <div className="bg-red-50 p-4 rounded shadow border-l-4 border-red-500">
-                    <p className="text-red-700 text-xs font-semibold uppercase">Outstanding Patient Fees</p>
-                    <p className="text-2xl font-bold text-red-800">₦{summaryData.pendingPatientFees.toLocaleString()}</p>
-                    <p className="text-[10px] text-red-600 mt-1">Total pending cash collections</p>
-                </div>
-                <div className="bg-blue-50 p-4 rounded shadow border-l-4 border-blue-500">
-                    <p className="text-blue-700 text-xs font-semibold uppercase">Receipts Today</p>
-                    <p className="text-2xl font-bold text-blue-800">{summaryData.totalReceiptsToday}</p>
-                </div>
+            {/* Tabs */}
+            <div className="flex border-b mb-6">
+                <button
+                    onClick={() => setActiveTab('patient')}
+                    className={`px-6 py-2 font-bold ${activeTab === 'patient' ? 'border-b-4 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                    Patient Billing
+                </button>
+                <button
+                    onClick={() => setActiveTab('family')}
+                    className={`px-6 py-2 font-bold ${activeTab === 'family' ? 'border-b-4 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                    Family File Registration
+                </button>
             </div>
 
-            {/* Search Patient */}
-            <div className="bg-white p-6 rounded shadow mb-6">
-                <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
-                    <FaSearch /> Find Patient & Encounter
-                </h3>
-                <div className="flex gap-2 mb-4">
-                    <input
-                        type="text"
-                        placeholder="Search by Name or MRN..."
-                        className="flex-1 border p-2 rounded"
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && searchPatients()}
-                    />
-                    <button
-                        onClick={searchPatients}
-                        className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
-                    >
-                        Search
-                    </button>
-                </div>
-
-                {/* Patient Results */}
-                {patients.length > 0 && !selectedPatient && (
-                    <div className="space-y-2">
-                        <p className="font-semibold text-gray-700">Search Results:</p>
-                        {patients.map(patient => (
-                            <div
-                                key={patient._id}
-                                onClick={() => handleSelectPatient(patient)}
-                                className="p-3 border rounded hover:bg-gray-50 cursor-pointer"
-                            >
-                                <p className="font-semibold">{patient.name}</p>
-                                <p className="text-sm text-gray-600">MRN: {patient.mrn} | Age: {patient.age} | {patient.gender}</p>
-                            </div>
-                        ))}
+            {activeTab === 'patient' ? (
+                <>
+                {/* Search Patient */}
+                <div className="bg-white p-6 rounded shadow mb-6">
+                    <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                        <FaSearch /> Find Patient & Encounter
+                    </h3>
+                    <div className="flex gap-2 mb-4">
+                        <input
+                            type="text"
+                            placeholder="Search by Name or MRN..."
+                            className="flex-1 border p-2 rounded"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && searchPatients()}
+                        />
+                        <button
+                            onClick={searchPatients}
+                            className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
+                        >
+                            Search
+                        </button>
                     </div>
-                )}
 
-                {/* Selected Patient - Encounters */}
-                {selectedPatient && (
-                    <div className="mt-4">
-                        <div className="bg-blue-50 p-4 rounded mb-4">
-                            <div className="flex justify-between items-start">
-                                <div>
-                                    <p className="font-bold text-lg">{selectedPatient.name}</p>
-                                    <p className="text-sm text-gray-600">MRN: {selectedPatient.mrn}</p>
-                                    <button
-                                        onClick={() => {
-                                            setSelectedPatient(null);
-                                            setEncounters([]);
-                                            setSelectedEncounter(null);
-                                        }}
-                                        className="text-blue-600 text-sm mt-2 hover:underline"
-                                    >
-                                        ← Change Patient
-                                    </button>
-                                </div>
-                                <div className="w-1/3">
-                                    <label className="block text-gray-700 text-sm font-semibold mb-1">Payment Method</label>
-                                    <select
-                                        value={paymentMethod}
-                                        onChange={(e) => setPaymentMethod(e.target.value)}
-                                        className="w-full border p-2 rounded text-sm bg-white"
-                                    >
-                                        <option value="cash">Cash</option>
-                                        <option value="card">Card/POS</option>
-                                        <option value="insurance">Insurance</option>
-                                        <option value="deposit">Patient Deposit</option>
-                                        <option value="retainership">Retainership</option>
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
-
-                        {encounters.length > 0 && !selectedEncounter && (
-                            <div>
-                                <p className="font-semibold mb-2">Select Encounter:</p>
-                                <div className="space-y-2">
-                                    {encounters.map(encounter => {
-                                        const hasPendingCharges = encounterPendingCharges[encounter._id];
-                                        return (
-                                            <div
-                                                key={encounter._id}
-                                                onClick={() => handleSelectEncounter(encounter)}
-                                                className="p-3 border rounded hover:bg-gray-50 cursor-pointer relative"
-                                            >
-                                                {/* Red notification badge for outstanding payments */}
-                                                {hasPendingCharges && (
-                                                    <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
-                                                        <span className="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse">
-                                                            {hasPendingCharges.count} Pending
-                                                        </span>
-                                                        <span className="bg-red-100 text-red-800 text-xs font-semibold px-2 py-1 rounded">
-                                                            ₦{hasPendingCharges.total.toFixed(2)}
-                                                        </span>
-                                                    </div>
-                                                )}
-                                                <p className="font-semibold">
-                                                    {new Date(encounter.createdAt).toLocaleDateString()} - {encounter.type}
-                                                </p>
-                                                <p className="text-sm text-gray-600">
-                                                    Status: {encounter.encounterStatus} |
-                                                    Payment: {encounter.paymentValidated ? '✓ Paid' : '✗ Pending'}
-                                                </p>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            </div>
-                        )}
-
-                        {encounters.length === 0 && (
-                            <p className="text-gray-500">No encounters found for this patient.</p>
-                        )}
-                    </div>
-                )}
-
-                {/* Selected Encounter - Charges */}
-                {selectedEncounter && (
-                    <div className="mt-4">
-                        <div className="bg-green-50 p-4 rounded mb-4">
-                            <p className="font-bold">Encounter: {new Date(selectedEncounter.createdAt).toLocaleDateString()}</p>
-                            <p className="text-sm text-gray-600">Type: {selectedEncounter.type}</p>
-                            <button
-                                onClick={() => {
-                                    setSelectedEncounter(null);
-                                    setEncounterCharges([]);
-                                    setSelectedCharges([]);
-                                }}
-                                className="text-green-600 text-sm mt-2 hover:underline"
-                            >
-                                ← Change Encounter
-                            </button>
-                        </div>
-
-                        {pendingCharges.length > 0 && (
-                            <div className="bg-gray-50 p-4 rounded">
-
-
-                                <p className="font-semibold mb-2">Pending Charges:</p>
-                                <div className="space-y-2 mb-4">
-                                    {pendingCharges.map(charge => (
-                                        <div
-                                            key={charge._id}
-                                            className="flex items-center justify-between p-3 border rounded hover:bg-white"
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <input
-                                                    type="checkbox"
-                                                    checked={selectedCharges.includes(charge._id)}
-                                                    onChange={() => handleChargeSelection(charge._id)}
-                                                    className="w-4 h-4"
-                                                />
-                                                <div>
-                                                    <p className="font-semibold">{charge.itemName || charge.charge?.name || charge.itemType || 'Service'}</p>
-                                                    <p className="text-sm text-gray-600">Qty: {charge.quantity}</p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-3">
-                                                <p className="font-bold text-green-600">₦{(charge.patientPortion !== undefined ? charge.patientPortion : charge.totalAmount).toFixed(2)}</p>
-                                                {user?.role === 'admin' && (
-                                                    <button
-                                                        onClick={() => handleDeleteCharge(charge._id)}
-                                                        title="Delete charge (Admin only)"
-                                                        className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded transition-colors"
-                                                    >
-                                                        <FaTrashAlt size={14} />
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <button
-                                    onClick={handleCollectPayment}
-                                    disabled={selectedCharges.length === 0}
-                                    className="w-full bg-green-600 text-white py-3 rounded font-bold hover:bg-green-700 disabled:bg-gray-400 flex items-center justify-center gap-2"
+                    {/* Patient Results */}
+                    {patients.length > 0 && !selectedPatient && (
+                        <div className="space-y-2">
+                            <p className="font-semibold text-gray-700">Search Results:</p>
+                            {patients.map(patient => (
+                                <div
+                                    key={patient._id}
+                                    onClick={() => handleSelectPatient(patient)}
+                                    className="p-3 border rounded hover:bg-gray-50 cursor-pointer"
                                 >
-                                    <FaCheckCircle /> Collect Payment (₦{totalSelectedAmount.toFixed(2)})
+                                    <p className="font-semibold">{patient.name}</p>
+                                    <p className="text-sm text-gray-600">MRN: {patient.mrn} | Age: {patient.age} | {patient.gender}</p>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Selected Patient - Encounters */}
+                    {selectedPatient && (
+                        <div className="mt-4">
+                            <div className="bg-blue-50 p-4 rounded mb-4">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="font-bold text-lg">{selectedPatient.name}</p>
+                                        <p className="text-sm text-gray-600">MRN: {selectedPatient.mrn}</p>
+                                        <button
+                                            onClick={() => {
+                                                setSelectedPatient(null);
+                                                setEncounters([]);
+                                                setSelectedEncounter(null);
+                                            }}
+                                            className="text-blue-600 text-sm mt-2 hover:underline"
+                                        >
+                                            ← Change Patient
+                                        </button>
+                                    </div>
+                                    <div className="w-1/3">
+                                        <label className="block text-gray-700 text-sm font-semibold mb-1">Payment Method</label>
+                                        <select
+                                            value={paymentMethod}
+                                            onChange={(e) => setPaymentMethod(e.target.value)}
+                                            className="w-full border p-2 rounded text-sm bg-white"
+                                        >
+                                            <option value="cash">Cash</option>
+                                            <option value="card">Card/POS</option>
+                                            <option value="insurance">Insurance</option>
+                                            <option value="deposit">Patient Deposit</option>
+                                            <option value="retainership">Retainership</option>
+                                        </select>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {encounters.length > 0 && !selectedEncounter && (
+                                <div>
+                                    <p className="font-semibold mb-2">Select Encounter:</p>
+                                    <div className="space-y-2">
+                                        {encounters.map(encounter => {
+                                            const hasPendingCharges = encounterPendingCharges[encounter._id];
+                                            return (
+                                                <div
+                                                    key={encounter._id}
+                                                    onClick={() => handleSelectEncounter(encounter)}
+                                                    className="p-3 border rounded hover:bg-gray-50 cursor-pointer relative"
+                                                >
+                                                    {/* Red notification badge for outstanding payments */}
+                                                    {hasPendingCharges && (
+                                                        <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
+                                                            <span className="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse">
+                                                                {hasPendingCharges.count} Pending
+                                                            </span>
+                                                            <span className="bg-red-100 text-red-800 text-xs font-semibold px-2 py-1 rounded">
+                                                                ₦{hasPendingCharges.total.toFixed(2)}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                    <p className="font-semibold">
+                                                        {new Date(encounter.createdAt).toLocaleDateString()} - {encounter.type}
+                                                    </p>
+                                                    <p className="text-sm text-gray-600">
+                                                        Status: {encounter.encounterStatus} |
+                                                        Payment: {encounter.paymentValidated ? '✓ Paid' : '✗ Pending'}
+                                                    </p>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            )}
+
+                            {encounters.length === 0 && (
+                                <p className="text-gray-500">No encounters found for this patient.</p>
+                            )}
+                        </div>
+                    )}
+
+                    {/* Selected Encounter - Charges */}
+                    {selectedEncounter && (
+                        <div className="mt-4">
+                            <div className="bg-green-50 p-4 rounded mb-4">
+                                <p className="font-bold">Encounter: {new Date(selectedEncounter.createdAt).toLocaleDateString()}</p>
+                                <p className="text-sm text-gray-600">Type: {selectedEncounter.type}</p>
+                                <button
+                                    onClick={() => {
+                                        setSelectedEncounter(null);
+                                        setEncounterCharges([]);
+                                        setSelectedCharges([]);
+                                    }}
+                                    className="text-green-600 text-sm mt-2 hover:underline"
+                                >
+                                    ← Change Encounter
                                 </button>
                             </div>
-                        )}
 
-                        {pendingCharges.length === 0 && (
-                            <p className="text-gray-500">No pending charges for this encounter.</p>
-                        )}
+                            {pendingCharges.length > 0 && (
+                                <div className="bg-gray-50 p-4 rounded">
+
+
+                                    <p className="font-semibold mb-2">Pending Charges:</p>
+                                    <div className="space-y-2 mb-4">
+                                        {pendingCharges.map(charge => (
+                                            <div
+                                                key={charge._id}
+                                                className="flex items-center justify-between p-3 border rounded hover:bg-white"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={selectedCharges.includes(charge._id)}
+                                                        onChange={() => handleChargeSelection(charge._id)}
+                                                        className="w-4 h-4"
+                                                    />
+                                                    <div>
+                                                        <p className="font-semibold">{charge.itemName || charge.charge?.name || charge.itemType || 'Service'}</p>
+                                                        <p className="text-sm text-gray-600">Qty: {charge.quantity}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-3">
+                                                    <p className="font-bold text-green-600">₦{(charge.patientPortion !== undefined ? charge.patientPortion : charge.totalAmount).toFixed(2)}</p>
+                                                    {user?.role === 'admin' && (
+                                                        <button
+                                                            onClick={() => handleDeleteCharge(charge._id)}
+                                                            title="Delete charge (Admin only)"
+                                                            className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded transition-colors"
+                                                        >
+                                                            <FaTrashAlt size={14} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <button
+                                        onClick={handleCollectPayment}
+                                        disabled={selectedCharges.length === 0}
+                                        className="w-full bg-green-600 text-white py-3 rounded font-bold hover:bg-green-700 disabled:bg-gray-400 flex items-center justify-center gap-2"
+                                    >
+                                        <FaCheckCircle /> Collect Payment (₦{totalSelectedAmount.toFixed(2)})
+                                    </button>
+                                </div>
+                            )}
+
+                            {pendingCharges.length === 0 && (
+                                <p className="text-gray-500">No pending charges for this encounter.</p>
+                            )}
+                        </div>
+                    )}
+                </div>
+                </>
+            ) : (
+                <>
+                {/* Family File Payment Section */}
+                <div className="bg-white p-6 rounded shadow mb-6">
+                    <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                        <FaSearch /> Find Family File
+                    </h3>
+                    <div className="flex gap-2 mb-4">
+                        <input
+                            type="text"
+                            placeholder="Search by Family Name or File Number..."
+                            className="flex-1 border p-2 rounded"
+                            value={familySearchTerm}
+                            onChange={(e) => setFamilySearchTerm(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && searchFamilyFiles()}
+                        />
+                        <button
+                            onClick={searchFamilyFiles}
+                            className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
+                        >
+                            Search
+                        </button>
                     </div>
-                )}
-            </div>
+
+                    {/* Family File Results */}
+                    {familyFiles.length > 0 && !selectedFamilyFile && (
+                        <div className="space-y-2">
+                            <p className="font-semibold text-gray-700">Search Results:</p>
+                            {familyFiles.map(file => (
+                                <div
+                                    key={file._id}
+                                    onClick={() => setSelectedFamilyFile(file)}
+                                    className="p-3 border rounded hover:bg-gray-50 cursor-pointer flex justify-between items-center"
+                                >
+                                    <div>
+                                        <p className="font-bold">{file.familyName}</p>
+                                        <p className="text-sm text-gray-600">File #: {file.fileNumber} | Type: {file.type}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-bold text-blue-600">₦{file.registrationCharge.toLocaleString()}</p>
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${file.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                            {file.paymentStatus === 'paid' ? 'Paid' : 'Unpaid'}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Selected Family File Details */}
+                    {selectedFamilyFile && (
+                        <div className="mt-4">
+                            <div className="bg-blue-50 p-4 rounded mb-6">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="font-bold text-lg">{selectedFamilyFile.familyName}</p>
+                                        <p className="text-sm text-gray-600">File Number: {selectedFamilyFile.fileNumber}</p>
+                                        <p className="text-sm text-gray-600">Charge Plan: {selectedFamilyFile.familyCharge?.name || 'N/A'}</p>
+                                        <button
+                                            onClick={() => {
+                                                setSelectedFamilyFile(null);
+                                                setFamilyFiles([]);
+                                            }}
+                                            className="text-blue-600 text-sm mt-2 hover:underline"
+                                        >
+                                            ← Change Family File
+                                        </button>
+                                    </div>
+                                    <div className="w-1/3 text-right">
+                                        <p className="text-sm text-gray-500 uppercase font-bold">Registration Fee</p>
+                                        <p className="text-2xl font-bold text-green-700">₦{selectedFamilyFile.registrationCharge.toLocaleString()}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {selectedFamilyFile.paymentStatus === 'pending' ? (
+                                <div className="bg-gray-50 p-6 rounded border border-dashed border-gray-300">
+                                    <h4 className="font-bold mb-4 flex items-center gap-2">
+                                        <FaDollarSign className="text-green-600" /> Collect Registration Payment
+                                    </h4>
+                                    
+                                    <div className="mb-6 max-w-sm">
+                                        <label className="block text-gray-700 text-sm font-semibold mb-1">Payment Method</label>
+                                        <select
+                                            value={paymentMethod}
+                                            onChange={(e) => setPaymentMethod(e.target.value)}
+                                            className="w-full border p-2 rounded text-sm bg-white"
+                                        >
+                                            <option value="cash">Cash</option>
+                                            <option value="card">Card/POS</option>
+                                            <option value="deposit">Principal Deposit</option>
+                                        </select>
+                                    </div>
+
+                                    <button
+                                        onClick={handleCollectFamilyPayment}
+                                        className="w-full bg-green-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-green-700 shadow-lg flex items-center justify-center gap-3 transition-transform active:scale-95"
+                                    >
+                                        <FaCheckCircle size={24} /> 
+                                        Collect & Print Receipt (₦{selectedFamilyFile.registrationCharge.toLocaleString()})
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="bg-green-50 p-10 rounded-lg border border-green-200 text-center">
+                                    <FaCheckCircle className="text-green-500 text-5xl mx-auto mb-4" />
+                                    <h4 className="text-2xl font-bold text-green-800">Registration Already Paid</h4>
+                                    <p className="text-green-600 mt-2">
+                                        This family file has been successfully registered and paid for.
+                                    </p>
+                                    {selectedFamilyFile.paidAt && (
+                                        <p className="text-xs text-green-500 mt-1">Paid on: {new Date(selectedFamilyFile.paidAt).toLocaleString()}</p>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+                </>
+            )}
 
             {/* Recent Receipts */}
             <div className="bg-white p-6 rounded shadow">
@@ -607,7 +786,15 @@ const CashierDashboard = () => {
                                 .map((receipt) => (
                                     <tr key={receipt._id} className="hover:bg-gray-50">
                                         <td className="p-3 border-b font-mono text-sm">{receipt.receiptNumber}</td>
-                                        <td className="p-3 border-b font-semibold">{receipt.patient?.name}</td>
+                                        <td className="p-3 border-b font-semibold">
+                                            {receipt.familyFile ? (
+                                                <span className="text-indigo-600 flex items-center gap-1">
+                                                    <FaUserFriends /> {receipt.familyFile.familyName} (Family)
+                                                </span>
+                                            ) : (
+                                                receipt.patient?.name
+                                            )}
+                                        </td>
                                         <td className="p-3 border-b text-green-600 font-bold">₦{receipt.amountPaid.toFixed(2)}</td>
                                         <td className="p-3 border-b capitalize">
                                             {receipt.paymentMethod}

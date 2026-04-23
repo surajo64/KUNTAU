@@ -629,8 +629,8 @@ const BillingDashboard = () => {
                     
                     <div class="info-row"><span>Receipt #:</span> <strong>${receipt.receiptNumber}</strong></div>
                     <div class="info-row"><span>Date:</span> <span>${new Date(receipt.paymentDate).toLocaleString()}</span></div>
-                    <div class="info-row"><span>Patient:</span> <strong>${receipt.patient?.name}</strong></div>
-                    <div class="info-row"><span>MRN:</span> <span>${receipt.patient?.mrn || 'N/A'}</span></div>
+                    <div class="info-row"><span>${receipt.familyFile ? 'Family' : 'Patient'}:</span> <strong>${receipt.patient?.name || receipt.familyFile?.familyName || 'N/A'}</strong></div>
+                    <div class="info-row"><span>${receipt.familyFile ? 'File #' : 'MRN'}:</span> <span>${receipt.patient?.mrn || receipt.familyFile?.fileNumber || 'N/A'}</span></div>
                     <div class="info-row"><span>Cashier:</span> <strong>${receipt.cashier?.name || 'Unknown'}</strong></div>
                     <div class="info-row"><span>Method:</span> <span style="text-transform: uppercase;">${receipt.paymentMethod}</span></div>
 
@@ -642,7 +642,12 @@ const BillingDashboard = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            ${receipt.charges?.map(c => `
+                            ${receipt.familyFile ? `
+                                <tr>
+                                    <td>Family Registration</td>
+                                    <td style="text-align: right;">₦${receipt.amountPaid.toFixed(2)}</td>
+                                </tr>
+                            ` : (receipt.charges?.map(c => `
                                 <tr>
                                     <td>
                                         ${c.charge?.name || 'Service'} 
@@ -650,7 +655,7 @@ const BillingDashboard = () => {
                                     </td>
                                     <td style="text-align: right;">₦${c.totalAmount.toFixed(2)}</td>
                                 </tr>
-                            `).join('') || '<tr><td colspan="2">No items</td></tr>'}
+                            `).join('') || '<tr><td colspan="2">No items</td></tr>')}
                         </tbody>
                     </table>
 
@@ -1073,9 +1078,11 @@ const BillingDashboard = () => {
                                         .map((receipt) => (
                                             <tr key={receipt._id} className="hover:bg-gray-50">
                                                 <td className="p-3 border-b font-mono text-sm">{receipt.receiptNumber}</td>
-                                                <td className="p-3 border-b font-semibold">{receipt.patient?.name}</td>
+                                                <td className="p-3 border-b font-semibold">
+                                                    {receipt.patient?.name || receipt.familyFile?.familyName || 'N/A'}
+                                                </td>
                                                 <td className="p-3 border-b text-sm">
-                                                    {receipt.charges?.map(c => c.charge?.name || 'Service').join(', ') || 'N/A'}
+                                                    {receipt.familyFile ? 'Family Registration' : (receipt.charges?.map(c => c.charge?.name || 'Service').join(', ') || 'N/A')}
                                                 </td>
                                                 <td className="p-3 border-b text-green-600 font-bold">₦{receipt.amountPaid.toFixed(2)}</td>
                                                 <td className="p-3 border-b capitalize">

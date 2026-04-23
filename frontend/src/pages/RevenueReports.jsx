@@ -56,6 +56,12 @@ const RevenueReports = () => {
                 case 'nurse-triage':
                     endpoint = 'nurse-triage-revenue';
                     break;
+                case 'theatre':
+                    endpoint = 'theatre-revenue';
+                    break;
+                case 'family':
+                    endpoint = 'family-revenue';
+                    break;
                 case 'overall':
                     endpoint = 'overall-revenue';
                     break;
@@ -137,6 +143,25 @@ const RevenueReports = () => {
                 'Status': charge.status,
                 'Amount': charge.totalAmount
             }));
+        } else if (department === 'theatre') {
+            filename = `Theatre_Revenue_Report_${startDate}_to_${endDate}.xlsx`;
+            worksheetData = reportData.charges.map(charge => ({
+                'Date': new Date(charge.createdAt).toLocaleDateString(),
+                'Patient': charge.patient?.name || 'N/A',
+                'MRN': charge.patient?.mrn || 'N/A',
+                'Service': charge.charge?.name || 'N/A',
+                'Status': charge.status,
+                'Amount': charge.totalAmount
+            }));
+        } else if (department === 'family') {
+            filename = `Family_Registration_Revenue_Report_${startDate}_to_${endDate}.xlsx`;
+            worksheetData = reportData.charges.map(charge => ({
+                'Date': new Date(charge.createdAt).toLocaleDateString(),
+                'Family Name': charge.patient?.name || 'N/A',
+                'Receipt #': charge.receiptNumber,
+                'Payment Method': charge.paymentMethod,
+                'Amount': charge.totalAmount
+            }));
         } else {
             filename = `Overall_Revenue_Report_${startDate}_to_${endDate}.xlsx`;
             worksheetData = reportData.charges.map(charge => ({
@@ -199,7 +224,9 @@ const RevenueReports = () => {
                                 <option value="radiology">Radiology</option>
                                 <option value="pharmacy">Pharmacy</option>
                                 <option value="consultation">Consultation</option>
-                                <option value="nurse-triage">Nurse Triage</option>
+                                <option value="nurse-triage">Nursing / Triage</option>
+                                <option value="theatre">Theatre</option>
+                                <option value="family">Family Registration</option>
                             </select>
                         </div>
                         <div>
@@ -306,7 +333,7 @@ const RevenueReports = () => {
                         {department === 'overall' && reportData.byDepartment && (
                             <div className="bg-white p-6 rounded-lg shadow">
                                 <h3 className="text-xl font-bold mb-4">Revenue by Department</h3>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                                <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
                                     {Object.entries(reportData.byDepartment).map(([dept, data]) => (
                                         <div key={dept} className="border p-4 rounded">
                                             <p className="text-gray-600 text-sm font-semibold mb-1 capitalize">{dept}</p>

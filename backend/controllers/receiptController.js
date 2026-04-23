@@ -1,6 +1,7 @@
 const Receipt = require('../models/receiptModel');
 const Invoice = require('../models/invoiceModel');
 const Patient = require('../models/patientModel');
+const FamilyFile = require('../models/familyFileModel');
 
 // @desc    Create receipt (collect payment)
 // @route   POST /api/receipts
@@ -38,7 +39,8 @@ const createReceipt = async (req, res) => {
         const populatedReceipt = await Receipt.findById(receipt._id)
             .populate('patient', 'name mrn')
             .populate('cashier', 'name')
-            .populate('invoice');
+            .populate('invoice')
+            .populate({ path: 'familyFile', model: 'FamilyFile' });
 
         res.status(201).json(populatedReceipt);
     } catch (error) {
@@ -59,6 +61,7 @@ const getReceipts = async (req, res) => {
                 path: 'charges',
                 populate: { path: 'charge' }
             })
+            .populate({ path: 'familyFile', model: 'FamilyFile' })
             .sort({ createdAt: -1 });
         res.json(receipts);
     } catch (error) {
@@ -78,7 +81,8 @@ const getReceiptById = async (req, res) => {
             .populate({
                 path: 'charges',
                 populate: { path: 'charge' }
-            });
+            })
+            .populate({ path: 'familyFile', model: 'FamilyFile' });
 
         if (receipt) {
             res.json(receipt);
@@ -106,6 +110,7 @@ const getReceiptsWithClaimStatus = async (req, res) => {
                 path: 'charges',
                 populate: { path: 'charge' }
             })
+            .populate({ path: 'familyFile', model: 'FamilyFile' })
             .sort({ createdAt: -1 });
 
         // For each receipt, find associated claim if it exists
@@ -306,7 +311,8 @@ const createReceiptForCharges = async (req, res) => {
             .populate({
                 path: 'charges',
                 populate: { path: 'charge' }
-            });
+            })
+            .populate({ path: 'familyFile', model: 'FamilyFile' });
 
         // Auto-generate HMO claim for NHIA/KSCHMA patients
         const patient = await Patient.findById(patientId);
@@ -424,7 +430,8 @@ const validateReceipt = async (req, res) => {
             .populate({
                 path: 'charges',
                 populate: { path: 'charge' }
-            });
+            })
+            .populate({ path: 'familyFile', model: 'FamilyFile' });
 
         if (!receipt) {
             return res.status(404).json({ valid: false, message: 'Receipt not found' });
@@ -468,7 +475,8 @@ const getReceiptByNumber = async (req, res) => {
             .populate({
                 path: 'charges',
                 populate: { path: 'charge' }
-            });
+            })
+            .populate({ path: 'familyFile', model: 'FamilyFile' });
 
         if (receipt) {
             res.json(receipt);
@@ -519,6 +527,50 @@ const reverseReceipt = async (req, res) => {
 };
 
 
+// @desc    Create receipt for family file registration
+// @route   POST /api/receipts/family-file
+// @access  Private (cashier)
+const createFamilyFileReceipt = async (req, res) => {
+    const { familyFileId, paymentMethod } = req.body;
+
+    try {
+        const familyFile = await FamilyFile.findById(familyFileId).populate('familyCharge');
+        if (!familyFile) {
+            return res.status(404).json({ message: 'Family File not found' });
+        }
+
+        if (familyFile.paymentStatus === 'paid') {
+            return res.status(400).json({ message: 'Family registration already paid' });
+        }
+
+        // Generate receipt number
+        const receiptNumber = `RCP-FAM-${Date.now().toString().slice(-6)}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+        // Create receipt
+        const receipt = await Receipt.create({
+            familyFile: familyFileId,
+            amountPaid: familyFile.registrationCharge,
+            paymentMethod: paymentMethod || 'cash',
+            cashier: req.user._id,
+            receiptNumber
+        });
+
+        // Update family file status
+        familyFile.paymentStatus = 'paid';
+        familyFile.paidAt = Date.now();
+        await familyFile.save();
+
+        const populatedReceipt = await Receipt.findById(receipt._id)
+            .populate({ path: 'familyFile', model: 'FamilyFile' })
+            .populate('cashier', 'name');
+
+        res.status(201).json(populatedReceipt);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+
 module.exports = {
     createReceipt,
     getReceipts,
@@ -528,4 +580,5 @@ module.exports = {
     validateReceipt,
     getReceiptByNumber,
     reverseReceipt,
+    createFamilyFileReceipt
 };
