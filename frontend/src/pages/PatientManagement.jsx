@@ -28,7 +28,8 @@ const PatientManagement = () => {
     const [showEditPatientModal, setShowEditPatientModal] = useState(false);
     const [showRegisterPatientModal, setShowRegisterPatientModal] = useState(false);
     const [editPatient, setEditPatient] = useState(null);
-    const [hmos, setHMOs] = useState([]);
+    const [hmos, setHmos] = useState([]);
+    const [familyFiles, setFamilyFiles] = useState([]);
     const { user } = useContext(AuthContext);
     const { backendUrl } = useContext(AppContext);
     const navigate = useNavigate();
@@ -67,6 +68,7 @@ const PatientManagement = () => {
         if (user && (user.role === 'admin' || user.role === 'super_admin' || user.role === 'receptionist')) {
             fetchPatients();
             fetchHMOs();
+            fetchFamilyFiles();
             fetchClinics();
             fetchCharges();
             fetchWards();
@@ -105,9 +107,21 @@ const PatientManagement = () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             const { data } = await axios.get(`${backendUrl}/api/hmos?active=true`, config);
-            setHMOs(data);
+            setHmos(data);
         } catch (error) {
             console.error('Error fetching HMOs:', error);
+        }
+    };
+
+    const fetchFamilyFiles = async () => {
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const { data } = await axios.get(`${backendUrl}/api/family-files`, config);
+            if (Array.isArray(data)) {
+                setFamilyFiles(data.filter(f => f.active !== false));
+            }
+        } catch (error) {
+            console.error('Error fetching family files:', error);
         }
     };
 
@@ -562,7 +576,11 @@ const PatientManagement = () => {
                                                 </button>
                                                 <button
                                                     onClick={() => {
-                                                        setEditPatient(patient);
+                                                        setEditPatient({
+                                                            ...patient,
+                                                            isFamilyMember: !!patient.familyFile,
+                                                            familyFileId: typeof patient.familyFile === 'object' ? patient.familyFile?._id : (patient.familyFile || '')
+                                                        });
                                                         setShowEditPatientModal(true);
                                                     }}
                                                     className="text-green-600 hover:text-green-800"
@@ -799,6 +817,55 @@ const PatientManagement = () => {
                         </div>
 
                         <form onSubmit={handleUpdatePatient} className="space-y-4">
+                            {/* Family File Section */}
+                            <div className="bg-blue-50 p-4 rounded border border-blue-100">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <input
+                                        type="checkbox"
+                                        id="editIsFamilyMember"
+                                        checked={editPatient.isFamilyMember}
+                                        onChange={(e) => setEditPatient({ ...editPatient, isFamilyMember: e.target.checked })}
+                                        className="w-5 h-5 text-blue-600"
+                                    />
+                                    <label htmlFor="editIsFamilyMember" className="font-bold text-blue-800 cursor-pointer flex items-center gap-2">
+                                        Belong to Family File?
+                                    </label>
+                                </div>
+
+                                {editPatient.isFamilyMember && (
+                                    <div className="grid grid-cols-1 md:grid-cols-4 gap-2 items-end">
+                                        <div className="md:col-span-3">
+                                            <label className="block text-sm font-semibold text-blue-700 mb-1">Select Family File *</label>
+                                            <select
+                                                required={editPatient.isFamilyMember}
+                                                value={editPatient.familyFileId}
+                                                onChange={(e) => setEditPatient({ ...editPatient, familyFileId: e.target.value })}
+                                                className="w-full border p-2 rounded bg-white shadow-sm focus:ring-2 focus:ring-blue-500"
+                                            >
+                                                <option value="">-- Choose Family --</option>
+                                                {familyFiles.length === 0 ? (
+                                                    <option disabled>No families found</option>
+                                                ) : (
+                                                    familyFiles.map(file => (
+                                                        <option key={file._id} value={file._id} disabled={file.type === 'Family of 5' && file.memberCount >= 5 && (typeof editPatient.familyFile === 'object' ? editPatient.familyFile?._id : editPatient.familyFile) !== file._id}>
+                                                            {file.familyName} ({file.fileNumber}) - {file.memberCount}/{file.type === 'Family of 5' ? '5' : '∞'}
+                                                        </option>
+                                                    ))
+                                                )}
+                                            </select>
+                                        </div>
+                                        <button
+                                            type="button"
+                                            onClick={fetchFamilyFiles}
+                                            className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700 text-sm h-[42px] flex items-center justify-center"
+                                            title="Refresh List"
+                                        >
+                                            ↻ Refresh
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+
                             <div className="grid grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-semibold mb-1">Name</label>

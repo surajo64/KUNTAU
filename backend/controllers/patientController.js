@@ -118,6 +118,48 @@ const updatePatient = async (req, res) => {
         patient.hmo = req.body.hmo || patient.hmo;
         patient.insuranceNumber = req.body.insuranceNumber || patient.insuranceNumber;
 
+        // Handle Family File Update
+        const oldFamilyFileId = patient.familyFile ? patient.familyFile.toString() : null;
+        const newFamilyFileId = req.body.isFamilyMember ? req.body.familyFileId : null;
+
+        if (oldFamilyFileId !== newFamilyFileId) {
+            // Unlink from old family file
+            if (oldFamilyFileId) {
+                const oldFile = await FamilyFile.findById(oldFamilyFileId);
+                if (oldFile) {
+                    oldFile.memberCount = Math.max(0, oldFile.memberCount - 1);
+                    await oldFile.save();
+                }
+            }
+
+            // Link to new family file
+            if (newFamilyFileId) {
+                const newFile = await FamilyFile.findById(newFamilyFileId);
+                if (!newFile) {
+                    return res.status(404).json({ message: 'New Family File not found' });
+                }
+
+                if (newFile.type === 'Family of 5' && newFile.memberCount >= 5) {
+                    return res.status(400).json({ message: 'This Family File has reached its limit of 5 members' });
+                }
+
+                newFile.memberCount += 1;
+                await newFile.save();
+                patient.familyFile = newFamilyFileId;
+                patient.isFamilyMember = true;
+            } else {
+                patient.familyFile = undefined;
+                patient.isFamilyMember = false;
+            }
+        } else if (req.body.isFamilyMember !== undefined) {
+            // Even if ID hasn't changed, ensure the boolean flag is consistent
+            patient.isFamilyMember = !!req.body.isFamilyMember;
+            if (!patient.isFamilyMember) {
+                // If checkbox was unchecked but ID was somehow same (e.g. null), ensure cleared
+                patient.familyFile = undefined;
+            }
+        }
+
         const updatedPatient = await patient.save();
         res.json(updatedPatient);
     } else {
