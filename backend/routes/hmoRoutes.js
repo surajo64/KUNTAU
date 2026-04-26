@@ -5,6 +5,7 @@ const { protect, admin, adminOrReceptionist } = require('../middleware/authMiddl
 const {
     getHMOs,
     getHMOById,
+    getNextHMOCode,
     createHMO,
     updateHMO,
     deleteHMO,
@@ -32,6 +33,7 @@ router.route('/')
     .post(protect, adminOrReceptionist, createHMO);
 
 router.post('/import-excel', protect, adminOrReceptionist, upload.single('file'), importHMOsFromExcel);
+router.get('/next-code', protect, getNextHMOCode);
 
 router.route('/:id')
     .get(protect, getHMOById)

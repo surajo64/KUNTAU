@@ -15,7 +15,7 @@ const createLabOrder = async (req, res) => {
     // Check permissions
     if (req.user.role === 'lab_technician') {
         const visit = await Visit.findById(visitId);
-        if (!visit || visit.type !== 'External Investigation') {
+        if (!visit || (visit.type !== 'External Investigation' && visit.type !== 'External Lab/Radiology')) {
             return res.status(403).json({ message: 'Lab Technicians can only order for External Investigations.' });
         }
     } else if (req.user.role !== 'doctor') {

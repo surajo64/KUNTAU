@@ -571,6 +571,51 @@ const createFamilyFileReceipt = async (req, res) => {
 };
 
 
+// @desc    Create receipt for HMO/Retainership registration
+// @route   POST /api/receipts/hmo-registration
+// @access  Private (cashier)
+const createHMOReceipt = async (req, res) => {
+    const { hmoId, paymentMethod } = req.body;
+
+    try {
+        const HMO = require('../models/hmoModel');
+        const hmo = await HMO.findById(hmoId);
+        if (!hmo) {
+            return res.status(404).json({ message: 'Retainership entity not found' });
+        }
+
+        if (hmo.paymentStatus === 'paid') {
+            return res.status(400).json({ message: 'Registration fee already paid' });
+        }
+
+        // Generate receipt number
+        const receiptNumber = `RCP-HMO-${Date.now().toString().slice(-6)}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+        // Create receipt
+        const receipt = await Receipt.create({
+            hmo: hmoId,
+            amountPaid: hmo.registrationCharge || 0,
+            paymentMethod: paymentMethod || 'cash',
+            cashier: req.user._id,
+            receiptNumber
+        });
+
+        // Update HMO status
+        hmo.paymentStatus = 'paid';
+        hmo.paidAt = Date.now();
+        await hmo.save();
+
+        const populatedReceipt = await Receipt.findById(receipt._id)
+            .populate({ path: 'hmo', model: 'HMO' })
+            .populate('cashier', 'name');
+
+        res.status(201).json(populatedReceipt);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+
 module.exports = {
     createReceipt,
     getReceipts,
@@ -580,5 +625,6 @@ module.exports = {
     validateReceipt,
     getReceiptByNumber,
     reverseReceipt,
-    createFamilyFileReceipt
+    createFamilyFileReceipt,
+    createHMOReceipt
 };

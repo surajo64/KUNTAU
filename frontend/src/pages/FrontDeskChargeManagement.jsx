@@ -216,6 +216,7 @@ const FrontDeskChargeManagement = () => {
         card: 'Hospital Card',
         lab: 'Lab Investigation',
         family: 'Family File Registration',
+        retainership: 'Retainership Registration',
         radiology: 'Radiology Investigation',
         drugs: 'Drug Purchase',
         nursing: 'Nursing Service',
@@ -318,6 +319,7 @@ const FrontDeskChargeManagement = () => {
                                     <option value="drugs">Drug Purchase</option>
                                     <option value="nursing">Nursing Service</option>
                                     <option value="family">Family File Registration</option>
+                                    <option value="retainership">Retainership Registration</option>
                                     <option value="labour">Labour Fee</option>
                                     <option value="theatre">Theatre Fee</option>
                                     <option value="other">Other</option>
@@ -473,6 +475,8 @@ const FrontDeskChargeManagement = () => {
                     <option value="radiology">Radiology</option>
                     <option value="drugs">Drugs</option>
                     <option value="nursing">Nursing</option>
+                    <option value="family">Family File</option>
+                    <option value="retainership">Retainership</option>
                     <option value="labour">Labour Fee</option>
                     <option value="theatre">Theatre Fee</option>
                     <option value="other">Other</option>

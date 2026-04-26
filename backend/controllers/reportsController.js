@@ -717,7 +717,26 @@ const getOverallRevenue = async (req, res) => {
         }
 
         const totalFamilyRevenue = familyReceipts.reduce((sum, r) => sum + r.amountPaid, 0);
-        const finalTotalRevenue = totalRevenue + totalFamilyRevenue;
+
+        // --- NEW: Include Retainership Registration Receipts ---
+        const retainershipReceipts = await Receipt.find({
+            hmo: { $exists: true },
+            createdAt: { $gte: start, $lte: end }
+        });
+
+        if (retainershipReceipts.length > 0) {
+            if (!byDepartment['retainership']) {
+                byDepartment['retainership'] = { revenue: 0, count: 0 };
+            }
+
+            retainershipReceipts.forEach(r => {
+                byDepartment['retainership'].count++;
+                byDepartment['retainership'].revenue += r.amountPaid;
+            });
+        }
+
+        const totalRetainershipRevenue = retainershipReceipts.reduce((sum, r) => sum + r.amountPaid, 0);
+        const finalTotalRevenue = totalRevenue + totalFamilyRevenue + totalRetainershipRevenue;
 
         res.json({
             summary: {
@@ -1339,6 +1358,49 @@ const getFamilyRevenue = async (req, res) => {
     }
 };
 
+// @desc    Get retainership registration revenue report
+// @route   GET /api/reports/retainership-revenue?startDate=&endDate=
+// @access  Private (Admin)
+const getRetainershipRevenue = async (req, res) => {
+    try {
+        const { startDate, endDate } = req.query;
+        const start = startDate ? new Date(startDate) : new Date(0);
+        const end = endDate ? new Date(endDate) : new Date();
+        end.setHours(23, 59, 59, 999);
+
+        const retainershipReceipts = await Receipt.find({
+            hmo: { $exists: true },
+            createdAt: { $gte: start, $lte: end }
+        }).populate({ path: 'hmo', model: 'HMO' });
+
+        const totalRevenue = retainershipReceipts.reduce((sum, r) => sum + r.amountPaid, 0);
+
+        res.json({
+            summary: {
+                totalCharges: retainershipReceipts.length,
+                paidCharges: retainershipReceipts.length,
+                totalRevenue,
+                pendingRevenue: 0,
+                dateRange: { start, end }
+            },
+            charges: retainershipReceipts.map(r => ({
+                _id: r._id,
+                createdAt: r.createdAt,
+                amountPaid: r.amountPaid,
+                totalAmount: r.amountPaid,
+                status: 'paid',
+                paymentMethod: r.paymentMethod,
+                receiptNumber: r.receiptNumber,
+                patient: { name: r.hmo?.name || 'Retainership Entity' },
+                charge: { name: 'Retainership Registration', type: 'retainership' }
+            }))
+        });
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
+
 module.exports = {
     getLabRevenue,
     getRadiologyRevenue,
@@ -1349,5 +1411,6 @@ module.exports = {
     getDashboardStats,
     getClinicalReport,
     getTheatreRevenue,
-    getFamilyRevenue
+    getFamilyRevenue,
+    getRetainershipRevenue
 };

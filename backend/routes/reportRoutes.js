@@ -10,7 +10,8 @@ const {
     getDashboardStats,
     getClinicalReport,
     getTheatreRevenue,
-    getFamilyRevenue
+    getFamilyRevenue,
+    getRetainershipRevenue
 } = require('../controllers/reportsController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
@@ -21,6 +22,7 @@ router.get('/consultation-revenue', protect, admin, getConsultationRevenue);
 router.get('/nurse-triage-revenue', protect, admin, getNurseTriageRevenue);
 router.get('/theatre-revenue', protect, admin, getTheatreRevenue);
 router.get('/family-revenue', protect, admin, getFamilyRevenue);
+router.get('/retainership-revenue', protect, admin, getRetainershipRevenue);
 router.get('/overall-revenue', protect, admin, getOverallRevenue);
 router.get('/dashboard-stats', protect, admin, getDashboardStats);
 router.get('/clinical-report', protect, admin, getClinicalReport);

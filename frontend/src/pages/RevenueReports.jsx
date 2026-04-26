@@ -62,6 +62,9 @@ const RevenueReports = () => {
                 case 'family':
                     endpoint = 'family-revenue';
                     break;
+                case 'retainership':
+                    endpoint = 'retainership-revenue';
+                    break;
                 case 'overall':
                     endpoint = 'overall-revenue';
                     break;
@@ -162,6 +165,15 @@ const RevenueReports = () => {
                 'Payment Method': charge.paymentMethod,
                 'Amount': charge.totalAmount
             }));
+        } else if (department === 'retainership') {
+            filename = `Retainership_Registration_Revenue_Report_${startDate}_to_${endDate}.xlsx`;
+            worksheetData = reportData.charges.map(charge => ({
+                'Date': new Date(charge.createdAt).toLocaleDateString(),
+                'Entity Name': charge.patient?.name || 'N/A',
+                'Receipt #': charge.receiptNumber,
+                'Payment Method': charge.paymentMethod,
+                'Amount': charge.totalAmount
+            }));
         } else {
             filename = `Overall_Revenue_Report_${startDate}_to_${endDate}.xlsx`;
             worksheetData = reportData.charges.map(charge => ({
@@ -227,6 +239,7 @@ const RevenueReports = () => {
                                 <option value="nurse-triage">Nursing / Triage</option>
                                 <option value="theatre">Theatre</option>
                                 <option value="family">Family Registration</option>
+                                <option value="retainership">Retainership Registration</option>
                             </select>
                         </div>
                         <div>
@@ -299,7 +312,8 @@ const RevenueReports = () => {
                                         department === 'radiology' ? 'Total Scans' :
                                             department === 'pharmacy' ? 'Total Prescriptions' :
                                                 department === 'consultation' ? 'Total Consultations' :
-                                                    'Total Charges'}
+                                                    department === 'retainership' ? 'Total Reg.' :
+                                                        'Total Charges'}
                                 </p>
                                 <p className="text-3xl font-bold text-blue-600">
                                     {reportData.summary?.totalTests ||
@@ -316,7 +330,8 @@ const RevenueReports = () => {
                                         department === 'radiology' ? 'Paid Scans' :
                                             department === 'pharmacy' ? 'Paid Prescriptions' :
                                                 department === 'consultation' ? 'Paid Consultations' :
-                                                    'Paid Charges'}
+                                                    department === 'retainership' ? 'Paid Reg.' :
+                                                        'Paid Charges'}
                                 </p>
                                 <p className="text-3xl font-bold text-purple-600">
                                     {reportData.summary?.paidTests ||
@@ -336,11 +351,13 @@ const RevenueReports = () => {
                                 <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
                                     {Object.entries(reportData.byDepartment).map(([dept, data]) => (
                                         <div key={dept} className="border p-4 rounded">
-                                            <p className="text-gray-600 text-sm font-semibold mb-1 capitalize">{dept}</p>
+                                            <p className="text-gray-600 text-sm font-semibold mb-1 capitalize">
+                                                {dept === 'retainership' ? 'Retainership Reg.' : dept}
+                                            </p>
                                             <p className="text-2xl font-bold text-green-600">
                                                 ₦{data.revenue?.toLocaleString() || 0}
                                             </p>
-                                            <p className="text-xs text-gray-500 mt-1">{data.count} charges</p>
+                                            <p className="text-xs text-gray-500 mt-1">{data.count} items</p>
                                         </div>
                                     ))}
                                 </div>

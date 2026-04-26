@@ -3,7 +3,7 @@ import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
-import { FaDollarSign, FaReceipt, FaPrint, FaSearch, FaCheckCircle, FaTrashAlt, FaUserFriends } from 'react-icons/fa';
+import { FaDollarSign, FaReceipt, FaPrint, FaSearch, FaCheckCircle, FaTrashAlt, FaUserFriends, FaHospital } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import LoadingOverlay from '../components/loadingOverlay';
 
@@ -35,7 +35,13 @@ const CashierDashboard = () => {
     const [familySearchTerm, setFamilySearchTerm] = useState('');
     const [familyFiles, setFamilyFiles] = useState([]);
     const [selectedFamilyFile, setSelectedFamilyFile] = useState(null);
-    const [activeTab, setActiveTab] = useState('patient'); // 'patient' or 'family'
+
+    // Retainership State
+    const [retainershipSearchTerm, setRetainershipSearchTerm] = useState('');
+    const [retainerships, setRetainerships] = useState([]);
+    const [selectedRetainership, setSelectedRetainership] = useState(null);
+
+    const [activeTab, setActiveTab] = useState('patient'); // 'patient', 'family', 'retainership'
 
 
 
@@ -244,9 +250,28 @@ const CashierDashboard = () => {
         }
 
         const isFamily = !!receipt.familyFile;
-        const name = isFamily ? (receipt.familyFile?.familyName || 'N/A') : (receipt.patient?.name || 'N/A');
-        const idLabel = isFamily ? 'File #' : 'MRN';
-        const idVal = isFamily ? (receipt.familyFile?.fileNumber || 'N/A') : (receipt.patient?.mrn || 'N/A');
+        const isHmo = !!receipt.hmo;
+        
+        let name = 'N/A';
+        let idLabel = 'ID';
+        let idVal = 'N/A';
+        let itemLabel = 'Service';
+
+        if (isFamily) {
+            name = receipt.familyFile?.familyName || 'N/A';
+            idLabel = 'File #';
+            idVal = receipt.familyFile?.fileNumber || 'N/A';
+            itemLabel = 'Family Registration Fee';
+        } else if (isHmo) {
+            name = receipt.hmo?.name || 'N/A';
+            idLabel = 'Code';
+            idVal = receipt.hmo?.code || 'N/A';
+            itemLabel = 'Retainership Registration Fee';
+        } else {
+            name = receipt.patient?.name || 'N/A';
+            idLabel = 'MRN';
+            idVal = receipt.patient?.mrn || 'N/A';
+        }
 
         printWindow.document.write(`
             <html>
@@ -277,7 +302,7 @@ const CashierDashboard = () => {
                     </div>
                     <div class="info-row"><span>Receipt #:</span> <strong>${receipt.receiptNumber}</strong></div>
                     <div class="info-row"><span>Date:</span> <span>${new Date(receipt.paymentDate).toLocaleString()}</span></div>
-                    <div class="info-row"><span>${isFamily ? 'Family' : 'Patient'}:</span> <strong>${name}</strong></div>
+                    <div class="info-row"><span>${isFamily ? 'Family' : (isHmo ? 'Entity' : 'Patient')}:</span> <strong>${name}</strong></div>
                     <div class="info-row"><span>${idLabel}:</span> <span>${idVal}</span></div>
                     <div class="info-row"><span>Cashier:</span> <strong>${receipt.cashier?.name || 'Unknown'}</strong></div>
                     <div class="info-row"><span>Method:</span> <span style="text-transform: uppercase;">${receipt.paymentMethod}</span></div>
@@ -290,9 +315,9 @@ const CashierDashboard = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            ${isFamily ? `
+                            ${(isFamily || isHmo) ? `
                                 <tr>
-                                    <td>Family Registration Fee</td>
+                                    <td>${itemLabel}</td>
                                     <td style="text-align: right;">₦${receipt.amountPaid.toFixed(2)}</td>
                                 </tr>
                             ` : (receipt.charges?.map(c => `
@@ -369,35 +394,63 @@ const CashierDashboard = () => {
         }
     };
 
+    // --- Retainership Payment Functions ---
+
+    const searchRetainerships = async () => {
+        if (!retainershipSearchTerm) return;
+        try {
+            setLoading(true);
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const { data } = await axios.get(`${backendUrl}/api/hmos`, config);
+            const filtered = data.filter(h => 
+                h.category === 'Retainership' && (
+                    h.name.toLowerCase().includes(retainershipSearchTerm.toLowerCase()) ||
+                    (h.code && h.code.toLowerCase().includes(retainershipSearchTerm.toLowerCase()))
+                )
+            );
+            setRetainerships(filtered);
+        } catch (error) {
+            console.error(error);
+            toast.error('Error searching retainerships');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleCollectRetainershipPayment = async () => {
+        if (!selectedRetainership) return;
+
+        try {
+            setLoading(true);
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const { data } = await axios.post(
+                `${backendUrl}/api/receipts/hmo-registration`,
+                {
+                    hmoId: selectedRetainership._id,
+                    paymentMethod
+                },
+                config
+            );
+            toast.success(`Payment collected for ${selectedRetainership.name}!`);
+            handlePrintReceipt(data);
+            setSelectedRetainership(null);
+            setRetainerships([]);
+            setRetainershipSearchTerm('');
+            fetchReceipts();
+            fetchSummary();
+        } catch (error) {
+            console.error(error);
+            toast.error(error.response?.data?.message || 'Error collecting payment');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     // --- Render Helpers ---
 
     const totalSelectedAmount = encounterCharges
         .filter(charge => selectedCharges.includes(charge._id))
         .reduce((sum, charge) => sum + (charge.patientPortion !== undefined ? charge.patientPortion : charge.totalAmount), 0);
-
-    const collectedReceipts = receipts.filter(r => {
-        if (r.paymentMethod === 'insurance') {
-            return r.claimStatus === 'paid';
-        }
-        return true;
-    });
-
-    const pendingHMOReceipts = receipts.filter(r => {
-        return r.paymentMethod === 'insurance' && r.claimStatus !== 'paid';
-    });
-
-    const totalCollectedToday = collectedReceipts
-        .filter(r => new Date(r.createdAt).toDateString() === new Date().toDateString())
-        .reduce((sum, r) => sum + r.amountPaid, 0);
-
-    const totalPendingHMO = pendingHMOReceipts
-        .reduce((sum, r) => {
-            // Calculate from charges to avoid double counting if multiple receipts link to same claim
-            const chargesHmoTotal = r.charges?.reduce((cSum, c) => cSum + (c.hmoPortion || 0), 0) || 0;
-            return sum + chargesHmoTotal;
-        }, 0);
-
-    const pendingCharges = encounterCharges.filter(charge => charge.status === 'pending');
 
     return (
         <Layout>
@@ -411,25 +464,29 @@ const CashierDashboard = () => {
 
 
             {/* Tabs */}
-            <div className="flex border-b mb-6">
+            <div className="flex border-b mb-6 overflow-x-auto">
                 <button
                     onClick={() => setActiveTab('patient')}
-                    className={`px-6 py-2 font-bold ${activeTab === 'patient' ? 'border-b-4 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`px-6 py-2 font-bold whitespace-nowrap ${activeTab === 'patient' ? 'border-b-4 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
                 >
                     Patient Billing
                 </button>
                 <button
                     onClick={() => setActiveTab('family')}
-                    className={`px-6 py-2 font-bold ${activeTab === 'family' ? 'border-b-4 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                    className={`px-6 py-2 font-bold whitespace-nowrap ${activeTab === 'family' ? 'border-b-4 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
                 >
                     Family File Registration
                 </button>
+                <button
+                    onClick={() => setActiveTab('retainership')}
+                    className={`px-6 py-2 font-bold whitespace-nowrap ${activeTab === 'retainership' ? 'border-b-4 border-blue-600 text-blue-600' : 'text-gray-500 hover:text-gray-700'}`}
+                >
+                    Retainership Registration
+                </button>
             </div>
 
-            {activeTab === 'patient' ? (
-                <>
-                {/* Search Patient */}
-                <div className="bg-white p-6 rounded shadow mb-6">
+            {activeTab === 'patient' && (
+                <div className="bg-white p-6 rounded shadow mb-6 animate-fadeIn">
                     <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                         <FaSearch /> Find Patient & Encounter
                     </h3>
@@ -515,7 +572,6 @@ const CashierDashboard = () => {
                                                     onClick={() => handleSelectEncounter(encounter)}
                                                     className="p-3 border rounded hover:bg-gray-50 cursor-pointer relative"
                                                 >
-                                                    {/* Red notification badge for outstanding payments */}
                                                     {hasPendingCharges && (
                                                         <div className="absolute top-2 right-2 flex flex-col items-end gap-1">
                                                             <span className="bg-red-600 text-white text-xs font-bold px-2 py-1 rounded-full animate-pulse">
@@ -539,10 +595,6 @@ const CashierDashboard = () => {
                                     </div>
                                 </div>
                             )}
-
-                            {encounters.length === 0 && (
-                                <p className="text-gray-500">No encounters found for this patient.</p>
-                            )}
                         </div>
                     )}
 
@@ -564,13 +616,11 @@ const CashierDashboard = () => {
                                 </button>
                             </div>
 
-                            {pendingCharges.length > 0 && (
+                            {encounterCharges.filter(c => c.status === 'pending').length > 0 && (
                                 <div className="bg-gray-50 p-4 rounded">
-
-
                                     <p className="font-semibold mb-2">Pending Charges:</p>
                                     <div className="space-y-2 mb-4">
-                                        {pendingCharges.map(charge => (
+                                        {encounterCharges.filter(c => c.status === 'pending').map(charge => (
                                             <div
                                                 key={charge._id}
                                                 className="flex items-center justify-between p-3 border rounded hover:bg-white"
@@ -589,15 +639,6 @@ const CashierDashboard = () => {
                                                 </div>
                                                 <div className="flex items-center gap-3">
                                                     <p className="font-bold text-green-600">₦{(charge.patientPortion !== undefined ? charge.patientPortion : charge.totalAmount).toFixed(2)}</p>
-                                                    {user?.role === 'admin' && (
-                                                        <button
-                                                            onClick={() => handleDeleteCharge(charge._id)}
-                                                            title="Delete charge (Admin only)"
-                                                            className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1.5 rounded transition-colors"
-                                                        >
-                                                            <FaTrashAlt size={14} />
-                                                        </button>
-                                                    )}
                                                 </div>
                                             </div>
                                         ))}
@@ -612,18 +653,13 @@ const CashierDashboard = () => {
                                     </button>
                                 </div>
                             )}
-
-                            {pendingCharges.length === 0 && (
-                                <p className="text-gray-500">No pending charges for this encounter.</p>
-                            )}
                         </div>
                     )}
                 </div>
-                </>
-            ) : (
-                <>
-                {/* Family File Payment Section */}
-                <div className="bg-white p-6 rounded shadow mb-6">
+            )}
+
+            {activeTab === 'family' && (
+                <div className="bg-white p-6 rounded shadow mb-6 animate-fadeIn">
                     <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
                         <FaSearch /> Find Family File
                     </h3>
@@ -677,18 +713,9 @@ const CashierDashboard = () => {
                                     <div>
                                         <p className="font-bold text-lg">{selectedFamilyFile.familyName}</p>
                                         <p className="text-sm text-gray-600">File Number: {selectedFamilyFile.fileNumber}</p>
-                                        <p className="text-sm text-gray-600">Charge Plan: {selectedFamilyFile.familyCharge?.name || 'N/A'}</p>
-                                        <button
-                                            onClick={() => {
-                                                setSelectedFamilyFile(null);
-                                                setFamilyFiles([]);
-                                            }}
-                                            className="text-blue-600 text-sm mt-2 hover:underline"
-                                        >
-                                            ← Change Family File
-                                        </button>
+                                        <button onClick={() => { setSelectedFamilyFile(null); setFamilyFiles([]); }} className="text-blue-600 text-sm mt-2 hover:underline">← Change Family File</button>
                                     </div>
-                                    <div className="w-1/3 text-right">
+                                    <div className="text-right">
                                         <p className="text-sm text-gray-500 uppercase font-bold">Registration Fee</p>
                                         <p className="text-2xl font-bold text-green-700">₦{selectedFamilyFile.registrationCharge.toLocaleString()}</p>
                                     </div>
@@ -697,47 +724,122 @@ const CashierDashboard = () => {
 
                             {selectedFamilyFile.paymentStatus === 'pending' ? (
                                 <div className="bg-gray-50 p-6 rounded border border-dashed border-gray-300">
-                                    <h4 className="font-bold mb-4 flex items-center gap-2">
-                                        <FaDollarSign className="text-green-600" /> Collect Registration Payment
-                                    </h4>
-                                    
+                                    <h4 className="font-bold mb-4 flex items-center gap-2"><FaDollarSign className="text-green-600" /> Collect Registration Payment</h4>
                                     <div className="mb-6 max-w-sm">
                                         <label className="block text-gray-700 text-sm font-semibold mb-1">Payment Method</label>
-                                        <select
-                                            value={paymentMethod}
-                                            onChange={(e) => setPaymentMethod(e.target.value)}
-                                            className="w-full border p-2 rounded text-sm bg-white"
-                                        >
+                                        <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="w-full border p-2 rounded text-sm bg-white">
                                             <option value="cash">Cash</option>
                                             <option value="card">Card/POS</option>
-                                            <option value="deposit">Principal Deposit</option>
                                         </select>
                                     </div>
-
-                                    <button
-                                        onClick={handleCollectFamilyPayment}
-                                        className="w-full bg-green-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-green-700 shadow-lg flex items-center justify-center gap-3 transition-transform active:scale-95"
-                                    >
-                                        <FaCheckCircle size={24} /> 
-                                        Collect & Print Receipt (₦{selectedFamilyFile.registrationCharge.toLocaleString()})
+                                    <button onClick={handleCollectFamilyPayment} className="w-full bg-green-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-green-700 shadow-lg flex items-center justify-center gap-3">
+                                        <FaCheckCircle size={24} /> Collect & Print Receipt (₦{selectedFamilyFile.registrationCharge.toLocaleString()})
                                     </button>
                                 </div>
                             ) : (
                                 <div className="bg-green-50 p-10 rounded-lg border border-green-200 text-center">
                                     <FaCheckCircle className="text-green-500 text-5xl mx-auto mb-4" />
                                     <h4 className="text-2xl font-bold text-green-800">Registration Already Paid</h4>
-                                    <p className="text-green-600 mt-2">
-                                        This family file has been successfully registered and paid for.
-                                    </p>
-                                    {selectedFamilyFile.paidAt && (
-                                        <p className="text-xs text-green-500 mt-1">Paid on: {new Date(selectedFamilyFile.paidAt).toLocaleString()}</p>
+                                    <p className="text-green-600 mt-2">This family file has been successfully registered and paid for.</p>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
+
+            {activeTab === 'retainership' && (
+                <div className="bg-white p-6 rounded shadow mb-6 animate-fadeIn">
+                    <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                        <FaSearch /> Find Retainership Entity
+                    </h3>
+                    <div className="flex gap-2 mb-4">
+                        <input
+                            type="text"
+                            placeholder="Search by Entity Name or Code..."
+                            className="flex-1 border p-2 rounded"
+                            value={retainershipSearchTerm}
+                            onChange={(e) => setRetainershipSearchTerm(e.target.value)}
+                            onKeyPress={(e) => e.key === 'Enter' && searchRetainerships()}
+                        />
+                        <button
+                            onClick={searchRetainerships}
+                            className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
+                        >
+                            Search
+                        </button>
+                    </div>
+
+                    {/* Retainership Results */}
+                    {retainerships.length > 0 && !selectedRetainership && (
+                        <div className="space-y-2">
+                            <p className="font-semibold text-gray-700">Search Results:</p>
+                            {retainerships.map(hmo => (
+                                <div
+                                    key={hmo._id}
+                                    onClick={() => setSelectedRetainership(hmo)}
+                                    className="p-3 border rounded hover:bg-gray-50 cursor-pointer flex justify-between items-center"
+                                >
+                                    <div>
+                                        <p className="font-bold">{hmo.name}</p>
+                                        <p className="text-sm text-gray-600">Code: {hmo.code} | Type: {hmo.retainershipType || 'N/A'}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="font-bold text-blue-600">₦{(hmo.registrationCharge || 0).toLocaleString()}</p>
+                                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${hmo.paymentStatus === 'paid' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>
+                                            {hmo.paymentStatus === 'paid' ? 'Paid' : 'Unpaid'}
+                                        </span>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Selected Retainership Details */}
+                    {selectedRetainership && (
+                        <div className="mt-4">
+                            <div className="bg-purple-50 p-4 rounded mb-6 border border-purple-100">
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="font-bold text-lg text-purple-900">{selectedRetainership.name}</p>
+                                        <p className="text-sm text-gray-600">Entity Code: {selectedRetainership.code}</p>
+                                        <p className="text-sm text-gray-600">Type: {selectedRetainership.retainershipType}</p>
+                                        <button onClick={() => { setSelectedRetainership(null); setRetainerships([]); }} className="text-purple-600 text-sm mt-2 hover:underline">← Change Entity</button>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-sm text-gray-500 uppercase font-bold">Registration Fee</p>
+                                        <p className="text-2xl font-bold text-purple-700">₦{(selectedRetainership.registrationCharge || 0).toLocaleString()}</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {selectedRetainership.paymentStatus !== 'paid' ? (
+                                <div className="bg-gray-50 p-6 rounded border border-dashed border-gray-300">
+                                    <h4 className="font-bold mb-4 flex items-center gap-2"><FaDollarSign className="text-green-600" /> Collect Retainership Payment</h4>
+                                    <div className="mb-6 max-w-sm">
+                                        <label className="block text-gray-700 text-sm font-semibold mb-1">Payment Method</label>
+                                        <select value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} className="w-full border p-2 rounded text-sm bg-white">
+                                            <option value="cash">Cash</option>
+                                            <option value="card">Card/POS</option>
+                                        </select>
+                                    </div>
+                                    <button onClick={handleCollectRetainershipPayment} className="w-full bg-purple-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-purple-700 shadow-lg flex items-center justify-center gap-3">
+                                        <FaCheckCircle size={24} /> Collect & Print Receipt (₦{(selectedRetainership.registrationCharge || 0).toLocaleString()})
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="bg-green-50 p-10 rounded-lg border border-green-200 text-center">
+                                    <FaCheckCircle className="text-green-500 text-5xl mx-auto mb-4" />
+                                    <h4 className="text-2xl font-bold text-green-800">Retainership Already Paid</h4>
+                                    <p className="text-green-600 mt-2">This entity has been successfully registered and paid for.</p>
+                                    {selectedRetainership.paidAt && (
+                                        <p className="text-xs text-green-500 mt-1">Paid on: {new Date(selectedRetainership.paidAt).toLocaleString()}</p>
                                     )}
                                 </div>
                             )}
                         </div>
                     )}
                 </div>
-                </>
             )}
 
             {/* Recent Receipts */}
@@ -748,19 +850,9 @@ const CashierDashboard = () => {
                     </h3>
                     <div className="flex gap-2 items-center">
                         <label className="text-sm font-semibold">From:</label>
-                        <input
-                            type="date"
-                            value={startDate}
-                            onChange={(e) => setStartDate(e.target.value)}
-                            className="border p-2 rounded text-sm"
-                        />
+                        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className="border p-2 rounded text-sm" />
                         <label className="text-sm font-semibold">To:</label>
-                        <input
-                            type="date"
-                            value={endDate}
-                            onChange={(e) => setEndDate(e.target.value)}
-                            className="border p-2 rounded text-sm"
-                        />
+                        <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className="border p-2 rounded text-sm" />
                     </div>
                 </div>
                 <div className="overflow-x-auto">
@@ -768,7 +860,7 @@ const CashierDashboard = () => {
                         <thead className="bg-gray-100">
                             <tr>
                                 <th className="p-3 border-b">Receipt #</th>
-                                <th className="p-3 border-b">Patient</th>
+                                <th className="p-3 border-b">Client/Patient</th>
                                 <th className="p-3 border-b">Amount</th>
                                 <th className="p-3 border-b">Method</th>
                                 <th className="p-3 border-b">Received By</th>
@@ -791,46 +883,29 @@ const CashierDashboard = () => {
                                                 <span className="text-indigo-600 flex items-center gap-1">
                                                     <FaUserFriends /> {receipt.familyFile.familyName} (Family)
                                                 </span>
+                                            ) : receipt.hmo ? (
+                                                <span className="text-purple-600 flex items-center gap-1">
+                                                    <FaHospital /> {receipt.hmo.name} (Retainership)
+                                                </span>
                                             ) : (
                                                 receipt.patient?.name
                                             )}
                                         </td>
                                         <td className="p-3 border-b text-green-600 font-bold">₦{receipt.amountPaid.toFixed(2)}</td>
-                                        <td className="p-3 border-b capitalize">
-                                            {receipt.paymentMethod}
-                                            {receipt.paymentMethod === 'insurance' && receipt.claimStatus !== 'paid' && (
-                                                <span className="ml-2 bg-yellow-100 text-yellow-800 text-xs font-semibold px-2 py-1 rounded">
-                                                    Pending HMO
-                                                </span>
-                                            )}
-                                        </td>
-                                        <td className="p-3 border-b text-sm">{receipt.cashier?.name || 'N/A'}</td>
-                                        <td className="p-3 border-b text-sm">{new Date(receipt.paymentDate).toLocaleTimeString()}</td>
+                                        <td className="p-3 border-b capitalize">{receipt.paymentMethod}</td>
+                                        <td className="p-3 border-b">{receipt.cashier?.name}</td>
+                                        <td className="p-3 border-b text-xs text-gray-500">{new Date(receipt.createdAt).toLocaleString()}</td>
                                         <td className="p-3 border-b">
-                                            <button
-                                                onClick={() => handlePrintReceipt(receipt)}
-                                                className="text-blue-600 hover:underline flex items-center gap-1"
-                                            >
-                                                <FaPrint /> Reprint
+                                            <button onClick={() => handlePrintReceipt(receipt)} className="text-blue-600 hover:text-blue-800" title="Print Receipt">
+                                                <FaPrint />
                                             </button>
                                         </td>
                                     </tr>
                                 ))}
-                            {receipts.filter(r => {
-                                const receiptDate = new Date(r.createdAt).toISOString().split('T')[0];
-                                return receiptDate >= startDate && receiptDate <= endDate;
-                            }).length === 0 && (
-                                    <tr>
-                                        <td colSpan="7" className="p-4 text-center text-gray-500">
-                                            No receipts found for selected date range
-                                        </td>
-                                    </tr>
-                                )}
                         </tbody>
                     </table>
                 </div>
             </div>
-
         </Layout>
     );
 };
