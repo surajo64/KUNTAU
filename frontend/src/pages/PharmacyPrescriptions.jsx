@@ -4,7 +4,7 @@ import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
-import { FaPills, FaSearch, FaCheckCircle, FaSave, FaBoxOpen, FaPrint } from 'react-icons/fa';
+import { FaPills, FaSearch, FaCheckCircle, FaSave, FaBoxOpen, FaPrint, FaChevronDown, FaChevronRight } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import LoadingOverlay from '../components/loadingOverlay';
 
@@ -18,6 +18,7 @@ const PharmacyPrescriptions = () => {
     const [inventoryAvailability, setInventoryAvailability] = useState({});
     const [systemSettings, setSystemSettings] = useState(null);
     const [selectedForPrint, setSelectedForPrint] = useState([]);
+    const [expandedDates, setExpandedDates] = useState({});
     const { user } = useContext(AuthContext);
     const { backendUrl } = useContext(AppContext);
     const location = useLocation();
@@ -82,6 +83,14 @@ const PharmacyPrescriptions = () => {
         setSelectedPatient(patient);
         setSelectedPrescription(null);
         setSelectedForPrint([]);
+        setExpandedDates({});
+    };
+
+    const toggleDateExpansion = (dateKey) => {
+        setExpandedDates(prev => ({
+            ...prev,
+            [dateKey]: !prev[dateKey]
+        }));
     };
 
     const handleSelectPrescription = async (prescription) => {
@@ -387,6 +396,26 @@ const PharmacyPrescriptions = () => {
         ? prescriptions.filter(p => p.patient._id === selectedPatient._id)
         : [];
 
+    // Group prescriptions by date
+    const groupedPrescriptions = patientPrescriptions.reduce((acc, p) => {
+        const dateKey = new Date(p.createdAt).toISOString().split('T')[0];
+        if (!acc[dateKey]) {
+            acc[dateKey] = [];
+        }
+        acc[dateKey].push(p);
+        return acc;
+    }, {});
+
+    // Sort dates in descending order (newest first)
+    const sortedDates = Object.keys(groupedPrescriptions).sort((a, b) => b.localeCompare(a));
+
+    // Auto-expand the most recent encounter if none are explicitly set
+    useEffect(() => {
+        if (sortedDates.length > 0 && Object.keys(expandedDates).length === 0) {
+            setExpandedDates({ [sortedDates[0]]: true });
+        }
+    }, [sortedDates, expandedDates]);
+
     return (
         <Layout>
             {loading && <LoadingOverlay />}
@@ -467,48 +496,64 @@ const PharmacyPrescriptions = () => {
                     {patientPrescriptions.length === 0 ? (
                         <p className="text-gray-500">No prescriptions found for this patient</p>
                     ) : (
-                        <div className="space-y-2">
-                            {patientPrescriptions.map(p => (
-                                <div
-                                    key={p._id}
-                                    className="border p-4 rounded hover:bg-gray-50 cursor-pointer flex items-center gap-4"
-                                >
-                                    <div onClick={(e) => e.stopPropagation()}>
-                                        <input
-                                            type="checkbox"
-                                            className="w-5 h-5 cursor-pointer"
-                                            checked={selectedForPrint.includes(p._id)}
-                                            onChange={() => toggleSelectForPrint(p._id)}
-                                        />
-                                    </div>
-                                    <div className="flex-1" onClick={() => handleSelectPrescription(p)}>
-                                        <div className="flex justify-between">
-                                            <div>
-                                                <p className="font-bold text-lg">
-                                                    Encounter on {new Date(p.createdAt).toLocaleDateString()}
-                                                </p>
-                                                <div className="mt-2">
-                                                    {renderMedicines(p.medicines)}
+                        <div className="space-y-6">
+                            {sortedDates.map(dateKey => (
+                                <div key={dateKey}>
+                                    <h4
+                                        className="text-sm font-bold text-gray-500 mb-3 uppercase tracking-wider flex items-center gap-2 cursor-pointer hover:text-green-600 transition-colors group"
+                                        onClick={() => toggleDateExpansion(dateKey)}
+                                    >
+                                        <div className="h-px bg-gray-200 flex-1 group-hover:bg-green-200"></div>
+                                        <div className="flex items-center gap-2 bg-gray-50 px-3 py-1 rounded-full border border-gray-200 shadow-sm">
+                                            {expandedDates[dateKey] ? <FaChevronDown className="text-xs" /> : <FaChevronRight className="text-xs" />}
+                                            Encounter on {new Date(dateKey).toLocaleDateString()}
+                                        </div>
+                                        <div className="h-px bg-gray-200 flex-1 group-hover:bg-green-200"></div>
+                                    </h4>
+                                    {expandedDates[dateKey] && (
+                                        <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
+                                            {groupedPrescriptions[dateKey].map(p => (
+                                            <div
+                                                key={p._id}
+                                                className="border p-4 rounded hover:bg-gray-50 cursor-pointer flex items-center gap-4 bg-white shadow-sm transition-all hover:shadow-md"
+                                            >
+                                                <div onClick={(e) => e.stopPropagation()}>
+                                                    <input
+                                                        type="checkbox"
+                                                        className="w-5 h-5 cursor-pointer accent-green-600"
+                                                        checked={selectedForPrint.includes(p._id)}
+                                                        onChange={() => toggleSelectForPrint(p._id)}
+                                                    />
                                                 </div>
-                                                <div className="mt-2 flex gap-2">
-                                                    <span className={`text-xs px-3 py-1 rounded ${!p.charge ? 'bg-blue-100 text-blue-800' : p.charge.status === 'paid' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>
-                                                        {!p.charge ? 'Process' : p.charge.status === 'paid' ? 'Paid' : 'Unpaid'}
-                                                    </span>
-                                                    <span className={`text-xs px-3 py-1 rounded ${p.status === 'dispensed' ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-600'}`}>
-                                                        {p.status}
-                                                    </span>
-                                                    {p.pharmacy && (
-                                                        <span className="text-xs px-3 py-1 rounded bg-purple-100 text-purple-800">
-                                                            Dest: {p.pharmacy.name}
-                                                        </span>
-                                                    )}
+                                                <div className="flex-1" onClick={() => handleSelectPrescription(p)}>
+                                                    <div className="flex justify-between">
+                                                        <div>
+                                                            <div className="mt-0">
+                                                                {renderMedicines(p.medicines)}
+                                                            </div>
+                                                            <div className="mt-2 flex gap-2">
+                                                                <span className={`text-xs px-3 py-1 rounded ${!p.charge ? 'bg-blue-100 text-blue-800' : p.charge.status === 'paid' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>
+                                                                    {!p.charge ? 'Process' : p.charge.status === 'paid' ? 'Paid' : 'Unpaid'}
+                                                                </span>
+                                                                <span className={`text-xs px-3 py-1 rounded ${p.status === 'dispensed' ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-600'}`}>
+                                                                    {p.status}
+                                                                </span>
+                                                                {p.pharmacy && (
+                                                                    <span className="text-xs px-3 py-1 rounded bg-purple-100 text-purple-800">
+                                                                        Dest: {p.pharmacy.name}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
-                                        </div>
+                                        ))}
                                     </div>
-                                </div>
-                            ))}
-                        </div>
+                                )}
+                            </div>
+                        ))}
+                    </div>
                     )}
                     <button
                         onClick={() => setSelectedPatient(null)}
