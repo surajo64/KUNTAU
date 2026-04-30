@@ -4,7 +4,7 @@ import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
-import { FaPills, FaSearch, FaCheckCircle, FaSave, FaBoxOpen } from 'react-icons/fa';
+import { FaPills, FaSearch, FaCheckCircle, FaSave, FaBoxOpen, FaPrint } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import LoadingOverlay from '../components/loadingOverlay';
 
@@ -17,6 +17,7 @@ const PharmacyPrescriptions = () => {
     const [dispensingMedicines, setDispensingMedicines] = useState([]);
     const [inventoryAvailability, setInventoryAvailability] = useState({});
     const [systemSettings, setSystemSettings] = useState(null);
+    const [selectedForPrint, setSelectedForPrint] = useState([]);
     const { user } = useContext(AuthContext);
     const { backendUrl } = useContext(AppContext);
     const location = useLocation();
@@ -80,6 +81,7 @@ const PharmacyPrescriptions = () => {
     const handleSelectPatient = (patient) => {
         setSelectedPatient(patient);
         setSelectedPrescription(null);
+        setSelectedForPrint([]);
     };
 
     const handleSelectPrescription = async (prescription) => {
@@ -153,7 +155,20 @@ const PharmacyPrescriptions = () => {
     };
 
     const printPrescription = () => {
+        if (!selectedPrescription) return;
+        handlePrintSelected([selectedPrescription]);
+    };
+
+    const handlePrintSelected = (prescriptionsToPrint = null) => {
+        const items = prescriptionsToPrint || patientPrescriptions.filter(p => selectedForPrint.includes(p._id));
+        if (items.length === 0) {
+            toast.warning('Please select at least one prescription to print');
+            return;
+        }
+
         const printWindow = window.open('', '_blank');
+        const firstPrescription = items[0];
+
         const prescriptionHTML = `
             <!DOCTYPE html>
             <html>
@@ -192,9 +207,15 @@ const PharmacyPrescriptions = () => {
                 </div>
                 
                 <div class="patient-info">
-                    <p><strong>Patient Name:</strong> ${selectedPatient.name}</p>
-                    <p><strong>MRN:</strong> ${selectedPatient.mrn || 'N/A'}</p>
-                    <p><strong>Date:</strong> ${new Date(selectedPrescription.createdAt).toLocaleDateString()}</p>
+                    <div style="display: flex; justify-content: space-between;">
+                        <div>
+                            <p><strong>Patient Name:</strong> ${selectedPatient.name}</p>
+                            <p><strong>MRN:</strong> ${selectedPatient.mrn || 'N/A'}</p>
+                        </div>
+                        <div style="text-align: right;">
+                            <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
+                        </div>
+                    </div>
                 </div>
                 
                 <div class="medications">
@@ -210,7 +231,7 @@ const PharmacyPrescriptions = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            ${selectedPrescription.medicines.map(med => `
+                            ${items.map(p => p.medicines.map(med => `
                                 <tr>
                                     <td>${med.name}</td>
                                     <td>${med.dosage}</td>
@@ -218,20 +239,22 @@ const PharmacyPrescriptions = () => {
                                     <td>${(med.duration && !isNaN(med.duration)) ? `${med.duration} days` : med.duration}</td>
                                     <td>${med.quantity || 1}</td>
                                 </tr>
-                            `).join('')}
+                            `).join('')).join('')}
                         </tbody>
                     </table>
                 </div>
                 
-                ${selectedPrescription.notes ? `
+                ${items.some(p => p.notes) ? `
                     <div style="margin-top: 20px;">
                         <p><strong>Additional Notes:</strong></p>
-                        <p>${selectedPrescription.notes}</p>
+                        <ul>
+                            ${items.filter(p => p.notes).map(p => `<li>${p.notes}</li>`).join('')}
+                        </ul>
                     </div>
                 ` : ''}
                 
                 <div class="footer">
-                    <p><strong>Prescribing Doctor:</strong> ${selectedPrescription.doctor?.name || 'N/A'}</p>
+                    <p><strong>Prescribing Doctor(s):</strong> ${Array.from(new Set(items.map(p => p.doctor?.name || 'N/A'))).join(', ')}</p>
                     <div class="signature">
                         Doctor's Signature
                     </div>
@@ -247,6 +270,20 @@ const PharmacyPrescriptions = () => {
 
         printWindow.document.write(prescriptionHTML);
         printWindow.document.close();
+    };
+
+    const toggleSelectForPrint = (id) => {
+        setSelectedForPrint(prev =>
+            prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+        );
+    };
+
+    const handleSelectAllForPrint = () => {
+        if (selectedForPrint.length === patientPrescriptions.length) {
+            setSelectedForPrint([]);
+        } else {
+            setSelectedForPrint(patientPrescriptions.map(p => p._id));
+        }
     };
 
     const handleDispenseWithInventory = async () => {
@@ -406,9 +443,27 @@ const PharmacyPrescriptions = () => {
             {/* Patient Prescriptions */}
             {selectedPatient && !selectedPrescription && (
                 <div className="bg-white p-6 rounded shadow mb-6">
-                    <h3 className="text-xl font-bold mb-4">
-                        Prescriptions for {selectedPatient.name}
-                    </h3>
+                    <div className="flex justify-between items-center mb-4">
+                        <h3 className="text-xl font-bold">
+                            Prescriptions for {selectedPatient.name}
+                        </h3>
+                        <div className="flex gap-2">
+                            <button
+                                onClick={handleSelectAllForPrint}
+                                className="text-sm bg-gray-100 px-3 py-1 rounded hover:bg-gray-200 border"
+                            >
+                                {selectedForPrint.length === patientPrescriptions.length ? 'Unselect All' : 'Select All'}
+                            </button>
+                            {selectedForPrint.length > 0 && (
+                                <button
+                                    onClick={() => handlePrintSelected()}
+                                    className="text-sm bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 flex items-center gap-2"
+                                >
+                                    <FaPrint /> Print Selected ({selectedForPrint.length})
+                                </button>
+                            )}
+                        </div>
+                    </div>
                     {patientPrescriptions.length === 0 ? (
                         <p className="text-gray-500">No prescriptions found for this patient</p>
                     ) : (
@@ -416,29 +471,38 @@ const PharmacyPrescriptions = () => {
                             {patientPrescriptions.map(p => (
                                 <div
                                     key={p._id}
-                                    className="border p-4 rounded hover:bg-gray-50 cursor-pointer"
-                                    onClick={() => handleSelectPrescription(p)}
+                                    className="border p-4 rounded hover:bg-gray-50 cursor-pointer flex items-center gap-4"
                                 >
-                                    <div className="flex justify-between">
-                                        <div>
-                                            <p className="font-bold text-lg">
-                                                Encounter on {new Date(p.createdAt).toLocaleDateString()}
-                                            </p>
-                                            <div className="mt-2">
-                                                {renderMedicines(p.medicines)}
-                                            </div>
-                                            <div className="mt-2 flex gap-2">
-                                                <span className={`text-xs px-3 py-1 rounded ${!p.charge ? 'bg-blue-100 text-blue-800' : p.charge.status === 'paid' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>
-                                                    {!p.charge ? 'Process' : p.charge.status === 'paid' ? 'Paid' : 'Unpaid'}
-                                                </span>
-                                                <span className={`text-xs px-3 py-1 rounded ${p.status === 'dispensed' ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-600'}`}>
-                                                    {p.status}
-                                                </span>
-                                                {p.pharmacy && (
-                                                    <span className="text-xs px-3 py-1 rounded bg-purple-100 text-purple-800">
-                                                        Dest: {p.pharmacy.name}
+                                    <div onClick={(e) => e.stopPropagation()}>
+                                        <input
+                                            type="checkbox"
+                                            className="w-5 h-5 cursor-pointer"
+                                            checked={selectedForPrint.includes(p._id)}
+                                            onChange={() => toggleSelectForPrint(p._id)}
+                                        />
+                                    </div>
+                                    <div className="flex-1" onClick={() => handleSelectPrescription(p)}>
+                                        <div className="flex justify-between">
+                                            <div>
+                                                <p className="font-bold text-lg">
+                                                    Encounter on {new Date(p.createdAt).toLocaleDateString()}
+                                                </p>
+                                                <div className="mt-2">
+                                                    {renderMedicines(p.medicines)}
+                                                </div>
+                                                <div className="mt-2 flex gap-2">
+                                                    <span className={`text-xs px-3 py-1 rounded ${!p.charge ? 'bg-blue-100 text-blue-800' : p.charge.status === 'paid' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>
+                                                        {!p.charge ? 'Process' : p.charge.status === 'paid' ? 'Paid' : 'Unpaid'}
                                                     </span>
-                                                )}
+                                                    <span className={`text-xs px-3 py-1 rounded ${p.status === 'dispensed' ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-600'}`}>
+                                                        {p.status}
+                                                    </span>
+                                                    {p.pharmacy && (
+                                                        <span className="text-xs px-3 py-1 rounded bg-purple-100 text-purple-800">
+                                                            Dest: {p.pharmacy.name}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                         </div>
                                     </div>
