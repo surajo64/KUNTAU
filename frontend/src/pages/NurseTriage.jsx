@@ -790,6 +790,34 @@ const NurseTriage = () => {
         }
     };
 
+    const handleDischarge = async (e, encounter) => {
+        e.stopPropagation();
+        if (!window.confirm('Are you sure you want to discharge this patient? This will release their bed and close the encounter.')) {
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            await axios.put(`${backendUrl}/api/visits/${encounter._id}`, {
+                encounterStatus: 'discharged',
+                status: 'Discharged'
+            }, config);
+
+            toast.success('Patient discharged successfully!');
+            
+            // Refresh patient encounters if this patient is selected
+            if (selectedPatient && (selectedPatient._id === encounter.patient._id || selectedPatient._id === encounter.patient)) {
+                handleSelectPatient(selectedPatient);
+            }
+        } catch (error) {
+            console.error(error);
+            toast.error('Error discharging patient');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <Layout>
             {loading && <LoadingOverlay />}
@@ -894,10 +922,7 @@ const NurseTriage = () => {
                                                 {/* Discharge Button (Active Inpatients) */}
                                                 {encounter.type === 'Inpatient' && isEncounterActive(encounter) && (
                                                     <button
-                                                        onClick={(e) => {
-                                                            e.stopPropagation();
-                                                            window.location.href = `/patient/${encounter.patient._id || encounter.patient}`;
-                                                        }}
+                                                        onClick={(e) => handleDischarge(e, encounter)}
                                                         className="text-xs bg-red-600 text-white px-2 py-1 rounded hover:bg-red-700 z-10"
                                                     >
                                                         Discharge
