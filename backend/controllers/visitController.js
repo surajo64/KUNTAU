@@ -65,6 +65,7 @@ const createVisit = async (req, res) => {
         encounterStatus: ['External Investigation', 'External Pharmacy', 'External Lab/Radiology'].includes(type) 
             ? 'awaiting_services' 
             : (type === 'Inpatient' ? 'admitted' : (req.body.encounterStatus || 'registered')),
+        status: type === 'Inpatient' ? 'Admitted' : 'In Progress',
         reasonForVisit
     });
 
@@ -105,9 +106,12 @@ const createVisit = async (req, res) => {
 // @route   GET /api/visits
 // @access  Private
 const getVisits = async (req, res) => {
-    const { type, encounterStatus } = req.query;
+    const { type, encounterStatus, status, patient } = req.query;
     let query = {};
     if (type) query.type = type;
+    if (status) query.status = status;
+    if (patient) query.patient = patient;
+    
     if (encounterStatus) {
         if (encounterStatus.includes(',')) {
             query.encounterStatus = { $in: encounterStatus.split(',') };
@@ -359,6 +363,7 @@ const convertToInpatient = async (req, res) => {
         // 2. Update Visit
         visit.type = 'Inpatient';
         visit.encounterType = 'Inpatient';
+        visit.status = 'Admitted';
         visit.ward = ward;
         visit.bed = bed;
         visit.admissionDate = new Date();
@@ -484,11 +489,13 @@ const changeEncounterType = async (req, res) => {
         if (isCurrentlyExternal && !isNewTypeExternal) {
             visit.paymentValidated = false;
             visit.encounterStatus = (type === 'Inpatient') ? 'admitted' : 'payment_pending';
+            if (type === 'Inpatient') visit.status = 'Admitted';
         } else if (!isCurrentlyExternal && isNewTypeExternal) {
             visit.paymentValidated = true;
             visit.encounterStatus = 'awaiting_services';
         } else if (type === 'Inpatient' && oldType !== 'Inpatient') {
              visit.encounterStatus = 'admitted';
+             visit.status = 'Admitted';
         }
 
         const updatedVisit = await visit.save();

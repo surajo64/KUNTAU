@@ -348,9 +348,9 @@ const PatientDetails = () => {
             const foundPatient = data.find(p => p._id === id);
             setPatient(foundPatient);
 
-            // Fetch all visits for history
-            const visitsRes = await axios.get(`${backendUrl}/api/visits`, config);
-            const patientVisits = visitsRes.data.filter(v => v.patient._id === id || v.patient === id);
+            // Fetch all visits for this specific patient
+            const visitsRes = await axios.get(`${backendUrl}/api/visits?patient=${id}`, config);
+            const patientVisits = visitsRes.data;
 
             // Sort by date desc
             patientVisits.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));

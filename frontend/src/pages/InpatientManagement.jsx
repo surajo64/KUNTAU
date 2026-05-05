@@ -41,8 +41,8 @@ const InpatientManagement = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            // Fetch visits with admitted or in_ward status
-            const { data } = await axios.get(`${backendUrl}/api/visits?encounterStatus=admitted,in_ward`, config);
+            // Fetch visits with Inpatient type and Admitted status
+            const { data } = await axios.get(`${backendUrl}/api/visits?type=Inpatient&status=Admitted`, config);
             
             // Sort by admission date or created date (latest first)
             data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));

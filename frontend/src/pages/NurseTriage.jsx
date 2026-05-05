@@ -111,17 +111,18 @@ const NurseTriage = () => {
             setSelectedPatient(patient);
             
             // Fetch patient's encounters
-            const { data: allVisits } = await axios.get(`${backendUrl}/api/visits`, config);
-            const patientEncounters = allVisits.filter(v =>
-                (v.patient._id === pId || v.patient === pId) &&
-                (v.encounterStatus === 'payment_pending' || v.encounterStatus === 'in_nursing' || v.encounterStatus === 'registered' || v.encounterStatus === 'with_doctor' ||
-                    v.encounterStatus === 'completed' || v.encounterStatus === 'cancelled' || v.encounterStatus === 'discharged' || v.encounterStatus === 'in_ward' || v.encounterStatus === 'admitted')
+            const { data: patientEncounters } = await axios.get(`${backendUrl}/api/visits?patient=${pId}`, config);
+            
+            // Filter by relevant statuses if needed (optional, but keep consistent with previous logic if it was filtering)
+            const filteredEncounters = patientEncounters.filter(v =>
+                v.encounterStatus === 'payment_pending' || v.encounterStatus === 'in_nursing' || v.encounterStatus === 'registered' || v.encounterStatus === 'with_doctor' ||
+                    v.encounterStatus === 'completed' || v.encounterStatus === 'cancelled' || v.encounterStatus === 'discharged' || v.encounterStatus === 'in_ward' || v.encounterStatus === 'admitted'
             );
-            patientEncounters.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-            setEncounters(patientEncounters);
+            filteredEncounters.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            setEncounters(filteredEncounters);
             
             if (eId) {
-                const targetEncounter = patientEncounters.find(e => e._id === eId);
+                const targetEncounter = filteredEncounters.find(e => e._id === eId);
                 if (targetEncounter) {
                     handleSelectEncounter(targetEncounter);
                 }
@@ -249,15 +250,15 @@ const NurseTriage = () => {
             if (!user) return;
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get(`${backendUrl}/api/visits`, config);
-            const patientEncounters = data.filter(v =>
-                (v.patient._id === patient._id || v.patient === patient._id) &&
-                (v.encounterStatus === 'payment_pending' || v.encounterStatus === 'in_nursing' || v.encounterStatus === 'registered' || v.encounterStatus === 'with_doctor' ||
-                    v.encounterStatus === 'completed' || v.encounterStatus === 'cancelled' || v.encounterStatus === 'discharged' || v.encounterStatus === 'in_ward' || v.encounterStatus === 'admitted')
+            const { data: patientEncounters } = await axios.get(`${backendUrl}/api/visits?patient=${patient._id}`, config);
+            
+            const filteredEncounters = patientEncounters.filter(v =>
+                v.encounterStatus === 'payment_pending' || v.encounterStatus === 'in_nursing' || v.encounterStatus === 'registered' || v.encounterStatus === 'with_doctor' ||
+                    v.encounterStatus === 'completed' || v.encounterStatus === 'cancelled' || v.encounterStatus === 'discharged' || v.encounterStatus === 'in_ward' || v.encounterStatus === 'admitted'
             );
             // Sort encounters by creation date - latest first
-            patientEncounters.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-            setEncounters(patientEncounters);
+            filteredEncounters.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            setEncounters(filteredEncounters);
         } catch (error) {
             console.error(error);
             toast.error('Error fetching encounters');
