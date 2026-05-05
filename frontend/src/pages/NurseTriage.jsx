@@ -1,4 +1,5 @@
 import { useState, useEffect, useContext } from 'react';
+import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import { AppContext } from '../context/AppContext';
@@ -8,6 +9,7 @@ import { toast } from 'react-toastify';
 import LoadingOverlay from '../components/loadingOverlay';
 
 const NurseTriage = () => {
+    const { patientId, encounterId } = useParams();
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [patients, setPatients] = useState([]);
@@ -92,8 +94,45 @@ const NurseTriage = () => {
         if (user) {
             fetchDoctors();
             fetchNursingCharges();
+            
+            if (patientId) {
+                handleFetchAndSelectPatient(patientId, encounterId);
+            }
         }
-    }, [user]);
+    }, [user, patientId, encounterId]);
+
+    const handleFetchAndSelectPatient = async (pId, eId) => {
+        try {
+            setLoading(true);
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            
+            // Fetch patient details
+            const { data: patient } = await axios.get(`${backendUrl}/api/patients/${pId}`, config);
+            setSelectedPatient(patient);
+            
+            // Fetch patient's encounters
+            const { data: allVisits } = await axios.get(`${backendUrl}/api/visits`, config);
+            const patientEncounters = allVisits.filter(v =>
+                (v.patient._id === pId || v.patient === pId) &&
+                (v.encounterStatus === 'payment_pending' || v.encounterStatus === 'in_nursing' || v.encounterStatus === 'registered' || v.encounterStatus === 'with_doctor' ||
+                    v.encounterStatus === 'completed' || v.encounterStatus === 'cancelled' || v.encounterStatus === 'discharged' || v.encounterStatus === 'in_ward' || v.encounterStatus === 'admitted')
+            );
+            patientEncounters.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            setEncounters(patientEncounters);
+            
+            if (eId) {
+                const targetEncounter = patientEncounters.find(e => e._id === eId);
+                if (targetEncounter) {
+                    handleSelectEncounter(targetEncounter);
+                }
+            }
+        } catch (error) {
+            console.error('Error auto-selecting patient:', error);
+            toast.error('Error loading patient details');
+        } finally {
+            setLoading(false);
+        }
+    };
 
     const fetchNursingCharges = async () => {
         try {

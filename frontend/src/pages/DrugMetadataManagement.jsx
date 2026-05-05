@@ -101,7 +101,7 @@ const DrugMetadataManagement = () => {
         { id: 'frequency', label: 'Frequencies', icon: <FaClock /> },
     ];
 
-    if (user?.role !== 'admin' && user?.role !== 'super_admin') {
+    if (user?.role !== 'admin' && user?.role !== 'super_admin' && user?.role !== 'pharmacist') {
         return (
             <Layout>
                 <div className="bg-red-50 border border-red-200 p-6 rounded">

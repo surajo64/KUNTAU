@@ -15,6 +15,7 @@ import Inventory from './pages/Inventory';
 
 import Appointments from './pages/Appointments';
 import NurseTriage from './pages/NurseTriage';
+import InpatientManagement from './pages/InpatientManagement';
 import NursingServiceManagement from './pages/NursingServiceManagement';
 import LabDashboard from './pages/LabDashboard';
 import LabTestManagement from './pages/LabTestManagement';
@@ -70,7 +71,8 @@ function App() {
             <Route path="/pharmacy/external-investigations" element={<ExternalPharmacy />} />
             <Route path="/appointments" element={<Appointments />} />
             <Route path="/hmo-management" element={<HMOManagement />} />
-            <Route path="/nurse/triage" element={<NurseTriage />} />
+            <Route path="/nurse/triage/:patientId?/:encounterId?" element={<NurseTriage />} />
+            <Route path="/nurse/inpatients" element={<InpatientManagement />} />
             <Route path="/nurse/services" element={<NursingServiceManagement />} />
             <Route path="/billing" element={<BillingDashboard />} />
             <Route path="/front-desk" element={<FrontDeskDashboard />} />

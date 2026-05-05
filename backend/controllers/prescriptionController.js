@@ -89,6 +89,7 @@ const getPrescriptionsByVisit = async (req, res) => {
     const prescriptions = await Prescription.find({ visit: req.params.id })
         .populate('doctor', 'name')
         .populate('patient', 'name age gender mrn provider')
+        .populate('charge')
         .populate('dispensedBy', 'name');
     res.json(prescriptions);
 };

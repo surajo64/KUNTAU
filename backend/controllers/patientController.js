@@ -251,6 +251,23 @@ const getRecentPatients = async (req, res) => {
     }
 };
 
+// @desc    Get patient by ID
+// @route   GET /api/patients/:id
+// @access  Private
+const getPatientById = async (req, res) => {
+    try {
+        const patient = await Patient.findById(req.params.id).populate('familyFile');
+
+        if (patient) {
+            res.json(patient);
+        } else {
+            res.status(404).json({ message: 'Patient not found' });
+        }
+    } catch (error) {
+        res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     registerPatient,
     getPatients,
@@ -259,4 +276,5 @@ module.exports = {
     addDeposit,
     getDepositBalance,
     getRecentPatients,
+    getPatientById,
 };
