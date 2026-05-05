@@ -41,14 +41,16 @@ const InpatientManagement = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            // Fetch all inpatient visits that are NOT discharged or cancelled
-            const { data } = await axios.get(`${backendUrl}/api/visits?type=Inpatient&excludeStatus=discharged,cancelled`, config);
+            // Fetch all inpatient visits and filter for active ones in the frontend for maximum compatibility
+            const { data } = await axios.get(`${backendUrl}/api/visits?type=Inpatient`, config);
+            
+            const activeInpatients = data.filter(v => v.patient && v.encounterStatus !== 'discharged' && v.encounterStatus !== 'cancelled');
             
             // Sort by admission date or created date (latest first)
-            data.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+            activeInpatients.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
             
-            setInpatients(data);
-            setFilteredInpatients(data);
+            setInpatients(activeInpatients);
+            setFilteredInpatients(activeInpatients);
         } catch (error) {
             console.error('Error fetching inpatients:', error);
             toast.error('Error fetching inpatient list');
