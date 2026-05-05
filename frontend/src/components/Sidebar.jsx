@@ -102,6 +102,9 @@ const Sidebar = () => {
                         <Link to="/nurse/inpatients" className={`flex items-center gap-3 p-3 rounded hover:bg-green-700 transition ${isActive('/nurse/inpatients')}`}>
                             <FaBed /> Inpatient Management
                         </Link>
+                        <Link to="/nurse/wards" className={`flex items-center gap-3 p-3 rounded hover:bg-green-700 transition ${isActive('/nurse/wards')}`}>
+                            <FaHospital /> Ward Availability
+                        </Link>
                         <Link to="/nurse/services" className={`flex items-center gap-3 p-3 rounded hover:bg-green-700 transition ${isActive('/nurse/services')}`}>
                             <FaHeart /> Manage Nurse Services
                         </Link>

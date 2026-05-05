@@ -73,6 +73,7 @@ function App() {
             <Route path="/hmo-management" element={<HMOManagement />} />
             <Route path="/nurse/triage/:patientId?/:encounterId?" element={<NurseTriage />} />
             <Route path="/nurse/inpatients" element={<InpatientManagement />} />
+            <Route path="/nurse/wards" element={<WardManagement />} />
             <Route path="/nurse/services" element={<NursingServiceManagement />} />
             <Route path="/billing" element={<BillingDashboard />} />
             <Route path="/front-desk" element={<FrontDeskDashboard />} />
