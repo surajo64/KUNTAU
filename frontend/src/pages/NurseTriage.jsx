@@ -295,8 +295,8 @@ const NurseTriage = () => {
             // Fetch encounter charges
             await fetchEncounterCharges(encounter._id);
 
-            // Fetch drug administration data if admitted
-            if (encounter.encounterStatus === 'admitted' || encounter.encounterStatus === 'in_ward') {
+            // Fetch drug administration data if Inpatient
+            if (encounter.type === 'Inpatient') {
                 await fetchDrugAdministrationData(encounter._id);
             }
 
@@ -1074,8 +1074,8 @@ const NurseTriage = () => {
                                 </div>
                             )}
 
-                            {/* Drug Observation Chart - Only for Admitted Patients */}
-                            {(selectedEncounter.encounterStatus === 'admitted' || selectedEncounter.encounterStatus === 'in_ward' || selectedEncounter.encounterStatus === 'in_progress') && (
+                            {/* Drug Observation Chart - Only for Admitted Inpatients */}
+                            {(selectedEncounter.type === 'Inpatient' && selectedEncounter.encounterStatus !== 'discharged' && selectedEncounter.encounterStatus !== 'cancelled') && (
                                 <div className="mb-8">
                                     <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white p-3 rounded-t-lg flex justify-between items-center shadow-md">
                                         <h4 className="font-bold flex items-center gap-2">
