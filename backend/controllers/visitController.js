@@ -120,6 +120,14 @@ const getVisits = async (req, res) => {
         }
     }
 
+    if (req.query.excludeStatus) {
+        if (req.query.excludeStatus.includes(',')) {
+            query.encounterStatus = { ...query.encounterStatus, $nin: req.query.excludeStatus.split(',') };
+        } else {
+            query.encounterStatus = { ...query.encounterStatus, $ne: req.query.excludeStatus };
+        }
+    }
+
     const visits = await Visit.find(query)
         .populate('patient', 'name mrn age gender')
         .populate('doctor', 'name')
