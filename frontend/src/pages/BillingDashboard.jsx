@@ -745,7 +745,7 @@ const BillingDashboard = () => {
                             onClick={() => setShowPatientSearch(true)}
                             className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 flex items-center gap-2"
                         >
-                            <FaSearch /> Search Patient
+                            <FaSearch /> Patient Wallet
                         </button>
                         <button
                             onClick={() => setShowDepositModal(true)}
