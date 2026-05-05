@@ -571,7 +571,7 @@ const BillingDashboard = () => {
                     </div>
 
                     <div class="footer">
-                        <p>Thank you for choosing ${systemSettings?.hospitalName || 'SUD EMR Medical Center'}.</p>
+                        <p>Thank you for choosing ${systemSettings?.reportHeader || 'SUD EMR Medical Center'}.</p>
                         <p>For billing inquiries, please contact our accounts department.</p>
                         <p style="margin-top: 10px; font-style: italic;">This is a computer-generated document and does not require a signature.</p>
                     </div>
