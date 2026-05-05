@@ -67,7 +67,7 @@ const getPrescriptions = async (req, res) => {
 
     const prescriptions = await Prescription.find(filter)
         .populate('doctor', 'name')
-        .populate('patient', 'name age gender mrn')
+        .populate('patient', 'name age gender mrn provider')
         .populate('charge') // Populate full charge object to get status
         .populate('pharmacy', 'name');
     res.json(prescriptions);
@@ -88,7 +88,7 @@ const getPatientPrescriptions = async (req, res) => {
 const getPrescriptionsByVisit = async (req, res) => {
     const prescriptions = await Prescription.find({ visit: req.params.id })
         .populate('doctor', 'name')
-        .populate('charge') // Populate full charge object
+        .populate('patient', 'name age gender mrn provider')
         .populate('dispensedBy', 'name');
     res.json(prescriptions);
 };

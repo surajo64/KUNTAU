@@ -147,7 +147,14 @@ const PharmacyPrescriptions = () => {
                 const totalAvailable = inventoryItems.reduce((sum, item) => sum + item.quantity, 0);
                 availability[med.name] = {
                     available: totalAvailable,
-                    items: inventoryItems
+                    items: inventoryItems,
+                    fees: inventoryItems.length > 0 ? {
+                        standardFee: inventoryItems[0].standardFee,
+                        retainershipFee: inventoryItems[0].retainershipFee,
+                        nhiaFee: inventoryItems[0].nhiaFee,
+                        kschmaFee: inventoryItems[0].kschmaFee,
+                        price: inventoryItems[0].price
+                    } : null
                 };
             });
 
@@ -411,10 +418,50 @@ const PharmacyPrescriptions = () => {
 
     // Auto-expand the most recent encounter if none are explicitly set
     useEffect(() => {
-        if (sortedDates.length > 0 && Object.keys(expandedDates).length === 0) {
-            setExpandedDates({ [sortedDates[0]]: true });
-        }
     }, [sortedDates, expandedDates]);
+
+    const getMedicineFee = (medName, provider) => {
+        const fees = inventoryAvailability[medName]?.fees;
+        if (!fees) return 0;
+
+        let fee = 0;
+        if (provider === 'Retainership') fee = fees.retainershipFee || 0;
+        else if (provider === 'NHIA') fee = fees.nhiaFee || 0;
+        else if (provider === 'KSCHMA') fee = fees.kschmaFee || 0;
+        else fee = fees.standardFee || fees.price || 0;
+
+        if (fee === 0 && (provider === 'NHIA' || provider === 'KSCHMA' || provider === 'Retainership')) {
+            fee = fees.standardFee || fees.price || 0;
+        }
+        return fee;
+    };
+
+    const calculatePortions = (totalAmount, provider) => {
+        let patientPortion = totalAmount;
+        let hmoPortion = 0;
+
+        if (provider === 'Retainership') {
+            patientPortion = 0;
+            hmoPortion = totalAmount;
+        } else if (provider === 'NHIA' || provider === 'KSCHMA') {
+            patientPortion = totalAmount * 0.1;
+            hmoPortion = totalAmount * 0.9;
+        }
+        return { patientPortion, hmoPortion };
+    };
+
+    // Calculate grand totals for preview
+    const grandTotals = dispensingMedicines.reduce((acc, med) => {
+        const unitPrice = getMedicineFee(med.name, selectedPrescription?.patient?.provider);
+        const total = unitPrice * (med.quantityDispensed || 0);
+        const { patientPortion, hmoPortion } = calculatePortions(total, selectedPrescription?.patient?.provider);
+        
+        return {
+            total: acc.total + total,
+            patientPortion: acc.patientPortion + patientPortion,
+            hmoPortion: acc.hmoPortion + hmoPortion
+        };
+    }, { total: 0, patientPortion: 0, hmoPortion: 0 });
 
     return (
         <Layout>
@@ -606,40 +653,86 @@ const PharmacyPrescriptions = () => {
 
                             <div className="bg-white p-4 rounded border mb-4">
                                 <h4 className="font-bold text-lg mb-3">Medication Details</h4>
-                                {dispensingMedicines.map((med, index) => (
-                                    <div key={index} className="mb-4 pb-4 border-b last:border-0">
-                                        <p className="font-bold text-lg">{med.name}</p>
-                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                                            <div>
-                                                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                                                    Quantity to Charge
-                                                </label>
-                                                <input
-                                                    type="number"
-                                                    min="1"
-                                                    className="border p-2 rounded w-full"
-                                                    value={med.quantityDispensed}
-                                                    onChange={(e) => updateMedicine(index, 'quantityDispensed', parseInt(e.target.value))}
-                                                />
-                                                <p className="text-xs text-gray-600 mt-1">
-                                                    Available Stock: {inventoryAvailability[med.name]?.available || 0}
-                                                </p>
+                                {dispensingMedicines.map((med, index) => {
+                                    const unitPrice = getMedicineFee(med.name, selectedPrescription?.patient?.provider);
+                                    const totalCost = unitPrice * (med.quantityDispensed || 0);
+                                    const { patientPortion } = calculatePortions(totalCost, selectedPrescription?.patient?.provider);
+
+                                    return (
+                                        <div key={index} className="mb-4 pb-4 border-b last:border-0">
+                                            <div className="flex justify-between items-start mb-2">
+                                                <p className="font-bold text-lg">{med.name}</p>
+                                                <div className="text-right">
+                                                    <p className="text-sm font-semibold text-gray-700">Unit Price: ₦{unitPrice.toLocaleString()}</p>
+                                                    <p className="text-sm font-bold text-blue-600">Total: ₦{totalCost.toLocaleString()}</p>
+                                                    {selectedPrescription?.patient?.provider !== 'Standard' && (
+                                                        <p className="text-xs font-bold text-green-600">Patient Pays (10%): ₦{patientPortion.toLocaleString()}</p>
+                                                    )}
+                                                </div>
                                             </div>
-                                            <div>
-                                                <label className="block text-sm font-semibold text-gray-700 mb-1">
-                                                    Dosage/Instruction
-                                                </label>
-                                                <input
-                                                    type="text"
-                                                    className="border p-2 rounded w-full"
-                                                    value={med.dosage}
-                                                    readOnly
-                                                />
+                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                                                <div>
+                                                    <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                                        Quantity to Charge
+                                                    </label>
+                                                    <input
+                                                        type="number"
+                                                        min="1"
+                                                        className="border p-2 rounded w-full"
+                                                        value={med.quantityDispensed}
+                                                        onChange={(e) => updateMedicine(index, 'quantityDispensed', parseInt(e.target.value) || 0)}
+                                                    />
+                                                    <p className="text-xs text-gray-600 mt-1">
+                                                        Available Stock: {inventoryAvailability[med.name]?.available || 0}
+                                                    </p>
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                                        Dosage/Instruction
+                                                    </label>
+                                                    <input
+                                                        type="text"
+                                                        className="border p-2 rounded w-full"
+                                                        value={med.dosage}
+                                                        readOnly
+                                                    />
+                                                </div>
                                             </div>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
+
+                            {/* Cost Summary */}
+                            {(dispensingMedicines.length > 1 || selectedPrescription?.patient?.provider !== 'Standard') && (
+                                <div className="bg-gray-50 p-4 rounded border-2 border-gray-200 mb-6">
+                                    <h4 className="font-bold text-lg mb-3 border-bottom pb-2">Cost Summary ({selectedPrescription?.patient?.provider})</h4>
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-gray-600">Total Drug Cost:</span>
+                                            <span className="font-bold text-lg">₦{grandTotals.total.toLocaleString()}</span>
+                                        </div>
+                                        {selectedPrescription?.patient?.provider !== 'Standard' && (
+                                            <>
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-gray-600">HMO Portion:</span>
+                                                    <span className="font-semibold text-blue-600">₦{grandTotals.hmoPortion.toLocaleString()}</span>
+                                                </div>
+                                                <div className="flex justify-between items-center border-t pt-2">
+                                                    <span className="font-bold text-gray-800 text-lg">PATIENT TO PAY:</span>
+                                                    <span className="font-bold text-2xl text-green-600">₦{grandTotals.patientPortion.toLocaleString()}</span>
+                                                </div>
+                                            </>
+                                        )}
+                                        {selectedPrescription?.patient?.provider === 'Standard' && (
+                                            <div className="flex justify-between items-center border-t pt-2">
+                                                <span className="font-bold text-gray-800 text-lg">TOTAL TO PAY:</span>
+                                                <span className="font-bold text-2xl text-green-600">₦{grandTotals.total.toLocaleString()}</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
 
                             <button
                                 onClick={async () => {
