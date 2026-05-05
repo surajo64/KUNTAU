@@ -9,6 +9,7 @@ const {
     getOverallRevenue,
     getDashboardStats,
     getClinicalReport,
+    getVisitReport,
     getTheatreRevenue,
     getFamilyRevenue,
     getRetainershipRevenue
@@ -26,5 +27,6 @@ router.get('/retainership-revenue', protect, admin, getRetainershipRevenue);
 router.get('/overall-revenue', protect, admin, getOverallRevenue);
 router.get('/dashboard-stats', protect, admin, getDashboardStats);
 router.get('/clinical-report', protect, admin, getClinicalReport);
+router.get('/visit-report', protect, admin, getVisitReport);
 
 module.exports = router;

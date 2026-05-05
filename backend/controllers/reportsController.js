@@ -6,6 +6,9 @@ const Visit = require('../models/visitModel');
 const Patient = require('../models/patientModel');
 const Receipt = require('../models/receiptModel');
 const User = require('../models/userModel');
+const VitalSign = require('../models/vitalSignModel');
+const Clinic = require('../models/clinicModel');
+const Ward = require('../models/wardModel');
 
 // @desc    Get lab revenue report by date range
 // @route   GET /api/reports/lab-revenue?startDate=&endDate=
@@ -1401,6 +1404,71 @@ const getRetainershipRevenue = async (req, res) => {
 };
 
 
+
+// @desc    Get detailed visit history report
+// @route   GET /api/reports/visit-report?startDate=&endDate=&searchTerm=
+// @access  Private (Admin)
+const getVisitReport = async (req, res) => {
+    try {
+        const { startDate, endDate, searchTerm } = req.query;
+
+        let query = {};
+        if (startDate || endDate) {
+            query.createdAt = {};
+            if (startDate) query.createdAt.$gte = new Date(startDate);
+            if (endDate) {
+                const end = new Date(endDate);
+                end.setHours(23, 59, 59, 999);
+                query.createdAt.$lte = end;
+            }
+        }
+
+        let visits = await Visit.find(query)
+            .populate('patient')
+            .populate('doctor', 'name role')
+            .populate('consultingPhysician', 'name role')
+            .populate('clinic', 'name')
+            .populate('ward', 'name')
+            .sort({ createdAt: -1 });
+
+        if (searchTerm) {
+            const regex = new RegExp(searchTerm, 'i');
+            visits = visits.filter(v => 
+                (v.patient && (regex.test(v.patient.name) || regex.test(v.patient.mrn))) || 
+                regex.test(v._id.toString())
+            );
+        }
+
+        const visitIds = visits.map(v => v._id);
+
+        // Fetch related data in bulk
+        const [vitals, labs, rads, scripts] = await Promise.all([
+            VitalSign.find({ visit: { $in: visitIds } }).populate('nurse', 'name'),
+            LabOrder.find({ visit: { $in: visitIds } }).populate('signedBy', 'name').populate('approvedBy', 'name'),
+            RadiologyOrder.find({ visit: { $in: visitIds } }).populate('signedBy', 'name'),
+            Prescription.find({ visit: { $in: visitIds } }).populate('dispensedBy', 'name').populate('doctor', 'name')
+        ]);
+
+        // Map related data to visits
+        const consolidatedData = visits.map(v => {
+            const visitIdStr = v._id.toString();
+            return {
+                ...v.toObject(),
+                vitalSigns: vitals.filter(s => s.visit?.toString() === visitIdStr),
+                labOrders: labs.filter(l => l.visit?.toString() === visitIdStr),
+                radiologyOrders: rads.filter(r => r.visit?.toString() === visitIdStr),
+                prescriptions: scripts.filter(p => p.visit?.toString() === visitIdStr)
+            };
+        });
+
+        res.json(consolidatedData);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+
 module.exports = {
     getLabRevenue,
     getRadiologyRevenue,
@@ -1412,5 +1480,6 @@ module.exports = {
     getClinicalReport,
     getTheatreRevenue,
     getFamilyRevenue,
-    getRetainershipRevenue
+    getRetainershipRevenue,
+    getVisitReport
 };
