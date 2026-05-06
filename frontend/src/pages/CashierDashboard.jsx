@@ -115,8 +115,10 @@ const CashierDashboard = () => {
         setEncounterCharges([]);
         setSelectedCharges([]);
 
-        // Set default payment method based on provider
-        if (patient.provider === 'Retainership') {
+        // Set default payment method based on deposit balance or provider
+        if (patient.depositBalance > 0) {
+            setPaymentMethod('deposit');
+        } else if (patient.provider === 'Retainership') {
             setPaymentMethod('retainership');
         } else if (['NHIA', 'KSCHMA', 'State Scheme'].includes(patient.provider)) {
             setPaymentMethod('insurance');
@@ -542,6 +544,12 @@ const CashierDashboard = () => {
                                         >
                                             ← Change Patient
                                         </button>
+                                        {selectedPatient.depositBalance > 0 && (
+                                            <div className="mt-2 p-2 bg-green-100 border border-green-200 rounded">
+                                                <p className="text-xs font-bold text-green-800 uppercase">Available Deposit</p>
+                                                <p className="text-lg font-black text-green-900">₦{selectedPatient.depositBalance.toLocaleString()}</p>
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="w-1/3">
                                         <label className="block text-gray-700 text-sm font-semibold mb-1">Payment Method</label>

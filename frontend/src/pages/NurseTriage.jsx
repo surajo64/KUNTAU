@@ -519,7 +519,12 @@ const NurseTriage = () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             const { data: prescriptions } = await axios.get(`${backendUrl}/api/prescriptions/visit/${encounterId}`, config);
-            setDispensedPrescriptions(prescriptions.filter(p => p.status === 'dispensed'));
+            const filteredPrescriptions = prescriptions.filter(p => p.status === 'dispensed').map(p => ({
+                ...p,
+                medicines: p.medicines.filter(m => m.dosage || m.route || m.frequency)
+            })).filter(p => p.medicines.length > 0);
+            
+            setDispensedPrescriptions(filteredPrescriptions);
 
             const { data: history } = await axios.get(`${backendUrl}/api/drug-administration/visit/${encounterId}`, config);
             setAdministrationHistory(history);

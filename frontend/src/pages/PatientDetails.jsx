@@ -426,7 +426,12 @@ const PatientDetails = () => {
                 axios.get(`${backendUrl}/api/prescriptions/visit/${encounterId}`, config),
                 axios.get(`${backendUrl}/api/drug-administration/visit/${encounterId}`, config)
             ]);
-            setDispensedPrescriptions(rxRes.data.filter(p => p.status === 'dispensed'));
+            const dispensedRx = rxRes.data.filter(p => p.status === 'dispensed').map(p => ({
+                ...p,
+                medicines: p.medicines.filter(m => m.dosage || m.route || m.frequency)
+            })).filter(p => p.medicines.length > 0);
+            
+            setDispensedPrescriptions(dispensedRx);
             setAdministrationHistory(historyRes.data);
         } catch (error) {
             console.error('Error fetching drug admin data:', error);
