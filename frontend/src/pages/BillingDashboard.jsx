@@ -23,6 +23,8 @@ const BillingDashboard = () => {
     const [showPatientSearch, setShowPatientSearch] = useState(false);
     const [patientSearchTerm, setPatientSearchTerm] = useState('');
     const [viewingPatient, setViewingPatient] = useState(null);
+    const [showRefundModal, setShowRefundModal] = useState(false);
+    const [refundAmount, setRefundAmount] = useState('');
     const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
     const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
     const [depositSearchTerm, setDepositSearchTerm] = useState('');
@@ -207,6 +209,49 @@ const BillingDashboard = () => {
         } catch (error) {
             console.error(error);
             toast.error(error.response?.data?.message || 'Error adding deposit');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleRefundDeposit = async (e) => {
+        e.preventDefault();
+        if (!refundAmount || isNaN(refundAmount) || Number(refundAmount) <= 0) {
+            toast.error('Please enter a valid amount');
+            return;
+        }
+
+        if (Number(refundAmount) > (viewingPatient?.depositBalance || 0)) {
+            toast.error('Refund amount cannot exceed available balance');
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            await axios.post(`${backendUrl}/api/patients/${selectedPatient}/refund`, {
+                amount: Number(refundAmount)
+            }, config);
+
+            toast.success('Deposit refunded successfully!');
+            setShowRefundModal(false);
+            setRefundAmount('');
+            
+            // Refresh patient data
+            const patientRes = await axios.get(`${backendUrl}/api/patients/${selectedPatient}`, config);
+            const depositRes = await axios.get(`${backendUrl}/api/patients/${selectedPatient}/deposit`, config);
+            
+            setViewingPatient({ 
+                ...patientRes.data, 
+                depositBalance: depositRes.data.balance, 
+                lowDepositThreshold: depositRes.data.threshold 
+            });
+            
+            fetchPatients();
+            fetchReceipts();
+        } catch (error) {
+            console.error(error);
+            toast.error(error.response?.data?.message || 'Error processing refund');
         } finally {
             setLoading(false);
         }
@@ -537,10 +582,12 @@ const BillingDashboard = () => {
                                     <td>${new Date(r.createdAt).toLocaleDateString()}</td>
                                     <td><span style="font-family: monospace; background: #eee; padding: 2px 5px; border-radius: 3px;">${r.receiptNumber}</span></td>
                                     <td>
-                                        ${r.charges?.map(c => c.charge?.name || 'Service').join(', ') || 'Payment on Account'}
+                                        ${r.paymentMethod === 'refund' ? '<span style="color: #e53e3e; font-weight: bold;">Deposit Refund</span>' : (r.charges?.map(c => c.charge?.name || 'Service').join(', ') || 'Payment on Account')}
                                     </td>
                                     <td style="text-transform: capitalize;">${r.paymentMethod}</td>
-                                    <td class="text-right font-bold">₦${r.amountPaid.toLocaleString()}</td>
+                                    <td class="text-right font-bold ${r.amountPaid < 0 ? 'text-red-600' : ''}">
+                                        ${r.amountPaid < 0 ? `-₦${Math.abs(r.amountPaid).toLocaleString()}` : `₦${r.amountPaid.toLocaleString()}`}
+                                    </td>
                                 </tr>
                             `).join('')}
                             ${patientReceipts.length === 0 ? '<tr><td colspan="5" class="text-center" style="padding: 30px; color: #888;">No transaction history found for this patient.</td></tr>' : ''}
@@ -876,6 +923,48 @@ const BillingDashboard = () => {
                         </div>
                     )}
 
+                    {/* Refund Modal */}
+                    {showRefundModal && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+                            <div className="bg-white p-6 rounded-lg shadow-xl w-[400px]">
+                                <h3 className="text-xl font-bold mb-4">Refund Patient Deposit</h3>
+                                <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded text-sm text-orange-800">
+                                    Available Balance: <strong>₦{(viewingPatient?.depositBalance || 0).toLocaleString()}</strong>
+                                </div>
+                                <form onSubmit={handleRefundDeposit}>
+                                    <div className="mb-4">
+                                        <label className="block text-sm font-semibold mb-1">Refund Amount (₦)</label>
+                                        <input
+                                            type="number"
+                                            className="w-full border p-2 rounded"
+                                            value={refundAmount}
+                                            onChange={(e) => setRefundAmount(e.target.value)}
+                                            placeholder="Enter amount to refund"
+                                            max={viewingPatient?.depositBalance || 0}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowRefundModal(false)}
+                                            className="flex-1 bg-gray-300 text-gray-800 px-4 py-2 rounded hover:bg-gray-400"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="flex-1 bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700 font-bold"
+                                        >
+                                            Process Refund
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+
+
                     {/* Patient Search Modal */}
                     {showPatientSearch && (
                         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
@@ -1019,6 +1108,18 @@ const BillingDashboard = () => {
                                         className="flex-1 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 flex items-center justify-center gap-2"
                                     >
                                         <FaPrint /> Print Statement
+                                    </button>
+                                    <button
+                                        onClick={() => {
+                                            setSelectedPatient(viewingPatient._id);
+                                            setShowRefundModal(true);
+                                            setRefundAmount('');
+                                            // Keep viewingPatient for context in the refund modal
+                                        }}
+                                        disabled={(viewingPatient.depositBalance || 0) <= 0}
+                                        className={`flex-1 px-4 py-2 rounded flex items-center justify-center gap-2 ${ (viewingPatient.depositBalance || 0) <= 0 ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-orange-600 text-white hover:bg-orange-700' }`}
+                                    >
+                                        <FaUndo /> Refund
                                     </button>
                                     <button
                                         onClick={() => {

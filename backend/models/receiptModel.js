@@ -6,7 +6,7 @@ const receiptSchema = mongoose.Schema({
     familyFile: { type: mongoose.Schema.Types.ObjectId, ref: 'FamilyFile' },
     hmo: { type: mongoose.Schema.Types.ObjectId, ref: 'HMO' },
     amountPaid: { type: Number, required: true },
-    paymentMethod: { type: String, enum: ['cash', 'card', 'insurance', 'deposit', 'retainership'], default: 'cash' },
+    paymentMethod: { type: String, enum: ['cash', 'card', 'insurance', 'deposit', 'retainership', 'refund'], default: 'cash' },
     cashier: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     receiptNumber: { type: String, unique: true, required: true },
     paymentDate: { type: Date, default: Date.now },

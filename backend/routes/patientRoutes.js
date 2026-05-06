@@ -6,6 +6,7 @@ const {
     updatePatient,
     deletePatient,
     addDeposit,
+    refundDeposit,
     getDepositBalance,
     getRecentPatients,
     getPatientById
@@ -22,5 +23,7 @@ router.route('/:id')
 router.route('/:id/deposit')
     .post(protect, addDeposit)
     .get(protect, getDepositBalance);
+
+router.route('/:id/refund').post(protect, refundDeposit);
 
 module.exports = router;
