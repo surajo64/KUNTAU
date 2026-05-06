@@ -1,15 +1,16 @@
 import { useState, useEffect, useContext } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
-import { FaUserMd, FaSearch, FaCheckCircle, FaNotesMedical, FaHeartbeat, FaMoneyBillWave, FaTrash, FaEdit, FaPlus, FaTable, FaClock, FaChevronDown, FaChevronRight } from 'react-icons/fa';
+import { FaUserMd, FaSearch, FaCheckCircle, FaNotesMedical, FaHeartbeat, FaMoneyBillWave, FaTrash, FaEdit, FaPlus, FaTable, FaClock, FaChevronDown, FaChevronRight, FaHistory } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import LoadingOverlay from '../components/loadingOverlay';
 
 const NurseTriage = () => {
     const { patientId, encounterId } = useParams();
+    const navigate = useNavigate();
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [patients, setPatients] = useState([]);
@@ -1203,7 +1204,7 @@ const NurseTriage = () => {
                                                                                                             medicineId: m._id || m.name,
                                                                                                             medicineName: m.name,
                                                                                                             dosage: m.dosage || '',
-                                                                                                            date: currentDate.toISOString().split('T')[0],
+                                                                                                            date: new Date().toISOString().split('T')[0],
                                                                                                             time: new Date().toTimeString().slice(0, 5),
                                                                                                             remarks: ''
                                                                                                         });
@@ -1266,6 +1267,12 @@ const NurseTriage = () => {
                                     <div className="flex gap-2">
                                         {!isReadOnly && (
                                             <>
+                                                <button
+                                                    onClick={() => navigate(`/patient/${patientId}`)}
+                                                    className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700 flex items-center gap-2 text-sm shadow-sm transition-all"
+                                                >
+                                                    <FaHistory /> View Clinical History
+                                                </button>
                                                 <button
                                                     onClick={() => setShowChargesModal(true)}
                                                     className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 flex items-center gap-2 text-sm"

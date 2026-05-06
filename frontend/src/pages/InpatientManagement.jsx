@@ -91,8 +91,13 @@ const InpatientManagement = () => {
     };
 
     const handleSelectPatient = (visit) => {
-        // Navigate to triage page with pre-selected patient and encounter
-        navigate(`/nurse/triage/${visit.patient._id}/${visit._id}`);
+        if (user.role === 'doctor') {
+            // Navigate to patient details for doctors
+            navigate(`/patient/${visit.patient._id}`);
+        } else {
+            // Navigate to triage page for nurses
+            navigate(`/nurse/triage/${visit.patient._id}/${visit._id}`);
+        }
     };
 
     return (

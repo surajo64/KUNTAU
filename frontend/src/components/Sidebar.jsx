@@ -90,6 +90,9 @@ const Sidebar = () => {
                         <Link to="/appointments" className={`flex items-center gap-3 p-3 rounded hover:bg-green-700 transition ${isActive('/appointments')}`}>
                             <FaCalendarAlt /> Appointments
                         </Link>
+                        <Link to="/nurse/inpatients" className={`flex items-center gap-3 p-3 rounded hover:bg-green-700 transition ${isActive('/nurse/inpatients')}`}>
+                            <FaBed /> Inpatient Management
+                        </Link>
 
                     </>
                 )}
