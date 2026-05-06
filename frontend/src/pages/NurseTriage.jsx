@@ -519,9 +519,14 @@ const NurseTriage = () => {
         try {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             const { data: prescriptions } = await axios.get(`${backendUrl}/api/prescriptions/visit/${encounterId}`, config);
+            const consumableKeywords = ['syringe', 'cannula', 'giving set', 'infusion set', 'needle', 'plaster', 'gloves', 'mask', 'catheter', 'bandage'];
             const filteredPrescriptions = prescriptions.filter(p => p.status === 'dispensed').map(p => ({
                 ...p,
-                medicines: p.medicines.filter(m => m.dosage || m.route || m.frequency)
+                medicines: p.medicines.filter(m => {
+                    const isMedication = m.dosage || m.route || m.frequency;
+                    const isConsumable = consumableKeywords.some(keyword => m.name.toLowerCase().includes(keyword));
+                    return isMedication && !isConsumable;
+                })
             })).filter(p => p.medicines.length > 0);
             
             setDispensedPrescriptions(filteredPrescriptions);
