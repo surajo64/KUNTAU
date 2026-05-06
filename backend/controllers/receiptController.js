@@ -20,6 +20,36 @@ const createReceipt = async (req, res) => {
             return res.status(400).json({ message: 'Invoice already paid' });
         }
 
+        // Handle Deposit Payment
+        if (paymentMethod === 'deposit') {
+            const patient = await Patient.findById(invoice.patient._id);
+            if (!patient) {
+                return res.status(404).json({ message: 'Patient not found' });
+            }
+
+            const Visit = require('../models/visitModel');
+            const visit = await Visit.findById(invoice.visit);
+            const isAdmitted = visit && (
+                visit.type === 'Inpatient' || 
+                visit.encounterType === 'Inpatient' || 
+                visit.encounterStatus === 'admitted' || 
+                visit.encounterStatus === 'in_ward' || 
+                visit.status === 'Admitted'
+            );
+            const creditLimit = isAdmitted ? 50000 : 0;
+
+            if ((patient.depositBalance || 0) + creditLimit < invoice.totalAmount) {
+                const errorMessage = isAdmitted 
+                    ? `Insufficient funds. Admitted patients have a credit limit of ₦50,000. Balance: ₦${patient.depositBalance || 0}, Required: ₦${invoice.totalAmount}`
+                    : `Insufficient deposit balance. Balance: ₦${patient.depositBalance || 0}, Required: ₦${invoice.totalAmount}`;
+                return res.status(400).json({ message: errorMessage });
+            }
+
+            // Deduct from deposit
+            patient.depositBalance -= invoice.totalAmount;
+            await patient.save();
+        }
+
         // Generate unique receipt number: RCP-Timestamp-Random
         const receiptNumber = `RCP-${Date.now().toString().slice(-6)}-${Math.floor(1000 + Math.random() * 9000)}`;
 
@@ -184,11 +214,24 @@ const createReceiptForCharges = async (req, res) => {
             if (!patient) {
                 return res.status(404).json({ message: 'Patient not found' });
             }
-            console.log('Patient deposit before:', patient.depositBalance);
-            if ((patient.depositBalance || 0) < totalAmount) {
-                return res.status(400).json({
-                    message: `Insufficient deposit balance. Balance: ₦${patient.depositBalance || 0}, Required: ₦${totalAmount}`
-                });
+            
+            const visit = await Visit.findById(encounterId);
+            const isAdmitted = visit && (
+                visit.type === 'Inpatient' || 
+                visit.encounterType === 'Inpatient' || 
+                visit.encounterStatus === 'admitted' || 
+                visit.encounterStatus === 'in_ward' || 
+                visit.status === 'Admitted'
+            );
+            const creditLimit = isAdmitted ? 50000 : 0;
+
+            console.log('Payment Check:', { isAdmitted, balance: patient.depositBalance, creditLimit, totalAmount });
+
+            if ((patient.depositBalance || 0) + creditLimit < totalAmount) {
+                const errorMessage = isAdmitted 
+                    ? `Insufficient funds. Admitted patients have a credit limit of ₦50,000. Balance: ₦${patient.depositBalance || 0}, Required: ₦${totalAmount}`
+                    : `Insufficient deposit balance. Balance: ₦${patient.depositBalance || 0}, Required: ₦${totalAmount}`;
+                return res.status(400).json({ message: errorMessage });
             }
 
             // Deduct from deposit
