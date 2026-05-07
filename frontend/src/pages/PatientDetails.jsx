@@ -588,6 +588,11 @@ const PatientDetails = () => {
             return;
         }
 
+        if (!soapNote.diagnosis || soapNote.diagnosis.length === 0) {
+            toast.error('Diagnosis is compulsory. Please search and select at least one ICD diagnosis.');
+            return;
+        }
+
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
@@ -2816,10 +2821,12 @@ const PatientDetails = () => {
                                     <h4 className="font-bold text-lg mb-3 text-gray-800">Assessment & Plan</h4>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-gray-700 mb-2 font-semibold">A - Assessment (Diagnosis)</label>
+                                            <label className="block text-gray-700 mb-2 font-semibold">
+                                                A - Assessment (Diagnosis) <span className="text-red-500">*</span>
+                                            </label>
 
                                             {/* ICD11 Search and Add */}
-                                            <div className="space-y-3 p-3 border rounded bg-gray-50 mb-3">
+                                            <div className={`space-y-3 p-3 border rounded mb-3 ${soapNote.diagnosis.length === 0 ? 'bg-red-50 border-red-300' : 'bg-gray-50'}`}>
                                                 <div className="relative">
                                                     <div className="flex gap-2">
                                                         <div className="relative flex-1">
@@ -2896,6 +2903,11 @@ const PatientDetails = () => {
                                                     </div>
                                                 )}
                                             </div>
+                                            {soapNote.diagnosis.length === 0 && (
+                                                <p className="text-xs text-red-600 mt-1 flex items-center gap-1">
+                                                    <span className="font-bold">⚠</span> At least one ICD-11 diagnosis is required before saving.
+                                                </p>
+                                            )}
                                         </div>
                                         <div>
                                             <label className="block text-gray-700 mb-2 font-semibold">P - Plan (Treatment Plan)</label>
@@ -2914,7 +2926,8 @@ const PatientDetails = () => {
                                 <div className="flex gap-2">
                                     <button
                                         onClick={handleSaveSOAP}
-                                        className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 font-semibold"
+                                        disabled={soapNote.diagnosis.length === 0}
+                                        className={`px-6 py-2 rounded font-semibold transition-colors ${soapNote.diagnosis.length === 0 ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-green-600 text-white hover:bg-green-700'}`}
                                     >
                                         Save SOAP Notes
                                     </button>
@@ -2924,6 +2937,9 @@ const PatientDetails = () => {
                                     >
                                         Cancel
                                     </button>
+                                    {soapNote.diagnosis.length === 0 && (
+                                        <span className="text-red-500 text-sm font-medium">⚠ Diagnosis required to save</span>
+                                    )}
                                 </div>
                             </div>
                         </div>
