@@ -2847,38 +2847,72 @@ const PatientDetails = () => {
 
                                                     {showDiagDropdown && diagSearchTerm && (
                                                         <div className="absolute z-20 w-full bg-white border rounded shadow-xl max-h-60 overflow-y-auto mt-1 border-gray-200">
-                                                            {icd11Data.filter(d =>
-                                                                d.code.toLowerCase().includes(diagSearchTerm.toLowerCase()) ||
-                                                                d.description.toLowerCase().includes(diagSearchTerm.toLowerCase())
-                                                            ).length > 0 ? (
-                                                                icd11Data.filter(d =>
+                                                            {(() => {
+                                                                const customCodes = JSON.parse(localStorage.getItem('kuntau_customIcdCodes') || '[]');
+                                                                const allDiagData = [...icd11Data, ...customCodes];
+                                                                const filtered = allDiagData.filter(d =>
                                                                     d.code.toLowerCase().includes(diagSearchTerm.toLowerCase()) ||
                                                                     d.description.toLowerCase().includes(diagSearchTerm.toLowerCase())
-                                                                ).map((diag, idx) => (
-                                                                    <div
-                                                                        key={idx}
-                                                                        className="p-3 hover:bg-blue-50 cursor-pointer text-sm border-b last:border-0 flex justify-between items-center transition-colors"
-                                                                        onClick={() => {
-                                                                            if (!soapNote.diagnosis.find(d => d.code === diag.code)) {
-                                                                                setSoapNote({
-                                                                                    ...soapNote,
-                                                                                    diagnosis: [...soapNote.diagnosis, diag]
-                                                                                });
-                                                                            }
-                                                                            setDiagSearchTerm('');
-                                                                            setShowDiagDropdown(false);
-                                                                        }}
-                                                                    >
-                                                                        <div>
-                                                                            <span className="font-bold text-blue-700 mr-2">{diag.code}</span>
-                                                                            <span className="text-gray-700">{diag.description}</span>
+                                                                );
+
+                                                                if (filtered.length > 0) {
+                                                                    return filtered.map((diag, idx) => (
+                                                                        <div
+                                                                            key={idx}
+                                                                            className="p-3 hover:bg-blue-50 cursor-pointer text-sm border-b last:border-0 flex justify-between items-center transition-colors"
+                                                                            onClick={() => {
+                                                                                if (!soapNote.diagnosis.find(d => d.code === diag.code)) {
+                                                                                    setSoapNote({
+                                                                                        ...soapNote,
+                                                                                        diagnosis: [...soapNote.diagnosis, diag]
+                                                                                    });
+                                                                                }
+                                                                                setDiagSearchTerm('');
+                                                                                setShowDiagDropdown(false);
+                                                                            }}
+                                                                        >
+                                                                            <div>
+                                                                                <span className={`font-bold mr-2 ${diag.code.startsWith('CUST-') ? 'text-orange-600' : 'text-blue-700'}`}>{diag.code}</span>
+                                                                                <span className="text-gray-700">{diag.description}</span>
+                                                                                {diag.code.startsWith('CUST-') && (
+                                                                                    <span className="ml-2 text-xs bg-orange-100 text-orange-600 px-1 rounded">Custom</span>
+                                                                                )}
+                                                                            </div>
+                                                                            <FaPlus className="text-blue-500" />
                                                                         </div>
-                                                                        <FaPlus className="text-blue-500" />
+                                                                    ));
+                                                                }
+
+                                                                return (
+                                                                    <div className="p-3">
+                                                                        <p className="text-gray-400 text-xs text-center mb-2">No matching ICD-11 codes found for "<strong>{diagSearchTerm}</strong>"</p>
+                                                                        <button
+                                                                            className="w-full bg-orange-500 text-white text-sm px-3 py-2 rounded hover:bg-orange-600 flex items-center justify-center gap-2 transition-colors font-semibold"
+                                                                            onClick={() => {
+                                                                                const stored = JSON.parse(localStorage.getItem('kuntau_customIcdCodes') || '[]');
+                                                                                const nextNum = stored.length + 1;
+                                                                                const newEntry = {
+                                                                                    code: `CUST-${String(nextNum).padStart(3, '0')}`,
+                                                                                    description: diagSearchTerm.trim()
+                                                                                };
+                                                                                // Avoid duplicates
+                                                                                const alreadyExists = stored.find(c => c.description.toLowerCase() === newEntry.description.toLowerCase());
+                                                                                const entryToAdd = alreadyExists || newEntry;
+                                                                                if (!alreadyExists) {
+                                                                                    localStorage.setItem('kuntau_customIcdCodes', JSON.stringify([...stored, newEntry]));
+                                                                                }
+                                                                                if (!soapNote.diagnosis.find(d => d.description.toLowerCase() === entryToAdd.description.toLowerCase())) {
+                                                                                    setSoapNote({ ...soapNote, diagnosis: [...soapNote.diagnosis, entryToAdd] });
+                                                                                }
+                                                                                setDiagSearchTerm('');
+                                                                                setShowDiagDropdown(false);
+                                                                            }}
+                                                                        >
+                                                                            <FaPlus /> Add "{diagSearchTerm}" as custom diagnosis
+                                                                        </button>
                                                                     </div>
-                                                                ))
-                                                            ) : (
-                                                                <div className="p-4 text-gray-500 text-sm text-center">No matching ICD-11 codes found</div>
-                                                            )}
+                                                                );
+                                                            })()}
                                                         </div>
                                                     )}
                                                 </div>

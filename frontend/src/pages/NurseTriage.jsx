@@ -271,10 +271,10 @@ const NurseTriage = () => {
     const handleSelectEncounter = async (encounter) => {
         setSelectedEncounter(encounter);
 
-        // Check if already validated
-        if (encounter.paymentValidated) {
+        // Check if already validated OR if it's an ANC visit (bypass payment validation)
+        if (encounter.paymentValidated || encounter.isANC) {
             setReceiptValidated(true);
-            setReceiptNumber(encounter.receiptNumber || 'PRE-VALIDATED');
+            setReceiptNumber(encounter.receiptNumber || (encounter.isANC ? 'ANC-BYPASS' : 'PRE-VALIDATED'));
         } else {
             setReceiptValidated(false);
             setReceiptNumber('');
@@ -907,17 +907,24 @@ const NurseTriage = () => {
                                     >
                                         <div className="flex justify-between items-start">
                                             <div>
-                                                <p className="font-semibold">{encounter.type} Visit</p>
+                                                <p className="font-semibold flex items-center gap-2">
+                                                    {encounter.type} Visit
+                                                    {encounter.isANC && (
+                                                        <span className="bg-pink-100 text-pink-700 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
+                                                            🤰 ANC
+                                                        </span>
+                                                    )}
+                                                </p>
                                                 <p className="text-sm text-gray-600">
                                                     {new Date(encounter.createdAt).toLocaleDateString()} - Status: {encounter.encounterStatus}
                                                 </p>
                                             </div>
                                             <div className="flex flex-col items-end gap-2">
-                                                <span className={`px-3 py-1 rounded text-sm ${encounter.paymentValidated
+                                                <span className={`px-3 py-1 rounded text-sm ${(encounter.paymentValidated || encounter.isANC)
                                                     ? 'bg-green-100 text-green-800'
                                                     : 'bg-yellow-100 text-yellow-800'
                                                     }`}>
-                                                    {encounter.paymentValidated ? 'Paid' : 'Pending'}
+                                                    {(encounter.paymentValidated || encounter.isANC) ? (encounter.isANC ? 'ANC' : 'Paid') : 'Pending'}
                                                 </span>
 
                                                 {/* Admit Button (Active Outpatient/Emergency -> Inpatient) */}
@@ -954,7 +961,14 @@ const NurseTriage = () => {
                 <div className="bg-white p-6 rounded shadow mb-6">
                     <div className="bg-blue-50 p-4 rounded mb-6 flex justify-between items-center">
                         <div>
-                            <p className="font-bold">{selectedPatient.name} - {selectedEncounter.type} Visit</p>
+                            <p className="font-bold flex items-center gap-2">
+                                {selectedPatient.name} - {selectedEncounter.type} Visit
+                                {selectedEncounter.isANC && (
+                                    <span className="bg-pink-100 text-pink-700 text-xs px-2 py-1 rounded-full font-bold">
+                                        🤰 ANC Visit (Payment Bypassed)
+                                    </span>
+                                )}
+                            </p>
                             <p className="text-sm text-gray-600">
                                 {new Date(selectedEncounter.createdAt).toLocaleDateString()}
                             </p>
@@ -999,7 +1013,7 @@ const NurseTriage = () => {
                         <div>
                             <div className="bg-green-50 p-4 rounded mb-6">
                                 <p className="text-green-700 font-semibold flex items-center gap-2">
-                                    <FaCheckCircle /> Payment Validated - Receipt #{receiptNumber}
+                                    <FaCheckCircle /> {selectedEncounter.isANC ? 'ANC Visit - Payment Verification Bypassed' : `Payment Validated - Receipt #${receiptNumber}`}
                                 </p>
                             </div>
 

@@ -57,6 +57,7 @@ const visitSchema = mongoose.Schema({
 
     // V5: Payment Validation & Encounter Workflow
     consultingPhysician: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    isANC: { type: Boolean, default: false },
     nursingNotes: { type: String },
     paymentValidated: { type: Boolean, default: false },
     receiptNumber: { type: String }, // For department validation

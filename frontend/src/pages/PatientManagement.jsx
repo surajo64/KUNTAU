@@ -48,6 +48,7 @@ const PatientManagement = () => {
     const [selectedWard, setSelectedWard] = useState('');
     const [selectedBed, setSelectedBed] = useState('');
     const [pendingEncounterPatient, setPendingEncounterPatient] = useState(null);
+    const [isANC, setIsANC] = useState(false);
 
     // Watch for pending encounter patient and register modal closing
     useEffect(() => {
@@ -164,6 +165,7 @@ const PatientManagement = () => {
         setSelectedCharges([]);
         setSelectedWard('');
         setSelectedBed('');
+        setIsANC(false);
     };
 
     const handleChargeToggle = (chargeId) => {
@@ -174,8 +176,8 @@ const PatientManagement = () => {
 
     const handleCreateEncounter = async () => {
         if (!encounterPatient) return;
-        if (!['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && selectedCharges.length === 0) {
-            toast.error('Please select at least one charge');
+        if (!isANC && !['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && selectedCharges.length === 0) {
+            toast.error('Please select at least one charge, or check ANC to skip charges');
             return;
         }
         try {
@@ -191,7 +193,8 @@ const PatientManagement = () => {
                 reasonForVisit,
                 encounterStatus: 'registered',
                 ward: encounterType === 'Inpatient' ? selectedWard : undefined,
-                bed: encounterType === 'Inpatient' ? selectedBed : undefined
+                bed: encounterType === 'Inpatient' ? selectedBed : undefined,
+                isANC: isANC
             };
             const visitResponse = await axios.post(`${backendUrl}/api/visits`, visitData, config);
             for (const chargeId of selectedCharges) {
@@ -206,7 +209,7 @@ const PatientManagement = () => {
             const total = charges.filter(c => selectedCharges.includes(c._id)).reduce((s, c) => s + c.basePrice, 0);
             if (!['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType)) {
                 await axios.put(`${backendUrl}/api/visits/${visitResponse.data._id}`,
-                    { encounterStatus: total > 0 ? 'payment_pending' : 'in_nursing' }, config);
+                    { encounterStatus: isANC ? 'in_nursing' : (total > 0 ? 'payment_pending' : 'in_nursing'), isANC: isANC || undefined }, config);
             }
             toast.success('Encounter created successfully!');
             closeEncounterModal();
@@ -1142,6 +1145,27 @@ const PatientManagement = () => {
                                 />
                             </div>
 
+                            {/* ANC Checkbox */}
+                            <div className="mb-6">
+                                <label className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                                    isANC ? 'bg-pink-50 border-pink-400' : 'bg-gray-50 border-gray-200 hover:border-pink-300'
+                                }`}>
+                                    <input
+                                        type="checkbox"
+                                        checked={isANC}
+                                        onChange={(e) => {
+                                            setIsANC(e.target.checked);
+                                            if (e.target.checked) setSelectedCharges([]);
+                                        }}
+                                        className="w-5 h-5 accent-pink-600"
+                                    />
+                                    <div>
+                                        <p className="font-bold text-pink-700 text-sm">🤰 Antenatal Care (ANC) Visit</p>
+                                        <p className="text-xs text-pink-500 mt-0.5">Check for ANC patients — no charges now. Uncheck when doctor consultation charges are needed.</p>
+                                    </div>
+                                </label>
+                            </div>
+
                             {/* Inpatient Ward/Bed */}
                             {encounterType === 'Inpatient' && (
                                 <div className="bg-blue-50 p-4 rounded mb-6 border border-blue-200">
@@ -1185,7 +1209,7 @@ const PatientManagement = () => {
                             )}
 
                             {/* Charges */}
-                            {!['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && (
+                            {!isANC && !['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && (
                                 <div className="mb-6">
                                     <label className="block text-gray-700 font-semibold mb-2">
                                         Consultation Charges <span className="text-red-500">*</span>
@@ -1221,10 +1245,10 @@ const PatientManagement = () => {
                             <div className="flex gap-3 pt-4 border-t">
                                 <button
                                     onClick={handleCreateEncounter}
-                                    disabled={loading || (!['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && selectedCharges.length === 0)}
+                                    disabled={loading || (!isANC && !['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && selectedCharges.length === 0)}
                                     className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:bg-gray-400 flex items-center justify-center gap-2"
                                 >
-                                    <FaCalendarCheck /> {loading ? 'Creating...' : 'Create Encounter'}
+                                    <FaCalendarCheck /> {loading ? 'Creating...' : (isANC ? '🤰 Create ANC Encounter' : 'Create Encounter')}
                                 </button>
                                 <button
                                     onClick={closeEncounterModal}

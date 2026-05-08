@@ -25,6 +25,7 @@ const FrontDeskDashboard = () => {
     const [selectedClinic, setSelectedClinic] = useState('');
     const [encounterType, setEncounterType] = useState('Outpatient');
     const [reasonForVisit, setReasonForVisit] = useState('');
+    const [isANC, setIsANC] = useState(false);
 
     const [selectedWard, setSelectedWard] = useState('');
     const [selectedBed, setSelectedBed] = useState('');
@@ -244,6 +245,7 @@ const FrontDeskDashboard = () => {
         setSelectedCharges([]);
         setSelectedClinic('');
         setEncounterType('Outpatient');
+        setIsANC(false);
         setShowEncounterModal(true);
     };
 
@@ -256,6 +258,7 @@ const FrontDeskDashboard = () => {
         setReasonForVisit('');
         setSelectedWard('');
         setSelectedBed('');
+        setIsANC(false);
     };
 
     const handleChargeToggle = (chargeId) => {
@@ -274,8 +277,8 @@ const FrontDeskDashboard = () => {
             return;
         }
 
-        if (!['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && selectedCharges.length === 0) {
-            toast.error('Please select at least one charge');
+        if (!isANC && !['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && selectedCharges.length === 0) {
+            toast.error('Please select at least one charge, or check the ANC checkbox to skip charges');
             return;
         }
 
@@ -294,7 +297,8 @@ const FrontDeskDashboard = () => {
                 reasonForVisit: reasonForVisit,
                 encounterStatus: 'registered',
                 ward: encounterType === 'Inpatient' ? selectedWard : undefined,
-                bed: encounterType === 'Inpatient' ? selectedBed : undefined
+                bed: encounterType === 'Inpatient' ? selectedBed : undefined,
+                isANC: isANC
             };
             const visitResponse = await axios.post(`${backendUrl}/api/visits`, visitData, config);
 
@@ -315,10 +319,10 @@ const FrontDeskDashboard = () => {
             const totalAmount = selectedChargeObjects.reduce((sum, c) => sum + c.basePrice, 0);
 
             if (!['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType)) {
-                const newStatus = totalAmount > 0 ? 'payment_pending' : 'in_nursing';
+                const newStatus = isANC ? 'in_nursing' : (totalAmount > 0 ? 'payment_pending' : 'in_nursing');
                 await axios.put(
                     `${backendUrl}/api/visits/${visitResponse.data._id}`,
-                    { encounterStatus: newStatus },
+                    { encounterStatus: newStatus, isANC: isANC || undefined },
                     config
                 );
             }
@@ -949,6 +953,26 @@ const FrontDeskDashboard = () => {
                                 />
                             </div>
 
+                            {/* ANC Checkbox */}
+                            <div className="mb-6">
+                                <label className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${isANC ? 'bg-pink-50 border-pink-400' : 'bg-gray-50 border-gray-200 hover:border-pink-300'
+                                    }`}>
+                                    <input
+                                        type="checkbox"
+                                        checked={isANC}
+                                        onChange={(e) => {
+                                            setIsANC(e.target.checked);
+                                            if (e.target.checked) setSelectedCharges([]);
+                                        }}
+                                        className="w-5 h-5 accent-pink-600"
+                                    />
+                                    <div>
+                                        <p className="font-bold text-pink-700 text-sm">🤰 Antenatal Care (ANC) Follow-Up Visit</p>
+                                        <p className="text-xs text-pink-500 mt-0.5">Check for ANC patients — no charges now. Uncheck when doctor consultation charges are needed.</p>
+                                    </div>
+                                </label>
+                            </div>
+
                             {/* Inpatient Ward Selection */}
                             {encounterType === 'Inpatient' && (
                                 <div className="bg-blue-50 p-4 rounded mb-6 border border-blue-200">
@@ -1000,7 +1024,7 @@ const FrontDeskDashboard = () => {
                             )}
 
                             {/* Charges Selection */}
-                            {!['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && (
+                            {!isANC && !['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && (
                                 <div className="mb-6">
                                     <label className="block text-gray-700 font-semibold mb-2">
                                         Select Charges <span className="text-red-500">*</span>
@@ -1087,9 +1111,9 @@ const FrontDeskDashboard = () => {
                             <button
                                 onClick={handleCreateEncounter}
                                 className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 flex items-center gap-2"
-                                disabled={!['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && selectedCharges.length === 0}
+                                disabled={!isANC && !['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && selectedCharges.length === 0}
                             >
-                                <FaPlus /> Create Encounter
+                                <FaPlus /> {isANC ? '🤰 Create ANC Encounter' : 'Create Encounter'}
                             </button>
                         </div>
                     </div>
@@ -1229,11 +1253,10 @@ const FrontDeskDashboard = () => {
                                                     return (
                                                         <label
                                                             key={charge._id}
-                                                            className={`flex items-center justify-between p-3 rounded border cursor-pointer transition-colors ${
-                                                                isSelected
+                                                            className={`flex items-center justify-between p-3 rounded border cursor-pointer transition-colors ${isSelected
                                                                     ? 'bg-green-50 border-green-400'
                                                                     : 'bg-white border-gray-200 hover:bg-gray-50'
-                                                            }`}
+                                                                }`}
                                                         >
                                                             <div className="flex items-center gap-3">
                                                                 <input
@@ -1296,11 +1319,10 @@ const FrontDeskDashboard = () => {
                                 <button
                                     onClick={handleSubmitAdditionalCharges}
                                     disabled={selectedAdditionalCharges.length === 0}
-                                    className={`px-6 py-2 rounded text-white font-semibold flex items-center gap-2 ${
-                                        selectedAdditionalCharges.length === 0
+                                    className={`px-6 py-2 rounded text-white font-semibold flex items-center gap-2 ${selectedAdditionalCharges.length === 0
                                             ? 'bg-green-300 cursor-not-allowed'
                                             : 'bg-green-600 hover:bg-green-700'
-                                    }`}
+                                        }`}
                                 >
                                     <FaDollarSign /> Add to Encounter
                                 </button>
@@ -1407,7 +1429,7 @@ const FrontDeskDashboard = () => {
                                                 <FaBed className="text-purple-600" /> Ward Admission Assignment
                                             </h4>
                                             <p className="text-sm text-purple-700 mb-6">Allocate a ward and bed for this patient to complete the admission process.</p>
-                                            
+
                                             <div className="space-y-6 flex-1">
                                                 <div>
                                                     <label className="block text-sm text-gray-700 font-bold mb-2 uppercase tracking-wider">Select Ward</label>
@@ -1476,7 +1498,7 @@ const FrontDeskDashboard = () => {
                                                                     if (selectedPatient.provider === 'Retainership') fee = charge.retainershipFee || fee;
                                                                     else if (selectedPatient.provider === 'NHIA') fee = charge.nhiaFee || fee;
                                                                     else if (selectedPatient.provider === 'KSCHMA') fee = charge.kschmaFee || fee;
-                                                                    
+
                                                                     return (
                                                                         <div
                                                                             key={charge._id}

@@ -5,7 +5,7 @@ const Visit = require('../models/visitModel');
 // @route   POST /api/visits
 // @access  Private
 const createVisit = async (req, res) => {
-    const { patientId, appointmentId, type, clinic, encounterType, reasonForVisit, ward, bed } = req.body;
+    const { patientId, appointmentId, type, clinic, encounterType, reasonForVisit, ward, bed, isANC } = req.body;
 
     // Check for existing visit today
     const startOfDay = new Date();
@@ -66,7 +66,8 @@ const createVisit = async (req, res) => {
             ? 'awaiting_services' 
             : (type === 'Inpatient' ? 'admitted' : (req.body.encounterStatus || 'registered')),
         status: type === 'Inpatient' ? 'Admitted' : 'In Progress',
-        reasonForVisit
+        reasonForVisit,
+        isANC: !!isANC
     });
 
     // Apply Initial Ward Charge for Inpatient
@@ -142,7 +143,7 @@ const getVisits = async (req, res) => {
 const updateVisit = async (req, res) => {
     const {
         chiefComplaint, historyOfIllness, diagnosis, status, dischargeDate,
-        encounterStatus, paymentValidated, receiptNumber, consultingPhysician, nursingNotes,
+        encounterStatus, paymentValidated, receiptNumber, consultingPhysician, nursingNotes, isANC,
         subjective, objective, assessment, plan,
         // New structured clinical documentation fields
         presentingComplaints,
@@ -202,6 +203,7 @@ const updateVisit = async (req, res) => {
         if (receiptNumber) visit.receiptNumber = receiptNumber;
         if (consultingPhysician) visit.consultingPhysician = consultingPhysician;
         if (nursingNotes) visit.nursingNotes = nursingNotes;
+        if (isANC !== undefined) visit.isANC = !!isANC;
 
         // Structured Clinical Documentation Fields
         if (presentingComplaints !== undefined) visit.presentingComplaints = presentingComplaints;
