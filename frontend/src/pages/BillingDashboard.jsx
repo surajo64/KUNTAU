@@ -6,6 +6,7 @@ import Layout from '../components/Layout';
 import { FaDollarSign, FaFileInvoiceDollar, FaCheckCircle, FaUndo, FaWallet, FaPrint, FaSearch, FaUser, FaExclamationTriangle, FaBuilding, FaHistory, FaPlus } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import LoadingOverlay from '../components/loadingOverlay';
+import { formatAge } from '../utils/patientUtils';
 
 const BillingDashboard = () => {
     const [loading, setLoading] = useState(false);
@@ -543,7 +544,7 @@ const BillingDashboard = () => {
                                     <span class="info-value">${patient.mrn}</span>
                                     
                                     <span class="info-label">Gender / Age:</span>
-                                    <span class="info-value" style="text-transform: capitalize;">${patient.gender} / ${patient.age} years</span>
+                                    <span class="info-value" style="text-transform: capitalize;">${patient.gender} / ${formatAge(patient.age)}</span>
                                 </div>
                             </div>
                         </div>
@@ -997,7 +998,7 @@ const BillingDashboard = () => {
                                             >
                                                 <p className="font-semibold">{patient.name}</p>
                                                 <p className="text-sm text-gray-600">
-                                                    MRN: {patient.mrn} | Age: {patient.age} | {patient.gender}
+                                                    MRN: {patient.mrn} | Age: {formatAge(patient.age)} | {patient.gender}
                                                 </p>
                                             </div>
                                         ))}
@@ -1049,7 +1050,7 @@ const BillingDashboard = () => {
                                         </div>
                                         <div>
                                             <p className="text-sm text-gray-600">Age / Gender</p>
-                                            <p className="font-semibold">{viewingPatient.age} / {viewingPatient.gender}</p>
+                                            <p className="font-semibold">{formatAge(viewingPatient.age)} / {viewingPatient.gender}</p>
                                         </div>
                                         <div>
                                             <p className="text-sm text-gray-600">Contact</p>

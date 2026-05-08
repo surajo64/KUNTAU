@@ -4,11 +4,13 @@ import { AppContext } from '../context/AppContext';
 import { FaTimes, FaUserPlus, FaUserFriends } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { nigeriaData } from '../data/nigeriaData';
+import { formatAge } from '../utils/patientUtils';
 
 const RegisterPatientModal = ({ isOpen, onClose, onSuccess, userToken }) => {
     const [formData, setFormData] = useState({
         name: '',
         age: '',
+        dateOfBirth: '',
         gender: 'male',
         contact: '',
         address: '',
@@ -28,6 +30,34 @@ const RegisterPatientModal = ({ isOpen, onClose, onSuccess, userToken }) => {
     const [familyFiles, setFamilyFiles] = useState([]);
     const [availableLgas, setAvailableLgas] = useState([]);
 
+    const calculateAge = (dob) => {
+        if (!dob) return '';
+        const today = new Date();
+        const birthDate = new Date(dob);
+        let years = today.getFullYear() - birthDate.getFullYear();
+        let months = today.getMonth() - birthDate.getMonth();
+
+        if (months < 0 || (months === 0 && today.getDate() < birthDate.getDate())) {
+            years--;
+            months += 12;
+        }
+
+        if (years > 0) {
+            return years.toString();
+        } else {
+            return months > 0 ? `0.${months}` : '0'; // Represent months as decimal for Number field
+        }
+    };
+
+    const calculateDOBFromAge = (age) => {
+        if (!age) return '';
+        const today = new Date();
+        const birthYear = today.getFullYear() - parseInt(age);
+        // Use current month and day as requested
+        const dob = new Date(birthYear, today.getMonth(), today.getDate());
+        return dob.toISOString().split('T')[0];
+    };
+
     const handleChange = (e) => {
         const { name, value, type, checked } = e.target;
 
@@ -38,6 +68,20 @@ const RegisterPatientModal = ({ isOpen, onClose, onSuccess, userToken }) => {
                 ...prev,
                 state: value,
                 lga: ''
+            }));
+        } else if (name === 'dateOfBirth') {
+            const age = calculateAge(value);
+            setFormData(prev => ({
+                ...prev,
+                dateOfBirth: value,
+                age: age
+            }));
+        } else if (name === 'age') {
+            const dob = calculateDOBFromAge(value);
+            setFormData(prev => ({
+                ...prev,
+                age: value,
+                dateOfBirth: dob
             }));
         } else {
             setFormData(prev => ({
@@ -73,7 +117,7 @@ const RegisterPatientModal = ({ isOpen, onClose, onSuccess, userToken }) => {
             // Fetching all files to be sure
             const { data } = await axios.get(`${backendUrl}/api/family-files`, config);
             console.log('API Response (Family Files):', data);
-            
+
             if (Array.isArray(data)) {
                 // Filter active ones locally if needed
                 const activeFiles = data.filter(f => f.active !== false);
@@ -118,6 +162,7 @@ const RegisterPatientModal = ({ isOpen, onClose, onSuccess, userToken }) => {
             setFormData({
                 name: '',
                 age: '',
+                dateOfBirth: '',
                 gender: 'male',
                 contact: '',
                 address: '',
@@ -204,7 +249,7 @@ const RegisterPatientModal = ({ isOpen, onClose, onSuccess, userToken }) => {
                                             )}
                                         </select>
                                     </div>
-                                    <button 
+                                    <button
                                         type="button"
                                         onClick={fetchFamilyFiles}
                                         className="bg-blue-600 text-white p-2 rounded hover:bg-blue-700 text-sm h-[42px] flex items-center justify-center"
@@ -216,9 +261,9 @@ const RegisterPatientModal = ({ isOpen, onClose, onSuccess, userToken }) => {
                             )}
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
                             {/* Name */}
-                            <div>
+                            <div className="md:col-span-2">
                                 <label className="block text-sm font-semibold mb-1">
                                     Full Name <span className="text-red-500">*</span>
                                 </label>
@@ -233,23 +278,44 @@ const RegisterPatientModal = ({ isOpen, onClose, onSuccess, userToken }) => {
                             </div>
 
                             {/* Age */}
-                            <div>
+                            <div className="md:col-span-1">
                                 <label className="block text-sm font-semibold mb-1">
                                     Age <span className="text-red-500">*</span>
+                                    {formData.age && (
+                                        <span className="ml-2 text-xs text-blue-600 italic">
+                                            {formatAge(formData.age)}
+                                        </span>
+                                    )}
                                 </label>
                                 <input
                                     type="number"
                                     name="age"
                                     value={formData.age}
                                     onChange={handleChange}
-                                    className="w-full border p-2 rounded"
+                                    className="w-full border p-2 rounded focus:ring-2 focus:ring-green-500"
                                     required
                                     min="0"
+                                    step="0.01"
+                                />
+                            </div>
+
+                            {/* Date of Birth */}
+                            <div className="md:col-span-1">
+                                <label className="block text-sm font-semibold mb-1">
+                                    Date of Birth
+                                </label>
+                                <input
+                                    type="date"
+                                    name="dateOfBirth"
+                                    value={formData.dateOfBirth}
+                                    onChange={handleChange}
+                                    className="w-full border p-2 rounded focus:ring-2 focus:ring-green-500"
+                                    max={new Date().toISOString().split('T')[0]}
                                 />
                             </div>
 
                             {/* Gender */}
-                            <div>
+                            <div className="md:col-span-2">
                                 <label className="block text-sm font-semibold mb-1">
                                     Gender <span className="text-red-500">*</span>
                                 </label>
@@ -266,7 +332,7 @@ const RegisterPatientModal = ({ isOpen, onClose, onSuccess, userToken }) => {
                             </div>
 
                             {/* Contact */}
-                            <div>
+                            <div className="md:col-span-2">
                                 <label className="block text-sm font-semibold mb-1">
                                     Contact Number <span className="text-red-500">*</span>
                                 </label>

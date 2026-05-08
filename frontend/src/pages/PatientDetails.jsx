@@ -2,6 +2,7 @@ import { useState, useEffect, useContext } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import { toast } from 'react-toastify';
+import { formatAge } from '../utils/patientUtils';
 import AuthContext from '../context/AuthContext';
 import { AppContext } from '../context/AppContext';
 import { checkRange, getRangeColorClass } from '../utils/labUtils';
@@ -336,7 +337,7 @@ const PatientDetails = () => {
 
 
     useEffect(() => {
-        if (user && user.token) {
+        if (user && user.token && id && id !== 'undefined') {
             fetchPatient();
             fetchCharges();
         }
@@ -1161,7 +1162,7 @@ const PatientDetails = () => {
                             </div>
                             <div class="flex-field" style="flex: 1; margin-left: 20px;">
                                 <span class="label">Age:</span>
-                                <span class="input-line">${patient.age}</span>
+                                <span class="input-line">${formatAge(patient.age)}</span>
                             </div>
                             <div class="flex-field" style="flex: 1; margin-left: 20px;">
                                 <span class="label">Gender:</span>
@@ -1301,7 +1302,7 @@ const PatientDetails = () => {
             <div className="mb-6 flex justify-between items-start">
                 <div>
                     <h2 className="text-2xl font-bold text-gray-800">{patient.name}</h2>
-                    <p className="text-gray-600">MRN: {patient.mrn} | Age: {patient.age} | {patient.gender}</p>
+                    <p className="text-gray-600">MRN: {patient.mrn} | Age: {formatAge(patient.age)} | {patient.gender}</p>
                     {encounter && (
                         <div className="flex items-center gap-4 mt-2">
                             <p className="text-sm text-blue-600">

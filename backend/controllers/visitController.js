@@ -111,7 +111,7 @@ const getVisits = async (req, res) => {
     let query = {};
     if (type) query.type = type;
     if (status) query.status = status;
-    if (patient) query.patient = patient;
+    if (patient && patient !== 'undefined') query.patient = patient;
     
     if (encounterStatus) {
         if (encounterStatus.includes(',')) {

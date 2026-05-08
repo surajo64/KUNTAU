@@ -6,6 +6,7 @@ import Layout from '../components/Layout';
 import { FaDollarSign, FaReceipt, FaPrint, FaSearch, FaCheckCircle, FaTrashAlt, FaUserFriends, FaHospital } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import LoadingOverlay from '../components/loadingOverlay';
+import { formatAge } from '../utils/patientUtils';
 
 const CashierDashboard = () => {
     const [loading, setLoading] = useState(false);
@@ -520,7 +521,7 @@ const CashierDashboard = () => {
                                     className="p-3 border rounded hover:bg-gray-50 cursor-pointer"
                                 >
                                     <p className="font-semibold">{patient.name}</p>
-                                    <p className="text-sm text-gray-600">MRN: {patient.mrn} | Age: {patient.age} | {patient.gender}</p>
+                                    <p className="text-sm text-gray-600">MRN: {patient.mrn} | Age: {formatAge(patient.age)} | {patient.gender}</p>
                                 </div>
                             ))}
                         </div>

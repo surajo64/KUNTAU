@@ -6,6 +6,7 @@ import Layout from '../components/Layout';
 import { FaHospital, FaPlus, FaEdit, FaTrash, FaToggleOn, FaToggleOff, FaDownload, FaUpload, FaSearch, FaEye, FaUsers } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import LoadingOverlay from '../components/loadingOverlay';
+import { formatAge } from '../utils/patientUtils';
 import * as XLSX from 'xlsx';
 import { Link } from 'react-router-dom';
 
@@ -637,7 +638,7 @@ const HMOManagement = () => {
                                                     <p className="font-bold text-gray-900">{patient.name}</p>
                                                     <p className="text-xs font-mono text-blue-600 font-bold">{patient.mrn}</p>
                                                     <div className="flex gap-2 text-[10px] mt-1">
-                                                        <span className="text-gray-500">{patient.gender} | {patient.age}yrs</span>
+                                                        <span className="text-gray-500">{patient.gender} | {formatAge(patient.age)}</span>
                                                         <span className="text-gray-500">{patient.contact}</span>
                                                     </div>
                                                 </div>

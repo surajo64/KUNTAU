@@ -6,6 +6,7 @@ import Layout from '../components/Layout';
 import { FaUserPlus, FaCalendarCheck, FaDollarSign, FaSearch, FaFileAlt, FaPlus, FaTimes, FaClock, FaCalendarAlt, FaBed } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import LoadingOverlay from '../components/loadingOverlay';
+import { formatAge } from '../utils/patientUtils';
 
 const FrontDeskDashboard = () => {
     const [loading, setLoading] = useState(false);
@@ -53,6 +54,7 @@ const FrontDeskDashboard = () => {
     const [newPatient, setNewPatient] = useState({
         name: '',
         age: '',
+        dateOfBirth: '',
         gender: 'male',
         contact: '',
         address: '',
@@ -70,6 +72,46 @@ const FrontDeskDashboard = () => {
         fetchClinics();
         fetchWards();
     }, []);
+
+    const calculateAge = (dob) => {
+        if (!dob) return '';
+        const today = new Date();
+        const birthDate = new Date(dob);
+        let years = today.getFullYear() - birthDate.getFullYear();
+        let months = today.getMonth() - birthDate.getMonth();
+
+        if (months < 0 || (months === 0 && today.getDate() < birthDate.getDate())) {
+            years--;
+            months += 12;
+        }
+
+        if (years > 0) {
+            return years.toString();
+        } else {
+            return months > 0 ? `0.${months}` : '0';
+        }
+    };
+
+    const calculateDOBFromAge = (age) => {
+        if (!age) return '';
+        const today = new Date();
+        const birthYear = today.getFullYear() - parseInt(age);
+        const dob = new Date(birthYear, today.getMonth(), today.getDate());
+        return dob.toISOString().split('T')[0];
+    };
+
+    const handleNewPatientChange = (e) => {
+        const { name, value } = e.target;
+        if (name === 'dateOfBirth') {
+            const age = calculateAge(value);
+            setNewPatient({ ...newPatient, dateOfBirth: value, age: age });
+        } else if (name === 'age') {
+            const dob = calculateDOBFromAge(value);
+            setNewPatient({ ...newPatient, age: value, dateOfBirth: dob });
+        } else {
+            setNewPatient({ ...newPatient, [name]: value });
+        }
+    };
 
     const fetchWards = async () => {
         try {
@@ -578,22 +620,48 @@ const FrontDeskDashboard = () => {
                             type="text"
                             placeholder="Full Name *"
                             className="border p-2 rounded"
+                            name="name"
                             value={newPatient.name}
-                            onChange={(e) => setNewPatient({ ...newPatient, name: e.target.value })}
+                            onChange={handleNewPatientChange}
                             required
                         />
-                        <input
-                            type="number"
-                            placeholder="Age *"
-                            className="border p-2 rounded"
-                            value={newPatient.age}
-                            onChange={(e) => setNewPatient({ ...newPatient, age: e.target.value })}
-                            required
-                        />
+                        <div className="flex gap-2">
+                            <div className="flex-1">
+                                <label className="block text-[10px] text-gray-500 uppercase font-bold pl-1">Date of Birth</label>
+                                <input
+                                    type="date"
+                                    name="dateOfBirth"
+                                    className="w-full border p-2 rounded text-sm"
+                                    value={newPatient.dateOfBirth}
+                                    onChange={handleNewPatientChange}
+                                    max={new Date().toISOString().split('T')[0]}
+                                />
+                            </div>
+                            <div className="flex-1">
+                                <label className="block text-[10px] text-gray-500 uppercase font-bold pl-1">Age *</label>
+                                <input
+                                    type="number"
+                                    name="age"
+                                    placeholder="Age *"
+                                    className="w-full border p-2 rounded text-sm"
+                                    value={newPatient.age}
+                                    onChange={handleNewPatientChange}
+                                    required
+                                    min="0"
+                                    step="0.01"
+                                />
+                                {newPatient.age && (
+                                    <span className="text-[10px] text-blue-600 italic pl-1">
+                                        {formatAge(newPatient.age)}
+                                    </span>
+                                )}
+                            </div>
+                        </div>
                         <select
                             className="border p-2 rounded"
+                            name="gender"
                             value={newPatient.gender}
-                            onChange={(e) => setNewPatient({ ...newPatient, gender: e.target.value })}
+                            onChange={handleNewPatientChange}
                         >
                             <option value="male">Male</option>
                             <option value="female">Female</option>
@@ -601,23 +669,26 @@ const FrontDeskDashboard = () => {
                         </select>
                         <input
                             type="text"
+                            name="contact"
                             placeholder="Contact Number *"
                             className="border p-2 rounded"
                             value={newPatient.contact}
-                            onChange={(e) => setNewPatient({ ...newPatient, contact: e.target.value })}
+                            onChange={handleNewPatientChange}
                             required
                         />
                         <input
                             type="text"
+                            name="address"
                             placeholder="Address"
                             className="border p-2 rounded md:col-span-2"
                             value={newPatient.address}
-                            onChange={(e) => setNewPatient({ ...newPatient, address: e.target.value })}
+                            onChange={handleNewPatientChange}
                         />
                         <select
                             className="border p-2 rounded"
+                            name="provider"
                             value={newPatient.provider}
-                            onChange={(e) => setNewPatient({ ...newPatient, provider: e.target.value })}
+                            onChange={handleNewPatientChange}
                         >
                             <option value="Standard">Standard</option>
                             <option value="Retainership">Retainership</option>
@@ -627,33 +698,37 @@ const FrontDeskDashboard = () => {
                         {newPatient.provider === 'NHIA' && (
                             <input
                                 type="text"
+                                name="hmo"
                                 placeholder="HMO *"
                                 className="border p-2 rounded"
                                 value={newPatient.hmo}
-                                onChange={(e) => setNewPatient({ ...newPatient, hmo: e.target.value })}
+                                onChange={handleNewPatientChange}
                                 required
                             />
                         )}
                         <input
                             type="text"
+                            name="insuranceNumber"
                             placeholder="Insurance Number (Optional)"
                             className="border p-2 rounded"
                             value={newPatient.insuranceNumber}
-                            onChange={(e) => setNewPatient({ ...newPatient, insuranceNumber: e.target.value })}
+                            onChange={handleNewPatientChange}
                         />
                         <input
                             type="text"
+                            name="emergencyContactName"
                             placeholder="Emergency Contact Name"
                             className="border p-2 rounded"
                             value={newPatient.emergencyContactName}
-                            onChange={(e) => setNewPatient({ ...newPatient, emergencyContactName: e.target.value })}
+                            onChange={handleNewPatientChange}
                         />
                         <input
                             type="text"
+                            name="emergencyContactPhone"
                             placeholder="Emergency Contact Phone"
                             className="border p-2 rounded"
                             value={newPatient.emergencyContactPhone}
-                            onChange={(e) => setNewPatient({ ...newPatient, emergencyContactPhone: e.target.value })}
+                            onChange={handleNewPatientChange}
                         />
                         <button className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 md:col-span-2">
                             Register Patient
@@ -691,7 +766,7 @@ const FrontDeskDashboard = () => {
                                     <div>
                                         <p className="font-semibold">{patient.name}</p>
                                         <p className="text-sm text-gray-600">
-                                            MRN: {patient.mrn} | Age: {patient.age} | {patient.gender}
+                                            MRN: {patient.mrn} | Age: {formatAge(patient.age)} | {patient.gender}
                                         </p>
                                         {hasTodayEncounter && (
                                             <p className="text-xs text-orange-600 mt-1">
@@ -775,7 +850,7 @@ const FrontDeskDashboard = () => {
                                     <div>
                                         <p className="font-semibold">{patient.name}</p>
                                         <p className="text-sm text-gray-600">
-                                            MRN: {patient.mrn} | Age: {patient.age} | {patient.gender}
+                                            MRN: {patient.mrn} | Age: {formatAge(patient.age)} | {patient.gender}
                                         </p>
                                         {hasTodayEncounter && (
                                             <p className="text-xs text-orange-600 mt-1">
@@ -891,7 +966,7 @@ const FrontDeskDashboard = () => {
                                     </div>
                                     <div>
                                         <p className="text-sm text-gray-600">Age</p>
-                                        <p className="font-semibold">{selectedPatient.age} years</p>
+                                        <p className="font-semibold">{formatAge(selectedPatient.age)}</p>
                                     </div>
                                     <div>
                                         <p className="text-sm text-gray-600">Gender</p>

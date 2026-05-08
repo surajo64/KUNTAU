@@ -9,7 +9,7 @@ const { generateMRN } = require('../utils/mrnGenerator');
 // @access  Private
 const registerPatient = async (req, res) => {
     try {
-        const { name, age, gender, contact, address, state, lga, medicalHistory, provider, hmo, insuranceNumber, emergencyContactName, emergencyContactPhone, isFamilyMember, familyFileId } = req.body;
+        const { name, age, dateOfBirth, gender, contact, address, state, lga, medicalHistory, provider, hmo, insuranceNumber, emergencyContactName, emergencyContactPhone, isFamilyMember, familyFileId } = req.body;
 
         // Validation for Family File
         let linkedFamilyFile = null;
@@ -31,6 +31,7 @@ const registerPatient = async (req, res) => {
             mrn,
             name,
             age,
+            dateOfBirth,
             gender,
             contact,
             address,
@@ -96,7 +97,8 @@ const updatePatient = async (req, res) => {
     if (patient) {
         // Update basic info
         patient.name = req.body.name || patient.name;
-        patient.age = req.body.age || patient.age;
+        patient.age = req.body.age !== undefined ? req.body.age : patient.age;
+        patient.dateOfBirth = req.body.dateOfBirth || patient.dateOfBirth;
         patient.gender = req.body.gender || patient.gender;
         patient.contact = req.body.contact || req.body.phoneNumber || patient.contact;
         patient.address = req.body.address || patient.address;

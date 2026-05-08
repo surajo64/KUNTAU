@@ -7,6 +7,7 @@ import Layout from '../components/Layout';
 import { FaUserMd, FaSearch, FaCheckCircle, FaNotesMedical, FaHeartbeat, FaMoneyBillWave, FaTrash, FaEdit, FaPlus, FaTable, FaClock, FaChevronDown, FaChevronRight, FaHistory } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import LoadingOverlay from '../components/loadingOverlay';
+import { formatAge } from '../utils/patientUtils';
 
 const NurseTriage = () => {
     const { patientId, encounterId } = useParams();
@@ -870,7 +871,7 @@ const NurseTriage = () => {
                             >
                                 <p className="font-semibold">{patient.name}</p>
                                 <p className="text-sm text-gray-600">
-                                    MRN: {patient.mrn} | Age: {patient.age} | {patient.gender}
+                                    MRN: {patient.mrn} | Age: {formatAge(patient.age)} | {patient.gender}
                                 </p>
                             </div>
                         ))}
@@ -1292,7 +1293,7 @@ const NurseTriage = () => {
                                         {!isReadOnly && (
                                             <>
                                                 <button
-                                                    onClick={() => navigate(`/patient/${patientId}`)}
+                                                    onClick={() => navigate(`/patient/${selectedPatient?._id}`)}
                                                     className="bg-orange-600 text-white px-4 py-2 rounded hover:bg-orange-700 flex items-center gap-2 text-sm shadow-sm transition-all"
                                                 >
                                                     <FaHistory /> View Clinical History

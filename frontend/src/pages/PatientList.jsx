@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import Layout from '../components/Layout';
 import LoadingOverlay from '../components/loadingOverlay';
 import { FaSearch, FaUserPlus } from 'react-icons/fa';
+import { formatAge } from '../utils/patientUtils';
 
 const PatientList = () => {
     const [patients, setPatients] = useState([]);
@@ -80,7 +81,7 @@ const PatientList = () => {
                             <tr key={patient._id} className="hover:bg-gray-50">
                                 <td className="p-4 border-b font-mono text-sm text-gray-600">{patient.mrn || 'N/A'}</td>
                                 <td className="p-4 border-b font-semibold">{patient.name}</td>
-                                <td className="p-4 border-b">{patient.age}</td>
+                                <td className="p-4 border-b">{formatAge(patient.age)}</td>
                                 <td className="p-4 border-b capitalize">{patient.gender}</td>
                                 <td className="p-4 border-b">{patient.contact}</td>
                                 <td className="p-4 border-b">

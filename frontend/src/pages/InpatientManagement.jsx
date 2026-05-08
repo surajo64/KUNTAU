@@ -7,6 +7,7 @@ import Layout from '../components/Layout';
 import { FaUserMd, FaSearch, FaBed, FaUserInjured, FaHospital } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import LoadingOverlay from '../components/loadingOverlay';
+import { formatAge } from '../utils/patientUtils';
 
 const InpatientManagement = () => {
     const [loading, setLoading] = useState(false);
@@ -171,7 +172,7 @@ const InpatientManagement = () => {
                                         </p>
                                     </div>
                                     <div className="bg-white/20 px-2 py-1 rounded text-xs">
-                                        {visit.patient.gender} | {visit.patient.age}Y
+                                        {visit.patient.gender} | {formatAge(visit.patient.age)}
                                     </div>
                                 </div>
                             </div>
