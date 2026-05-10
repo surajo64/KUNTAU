@@ -315,7 +315,7 @@ const Sidebar = () => {
                                 <FaFileInvoiceDollar size={14} /> HMO Claims
                             </Link>
                             <Link to="/admin/patient-financial-statement" className={`flex items-center gap-3 p-2 rounded hover:bg-green-600 transition ${isActive('/admin/patient-financial-statement')}`}>
-                                <FaHistory size={14} /> Patient Account
+                                <FaHistory size={14} /> Patient Ledger
                             </Link>
                         </SidebarDropdown>
                     </>
