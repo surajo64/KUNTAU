@@ -234,7 +234,7 @@ const PatientDetails = () => {
 
     // Tab State - default based on user role
     const getDefaultTab = () => {
-        if (user?.role === 'lab_technician') return 'lab';
+        if (['lab_technician', 'lab_scientist'].includes(user?.role)) return 'lab';
         if (user?.role === 'radiologist') return 'radiology';
         if (user?.role === 'pharmacist') return 'prescriptions';
         if (user?.role === 'receptionist') return 'referrals'; // Receptionists start at referrals tab
@@ -1424,7 +1424,7 @@ const PatientDetails = () => {
                             {/* Tab Navigation */}
                             <div className="border-b flex">
                                 {/* Vitals & SOAP - Hidden for lab_technician, radiologist, and pharmacist */}
-                                {!['lab_technician', 'radiologist', 'pharmacist'].includes(user.role) && (
+                                {!['lab_technician', 'lab_scientist', 'radiologist', 'pharmacist'].includes(user.role) && (
                                     <>
                                         <button
                                             onClick={() => setActiveTab('vitals')}
@@ -1452,7 +1452,7 @@ const PatientDetails = () => {
                                 )}
 
                                 {/* Radiology - Show for doctors, radiologist, and receptionist */}
-                                {!['lab_technician', 'pharmacist'].includes(user.role) && (
+                                {!['lab_technician', 'lab_scientist', 'pharmacist'].includes(user.role) && (
                                     <button
                                         onClick={() => setActiveTab('radiology')}
                                         className={`px-6 py-3 font-semibold flex items-center gap-2 ${activeTab === 'radiology' ? 'border-b-2 border-indigo-600 text-indigo-600' : 'text-gray-600 hover:text-gray-800'}`}
@@ -1462,7 +1462,7 @@ const PatientDetails = () => {
                                 )}
 
                                 {/* Prescriptions - Show for doctors, pharmacist, and receptionist */}
-                                {!['lab_technician', 'radiologist'].includes(user.role) && (
+                                {!['lab_technician', 'lab_scientist', 'radiologist'].includes(user.role) && (
                                     <button
                                         onClick={() => setActiveTab('prescriptions')}
                                         className={`px-6 py-3 font-semibold flex items-center gap-2 ${activeTab === 'prescriptions' ? 'border-b-2 border-pink-600 text-pink-600' : 'text-gray-600 hover:text-gray-800'}`}
@@ -2066,7 +2066,7 @@ const PatientDetails = () => {
                                     <div>
                                         <div className="flex justify-between items-center mb-4">
                                             <h3 className="text-xl font-bold">Lab Orders</h3>
-                                            {(user.role === 'doctor' || (user.role === 'lab_technician' && encounter?.type === 'External Investigation')) && (
+                                            {(user.role === 'doctor' || (['lab_technician', 'lab_scientist'].includes(user.role) && encounter?.type === 'External Investigation')) && (
                                                 <button
                                                     onClick={() => setShowLabModal(true)}
                                                     disabled={!canEdit}

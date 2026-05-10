@@ -3,7 +3,7 @@ import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
-import { FaUsers, FaPlus, FaEdit, FaTrash, FaKey, FaSearch, FaTimes } from 'react-icons/fa';
+import { FaUsers, FaPlus, FaEdit, FaTrash, FaKey, FaSearch, FaTimes, FaCheckCircle } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 
 const UserManagement = () => {
@@ -119,6 +119,20 @@ const UserManagement = () => {
         } catch (error) {
             console.error(error);
             toast.error(error.response?.data?.message || 'Error deactivating user');
+        }
+    };
+
+    const handleActivateUser = async (userId) => {
+        if (!window.confirm('Are you sure you want to activate this user?')) return;
+
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            await axios.put(`${backendUrl}/api/users/${userId}/activate`, {}, config);
+            toast.success('User activated successfully!');
+            fetchUsers();
+        } catch (error) {
+            console.error(error);
+            toast.error(error.response?.data?.message || 'Error activating user');
         }
     };
 
@@ -265,13 +279,23 @@ const UserManagement = () => {
                                                 <FaKey />
                                             </button>
                                             {u._id !== user._id && (
-                                                <button
-                                                    onClick={() => handleDeleteUser(u._id)}
-                                                    className="text-red-600 hover:text-red-800"
-                                                    title="Deactivate"
-                                                >
-                                                    <FaTrash />
-                                                </button>
+                                                u.isActive ? (
+                                                    <button
+                                                        onClick={() => handleDeleteUser(u._id)}
+                                                        className="text-red-600 hover:text-red-800"
+                                                        title="Deactivate"
+                                                    >
+                                                        <FaTrash />
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => handleActivateUser(u._id)}
+                                                        className="text-green-600 hover:text-green-800"
+                                                        title="Activate"
+                                                    >
+                                                        <FaCheckCircle />
+                                                    </button>
+                                                )
                                             )}
                                         </div>
                                     </td>
