@@ -49,7 +49,7 @@ const NurseTriage = () => {
         const heightNum = parseFloat(height);
         if (isNaN(weightNum) || isNaN(heightNum) || heightNum === 0) return '';
 
-        // BMI = weight (kg) / (height (m))Â²
+        // BMI = weight (kg) / (height (m))Ã‚Â²
         const heightInMeters = heightNum / 100; // Convert cm to meters
         const bmi = weightNum / (heightInMeters * heightInMeters);
         return bmi.toFixed(1);
@@ -117,9 +117,9 @@ const NurseTriage = () => {
             
             // Filter by relevant statuses if needed (optional, but keep consistent with previous logic if it was filtering)
             const filteredEncounters = patientEncounters.filter(v =>
-                v.encounterStatus === 'payment_pending' || v.encounterStatus === 'in_nursing' || v.encounterStatus === 'registered' || v.encounterStatus === 'with_doctor' ||
-                    v.encounterStatus === 'completed' || v.encounterStatus === 'cancelled' || v.encounterStatus === 'discharged' || v.encounterStatus === 'in_ward' || v.encounterStatus === 'admitted'
+                ['registered', 'payment_pending', 'in_nursing', 'with_doctor', 'awaiting_services', 'in_pharmacy', 'in_lab', 'in_radiology', 'in_ward', 'admitted', 'completed', 'cancelled', 'discharged'].includes(v.encounterStatus)
             );
+
             filteredEncounters.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
             setEncounters(filteredEncounters);
             
@@ -255,8 +255,8 @@ const NurseTriage = () => {
             const { data: patientEncounters } = await axios.get(`${backendUrl}/api/visits?patient=${patient._id}`, config);
             
             const filteredEncounters = patientEncounters.filter(v =>
-                v.encounterStatus === 'payment_pending' || v.encounterStatus === 'in_nursing' || v.encounterStatus === 'registered' || v.encounterStatus === 'with_doctor' ||
-                    v.encounterStatus === 'completed' || v.encounterStatus === 'cancelled' || v.encounterStatus === 'discharged' || v.encounterStatus === 'in_ward' || v.encounterStatus === 'admitted'
+                ['registered', 'payment_pending', 'in_nursing', 'with_doctor', 'awaiting_services', 'in_pharmacy', 'in_lab', 'in_radiology', 'in_ward', 'admitted', 'completed', 'cancelled', 'discharged'].includes(v.encounterStatus)
+
             );
             // Sort encounters by creation date - latest first
             filteredEncounters.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
@@ -407,7 +407,7 @@ const NurseTriage = () => {
 
         switch (vitalType) {
             case 'temperature':
-                // Normal: 36.1-37.2Â°C
+                // Normal: 36.1-37.2Ã‚Â°C
                 if (numValue < 36.1) return 'text-yellow-600 font-semibold';
                 if (numValue > 37.2) return 'text-red-600 font-semibold';
                 return '';
@@ -425,7 +425,7 @@ const NurseTriage = () => {
                 return '';
 
             case 'spo2':
-                // Normal: â‰¥95%
+                // Normal: Ã¢â€°Â¥95%
                 if (numValue < 95) return 'text-red-600 font-semibold';
                 if (numValue < 90) return 'text-red-700 font-bold';
                 return '';
@@ -736,6 +736,7 @@ const NurseTriage = () => {
     };
 
     // Helper to check if an encounter is active (for Outpatients, check 24h window; for Inpatients, check status)
+
     const isEncounterActive = (encounter) => {
         if (!encounter) return false;
         const now = new Date();
@@ -745,6 +746,8 @@ const NurseTriage = () => {
         if (encounter.type === 'Inpatient') {
             return !inactiveStatuses.includes(encounter.encounterStatus);
         } else {
+            // awaiting_services stays active regardless of time window
+            if (encounter.encounterStatus === 'awaiting_services') return true;
             const oneDay = 24 * 60 * 60 * 1000;
             const isActiveTime = (now - created) < oneDay;
             return isActiveTime && !inactiveStatuses.includes(encounter.encounterStatus);
@@ -891,7 +894,7 @@ const NurseTriage = () => {
                                 }}
                                 className="text-blue-600 text-sm mt-2 hover:underline"
                             >
-                                â† Change Patient
+                                Ã¢â€ Â Change Patient
                             </button>
                         </div>
 
@@ -912,7 +915,7 @@ const NurseTriage = () => {
                                                     {encounter.type} Visit
                                                     {encounter.isANC && (
                                                         <span className="bg-pink-100 text-pink-700 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
-                                                            🤰 ANC
+                                                            ðŸ¤° ANC
                                                         </span>
                                                     )}
                                                 </p>
@@ -966,7 +969,7 @@ const NurseTriage = () => {
                                 {selectedPatient.name} - {selectedEncounter.type} Visit
                                 {selectedEncounter.isANC && (
                                     <span className="bg-pink-100 text-pink-700 text-xs px-2 py-1 rounded-full font-bold">
-                                        🤰 ANC Visit (Payment Bypassed)
+                                        ðŸ¤° ANC Visit (Payment Bypassed)
                                     </span>
                                 )}
                             </p>
@@ -1028,7 +1031,7 @@ const NurseTriage = () => {
                                                 <tr>
                                                     <th className="p-2">Time</th>
                                                     <th className="p-2">BP (mmHg)</th>
-                                                    <th className="p-2">Temp (Â°C)</th>
+                                                    <th className="p-2">Temp (Ã‚Â°C)</th>
                                                     <th className="p-2">HR (bpm)</th>
                                                     <th className="p-2">RR (/min)</th>
                                                     <th className="p-2">SpO2 (%)</th>
@@ -1478,7 +1481,7 @@ const NurseTriage = () => {
                                     }}
                                     className="text-white hover:text-gray-200 text-2xl"
                                 >
-                                    Ã—
+                                    Ãƒâ€”
                                 </button>
                             </div>
 
@@ -1579,7 +1582,7 @@ const NurseTriage = () => {
                                     onClick={() => setShowNurseNoteModal(false)}
                                     className="text-white hover:text-gray-200 text-2xl"
                                 >
-                                    Ã—
+                                    Ãƒâ€”
                                 </button>
                             </div>
 
@@ -1701,7 +1704,7 @@ const NurseTriage = () => {
                                 <div className="mb-6 p-3 bg-blue-50 rounded text-sm text-blue-800 border border-blue-100">
                                     <p className="font-bold">Provider Scheme: {selectedPatient.provider}</p>
                                     <p>
-                                        Daily Rate: â‚¦{wards.find(w => w._id === selectedWard)?.rates?.[selectedPatient.provider] ||
+                                        Daily Rate: Ã¢â€šÂ¦{wards.find(w => w._id === selectedWard)?.rates?.[selectedPatient.provider] ||
                                             wards.find(w => w._id === selectedWard)?.rates?.Standard ||
                                             wards.find(w => w._id === selectedWard)?.dailyRate || 0}
                                     </p>
@@ -1740,7 +1743,7 @@ const NurseTriage = () => {
                         <div className="p-6">
                             <div className="grid grid-cols-2 md:grid-cols-2 gap-6">
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">Temperature (°C)</label>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">Temperature (Â°C)</label>
                                     <input
                                         type="number"
                                         step="0.1"
@@ -1827,7 +1830,7 @@ const NurseTriage = () => {
                                     />
                                 </div>
                                 <div>
-                                    <label className="block text-sm font-bold text-gray-700 mb-1">BMI (kg/m²)</label>
+                                    <label className="block text-sm font-bold text-gray-700 mb-1">BMI (kg/mÂ²)</label>
                                     <input
                                         type="text"
                                         className={`w-full border p-3 rounded font-bold ${vitals.bmi ? 'bg-gray-100' : ''}`}
@@ -1927,3 +1930,4 @@ const NurseTriage = () => {
 };
 
 export default NurseTriage;
+

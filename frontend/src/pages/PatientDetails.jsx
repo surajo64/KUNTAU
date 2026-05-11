@@ -361,7 +361,7 @@ const PatientDetails = () => {
 
             // Find active encounter
             const activeEncounter = patientVisits.find(v =>
-                v.encounterStatus === 'with_doctor' || v.encounterStatus === 'in_nursing' || v.encounterStatus === 'in_pharmacy' || v.encounterStatus === 'in_ward' || v.encounterStatus === 'admitted'
+                ['registered', 'payment_pending', 'in_nursing', 'with_doctor', 'awaiting_services', 'in_pharmacy', 'in_lab', 'in_radiology', 'in_ward', 'admitted'].includes(v.encounterStatus)
             );
             setEncounter(activeEncounter);
 
@@ -479,8 +479,8 @@ const PatientDetails = () => {
 
         if (encounter.type === 'Inpatient') {
             // Inpatient encounters are active until discharged
-            // Active statuses: admitted, in_progress, with_doctor, in_nursing, in_lab, in_radiology, in_pharmacy, in_ward
-            const activeStatuses = ['admitted', 'in_progress', 'with_doctor', 'in_nursing', 'in_lab', 'in_radiology', 'in_pharmacy', 'in_ward'];
+            // Active statuses: admitted, in_progress, with_doctor, in_nursing, in_lab, in_radiology, in_pharmacy, in_ward, awaiting_services
+            const activeStatuses = ['admitted', 'in_progress', 'with_doctor', 'in_nursing', 'in_lab', 'in_radiology', 'in_pharmacy', 'in_ward', 'awaiting_services', 'registered', 'payment_pending'];
             const isActive = activeStatuses.includes(encounter.encounterStatus);
             console.log('🔍 isEncounterActive: Inpatient encounter', {
                 encounterStatus: encounter.encounterStatus,

@@ -107,12 +107,26 @@ const createVisit = async (req, res) => {
 // @route   GET /api/visits
 // @access  Private
 const getVisits = async (req, res) => {
-    const { type, encounterStatus, status, patient } = req.query;
+    const { type, encounterStatus, status, patient, today: isToday } = req.query;
     let query = {};
     if (type) query.type = type;
     if (status) query.status = status;
     if (patient && patient !== 'undefined') query.patient = patient;
     
+    if (isToday === 'true') {
+        const startOfDay = new Date();
+        startOfDay.setHours(0, 0, 0, 0);
+        const endOfDay = new Date();
+        endOfDay.setHours(23, 59, 59, 999);
+        query.createdAt = { $gte: startOfDay, $lte: endOfDay };
+        
+        // When asking for today's patients, usually we mean active ones
+        // Exclude terminal statuses unless explicitly requested
+        if (!encounterStatus) {
+            query.encounterStatus = { $nin: ['completed', 'discharged', 'cancelled'] };
+        }
+    }
+
     if (encounterStatus) {
         if (encounterStatus.includes(',')) {
             query.encounterStatus = { $in: encounterStatus.split(',') };
@@ -130,7 +144,7 @@ const getVisits = async (req, res) => {
     }
 
     const visits = await Visit.find(query)
-        .populate('patient', 'name mrn age gender')
+        .populate('patient', 'name mrn age gender contact')
         .populate('doctor', 'name')
         .populate('clinic', 'name department')
         .populate('ward', 'name dailyRate');

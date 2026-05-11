@@ -339,11 +339,13 @@ const PharmacyPrescriptions = () => {
 
                     let newStatus = visit.encounterStatus;
                     if (visit.encounterType === 'Outpatient') {
-                        newStatus = 'checkout';
+                        // Stay active in case they need other services today
+                        newStatus = 'awaiting_services'; 
                     } else if (visit.encounterType === 'Inpatient') {
                         newStatus = 'in_ward';
                     } else if (visit.encounterType === 'External Pharmacy') {
-                        newStatus = 'completed';
+                        // Keep active as per user request
+                        newStatus = 'awaiting_services'; 
                     }
 
                     if (newStatus !== visit.encounterStatus) {
@@ -352,7 +354,7 @@ const PharmacyPrescriptions = () => {
                             { encounterStatus: newStatus },
                             config
                         );
-                        toast.info(`Encounter status updated to: ${newStatus}`);
+                        toast.info(`Encounter status updated to: ${newStatus.replace('_', ' ').toUpperCase()}`);
                     }
                 } catch (statusError) {
                     console.error('Error updating encounter status:', statusError);

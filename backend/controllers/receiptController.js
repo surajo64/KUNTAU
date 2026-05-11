@@ -536,6 +536,8 @@ const getReceiptByNumber = async (req, res) => {
 // @route   POST /api/receipts/:id/reverse
 // @access  Private (admin/cashier)
 const reverseReceipt = async (req, res) => {
+    const { chargeIds } = req.body; // Optional array of charge IDs to reverse
+
     try {
         const receipt = await Receipt.findById(req.params.id)
             .populate({ path: 'charges', populate: { path: 'charge' } })
@@ -546,25 +548,65 @@ const reverseReceipt = async (req, res) => {
             return res.status(404).json({ message: 'Receipt not found' });
         }
 
-        // If payment was made via deposit, restore the amount to patient's deposit
+        const EncounterCharge = require('../models/encounterChargeModel');
+        let amountToReverse = 0;
+        let chargesToProcess = [];
+
+        if (chargeIds && Array.isArray(chargeIds) && chargeIds.length > 0) {
+            // Partial reversal
+            chargesToProcess = receipt.charges.filter(c => chargeIds.includes(c._id.toString()));
+            
+            if (chargesToProcess.length === 0) {
+                return res.status(400).json({ message: 'No matching charges found in this receipt' });
+            }
+
+            amountToReverse = chargesToProcess.reduce((sum, c) => sum + c.totalAmount, 0);
+        } else {
+            // Full reversal (legacy or explicit)
+            chargesToProcess = receipt.charges;
+            amountToReverse = receipt.amountPaid;
+        }
+
+        // 1. Restore patient deposit if applicable
         if (receipt.paymentMethod === 'deposit') {
             const patient = await Patient.findById(receipt.patient._id);
             if (patient) {
-                patient.depositBalance += receipt.amountPaid;
+                patient.depositBalance += amountToReverse;
                 await patient.save();
             }
         }
 
-        // Mark the receipt as reversed (you could add a 'status' field to Receipt model)
-        // For now, we'll delete it or you can add a status field
-        await Receipt.findByIdAndDelete(req.params.id);
+        // 2. Reset charge statuses to 'pending'
+        const processedChargeIds = chargesToProcess.map(c => c._id);
+        await EncounterCharge.updateMany(
+            { _id: { $in: processedChargeIds } },
+            { status: 'pending', $unset: { receipt: "" } }
+        );
 
-        res.json({
-            message: 'Payment reversed successfully',
-            amountReversed: receipt.amountPaid,
-            depositRestored: receipt.paymentMethod === 'deposit'
-        });
+        // 3. Update or Delete the receipt
+        if (!chargeIds || chargeIds.length === receipt.charges.length) {
+            // All charges reversed or no specific charges provided -> Delete receipt
+            await Receipt.findByIdAndDelete(req.params.id);
+            res.json({
+                message: 'Receipt reversed and deleted successfully',
+                amountReversed: amountToReverse,
+                fullReversal: true
+            });
+        } else {
+            // Partial reversal -> Update receipt
+            receipt.amountPaid -= amountToReverse;
+            receipt.charges = receipt.charges.filter(c => !chargeIds.includes(c._id.toString()));
+            await receipt.save();
+            
+            res.json({
+                message: 'Partial reversal successful',
+                amountReversed: amountToReverse,
+                remainingAmount: receipt.amountPaid,
+                fullReversal: false
+            });
+        }
     } catch (error) {
+        console.error('Reversal Error:', error);
         res.status(500).json({ message: error.message });
     }
 };
