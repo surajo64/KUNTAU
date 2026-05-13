@@ -136,6 +136,11 @@ const generatePrescriptionCharge = async (req, res) => {
             return res.status(400).json({ message: 'No medicine found in prescription' });
         }
 
+        // BLOCK: Prevent charging for drugs marked as Buy Outside
+        if (medicine.buyOutside) {
+            return res.status(400).json({ message: 'Cannot generate charge for a prescription marked for External Purchase (Buy Outside).' });
+        }
+
         // Find existing charge definition for the drug
         let drugCharge = await Charge.findOne({
             type: 'drugs',
@@ -312,7 +317,17 @@ const dispenseWithInventory = async (req, res) => {
 
         // Process each medicine
         for (const med of medicines) {
-            const { name, quantityDispensed } = med;
+            const { name, quantityDispensed, buyOutside } = med;
+
+            // Skip inventory deduction for drugs marked as Buy Outside
+            if (buyOutside) {
+                inventoryUpdates.push({
+                    drug: name,
+                    deducted: 0,
+                    reason: 'External Purchase (Buy Outside) - No inventory deduction'
+                });
+                continue;
+            }
 
             // Find inventory items for this drug in the pharmacist's assigned pharmacy
             // If admin or main pharmacy, maybe allow selection? For now, assume strict assignment.

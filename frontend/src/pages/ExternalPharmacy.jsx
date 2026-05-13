@@ -32,6 +32,7 @@ const ExternalPharmacy = () => {
     const [drugRoute, setDrugRoute] = useState('');
     const [drugForm, setDrugForm] = useState('');
     const [tempDrugs, setTempDrugs] = useState([]); // List of drugs to prescribe
+    const [buyOutside, setBuyOutside] = useState(false); // New state
     const [metadataOptions, setMetadataOptions] = useState({
         dosage: [],
         frequency: [],
@@ -244,6 +245,7 @@ const ExternalPharmacy = () => {
         setSelectedDrug(drug._id);
         setDrugSearchTerm(drug.name);
         setShowDrugDropdown(false);
+        setBuyOutside(false); // Reset
 
         // Auto-populate fields from drug data
         setDrugRoute(drug.route || '');
@@ -258,14 +260,16 @@ const ExternalPharmacy = () => {
         const drugData = inventoryDrugs.find(d => d._id === selectedDrug);
         if (!drugData) return;
 
-        if (drugData.expiryDate && new Date(drugData.expiryDate) < new Date()) {
-            toast.error('Cannot prescribe: This drug is expired.');
-            return;
-        }
+        if (!buyOutside) {
+            if (drugData.expiryDate && new Date(drugData.expiryDate) < new Date()) {
+                toast.error('Cannot prescribe: This drug is expired.');
+                return;
+            }
 
-        if (drugData.quantity < drugQuantity) {
-            toast.error(`Cannot prescribe: Insufficient inventory. Only ${drugData.quantity} available.`);
-            return;
+            if (drugData.quantity < drugQuantity) {
+                toast.error(`Cannot prescribe: Insufficient inventory. Only ${drugData.quantity} available.`);
+                return;
+            }
         }
 
         const newDrugItem = {
@@ -278,7 +282,8 @@ const ExternalPharmacy = () => {
             dosage: drugDosage || 'As directed',
             form: drugForm || 'As directed',
             frequency: drugFrequency || 'As directed',
-            duration: (drugDuration && !isNaN(drugDuration)) ? `${drugDuration} days` : (drugDuration || 'As directed')
+            duration: (drugDuration && !isNaN(drugDuration)) ? `${drugDuration} days` : (drugDuration || 'As directed'),
+            buyOutside: buyOutside
         };
 
         setTempDrugs([...tempDrugs, newDrugItem]);
@@ -324,19 +329,22 @@ const ExternalPharmacy = () => {
                             duration: drugItem.duration,
                             route: drugItem.route,
                             form: drugItem.form,
-                            quantity: drugItem.quantity
+                            quantity: drugItem.quantity,
+                            buyOutside: drugItem.buyOutside
                         }],
                         notes: 'Pharmacist prescribed (External)'
                     },
                     config
                 );
 
-                // 2. Automatically generate charge
-                await axios.put(
-                    `${backendUrl}/api/prescriptions/${rxRes.data._id}/generate-charge`,
-                    { quantity: drugItem.quantity },
-                    config
-                );
+                // 2. Automatically generate charge - SKIP if Buy Outside
+                if (!drugItem.buyOutside) {
+                    await axios.put(
+                        `${backendUrl}/api/prescriptions/${rxRes.data._id}/generate-charge`,
+                        { quantity: drugItem.quantity },
+                        config
+                    );
+                }
             }
 
             // 3. Update encounter status to 'in_pharmacy'
@@ -526,10 +534,18 @@ const ExternalPharmacy = () => {
                                             {filteredDrugs.map(drug => (
                                                 <div
                                                     key={drug._id}
-                                                    className="p-2 hover:bg-pink-50 cursor-pointer text-sm"
+                                                    className={`p-2 hover:bg-pink-50 cursor-pointer text-sm ${drug.quantity <= 0 || (drug.expiryDate && new Date(drug.expiryDate) < new Date()) ? 'bg-red-50' : ''}`}
                                                     onClick={() => handleSelectDrugFromSearch(drug)}
                                                 >
-                                                    <div className="font-semibold">{drug.name}</div>
+                                                    <div className="font-semibold flex justify-between">
+                                                        <span>{drug.name}</span>
+                                                        {drug.expiryDate && new Date(drug.expiryDate) < new Date() && (
+                                                            <span className="text-[10px] bg-red-600 text-white px-1 rounded">EXPIRED</span>
+                                                        )}
+                                                        {drug.quantity <= 0 && (
+                                                            <span className="text-[10px] bg-gray-600 text-white px-1 rounded">OUT OF STOCK</span>
+                                                        )}
+                                                    </div>
                                                     <div className="text-xs text-gray-500">Stock: {drug.quantity} | ₦{drug.price}</div>
                                                 </div>
                                             ))}
@@ -611,10 +627,19 @@ const ExternalPharmacy = () => {
                                                 min="1"
                                             />
                                         </div>
+                                        <div className="md:col-span-1 flex flex-col items-center justify-center">
+                                            <label className="text-[10px] text-gray-600 mb-1 font-bold">Buy Outside</label>
+                                            <input
+                                                type="checkbox"
+                                                className="w-5 h-5 cursor-pointer accent-pink-600 mb-1"
+                                                checked={buyOutside}
+                                                onChange={(e) => setBuyOutside(e.target.checked)}
+                                            />
+                                        </div>
                                         <div className="md:col-span-1">
                                             <button
                                                 onClick={handleAddDrugToQueue}
-                                                className="w-full bg-pink-600 text-white p-2 rounded hover:bg-pink-700 text-sm font-semibold"
+                                                className="w-full bg-pink-600 text-white p-2 rounded hover:bg-pink-700 text-sm font-semibold h-[38px]"
                                             >
                                                 Add
                                             </button>
@@ -647,8 +672,17 @@ const ExternalPharmacy = () => {
                                             </tr>
                                         ) : (
                                             tempDrugs.map(drug => (
-                                                <tr key={drug.id} className="border-b">
-                                                    <td className="p-2 font-semibold">{drug.name}</td>
+                                                <tr key={drug.id} className={`border-b ${drug.buyOutside ? 'bg-orange-50' : ''}`}>
+                                                    <td className="p-2 font-semibold">
+                                                        <div className="flex items-center gap-1">
+                                                            {drug.name}
+                                                            {drug.buyOutside && (
+                                                                <span className="text-[10px] bg-orange-200 text-orange-800 px-1 rounded border border-orange-300 uppercase">
+                                                                    Buy Outside
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </td>
                                                     <td className="p-2">{drug.route}</td>
                                                     <td className="p-2">{drug.dosage}</td>
                                                     <td className="p-2">{drug.form}</td>

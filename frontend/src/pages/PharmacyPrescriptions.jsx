@@ -249,7 +249,7 @@ const PharmacyPrescriptions = () => {
                         <tbody>
                             ${items.map(p => p.medicines.map(med => `
                                 <tr>
-                                    <td>${med.name}</td>
+                                    <td>${med.name}${med.buyOutside ? ' <br/><small style="color: #e67e22; font-weight: bold;">(Buy Outside/Record Only)</small>' : ''}</td>
                                     <td>${med.dosage}</td>
                                     <td>${med.frequency}</td>
                                     <td>${(med.duration && !isNaN(med.duration)) ? `${med.duration} days` : med.duration}</td>
@@ -390,8 +390,13 @@ const PharmacyPrescriptions = () => {
     const renderMedicines = (medicines) => {
         if (!Array.isArray(medicines)) return medicines || '';
         return medicines.map((med, idx) => (
-            <div key={idx} className="mb-1">
+            <div key={idx} className="mb-1 flex items-center gap-2">
                 <span className="font-semibold">{med.name}</span> - {med.dosage}, {med.frequency}, {(med.duration && !isNaN(med.duration)) ? `${med.duration} days` : med.duration}
+                {med.buyOutside && (
+                    <span className="text-[10px] bg-orange-100 text-orange-700 px-1 rounded border border-orange-200 font-bold">
+                        BUY OUTSIDE
+                    </span>
+                )}
             </div>
         ));
     };
@@ -581,9 +586,15 @@ const PharmacyPrescriptions = () => {
                                                                 {renderMedicines(p.medicines)}
                                                             </div>
                                                             <div className="mt-2 flex gap-2">
-                                                                <span className={`text-xs px-3 py-1 rounded ${!p.charge ? 'bg-blue-100 text-blue-800' : p.charge.status === 'paid' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>
-                                                                    {!p.charge ? 'Process' : p.charge.status === 'paid' ? 'Paid' : 'Unpaid'}
-                                                                </span>
+                                                                {p.medicines?.some(m => m.buyOutside) ? (
+                                                                    <span className="text-xs px-3 py-1 rounded bg-orange-100 text-orange-800 font-bold border border-orange-200">
+                                                                        External / Record Only
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className={`text-xs px-3 py-1 rounded ${!p.charge ? 'bg-blue-100 text-blue-800' : p.charge.status === 'paid' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>
+                                                                        {!p.charge ? 'Process' : p.charge.status === 'paid' ? 'Paid' : 'Unpaid'}
+                                                                    </span>
+                                                                )}
                                                                 <span className={`text-xs px-3 py-1 rounded ${p.status === 'dispensed' ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-600'}`}>
                                                                     {p.status}
                                                                 </span>
@@ -629,9 +640,41 @@ const PharmacyPrescriptions = () => {
                             onClick={printPrescription}
                             className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-2"
                         >
-                            <FaSave /> Print Prescription
+                            <FaPrint /> Print Prescription
                         </button>
                     </div>
+
+                    {/* Buy Outside / Record Only Mode */}
+                    {selectedPrescription.medicines?.some(m => m.buyOutside) ? (
+                        <div className="border-2 border-orange-300 bg-orange-50 p-6 rounded mb-6">
+                            <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-orange-800">
+                                <FaBoxOpen /> External / Record Only Prescription
+                            </h3>
+                            <p className="text-sm text-orange-700 mb-6">
+                                This medication is marked for <strong>External Purchase (Buy Outside)</strong> or was prescribed for <strong>Record Purposes</strong> only. 
+                                Do not generate charges or dispense from internal hospital inventory. 
+                                Simply print the prescription sheet for the patient.
+                            </p>
+                            
+                            <div className="bg-white p-4 rounded border mb-6">
+                                <h4 className="font-bold text-lg mb-3">Medication Details</h4>
+                                {selectedPrescription.medicines.map((med, idx) => (
+                                    <div key={idx} className="p-3 border-b last:border-0">
+                                        <p className="font-bold">{med.name}</p>
+                                        <p className="text-sm text-gray-600">{med.dosage} | {med.frequency} | {med.duration}</p>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <button
+                                onClick={printPrescription}
+                                className="w-full bg-orange-600 text-white px-6 py-4 rounded hover:bg-orange-700 font-bold flex items-center justify-center gap-2 text-lg shadow-md transition-all"
+                            >
+                                <FaPrint /> Print Prescription Sheet for Patient
+                            </button>
+                        </div>
+                    ) : (
+                        <>
 
                     {/* Already Dispensed Check */}
                     {selectedPrescription.status === 'dispensed' ? (
@@ -893,6 +936,8 @@ const PharmacyPrescriptions = () => {
                                 By confirming, inventory will be automatically deducted using FIFO (First Expiry, First Out) logic
                             </p>
                         </div>
+                    )}
+                    </>
                     )}
 
                     <button

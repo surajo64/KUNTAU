@@ -1191,7 +1191,14 @@ const NurseTriage = () => {
                                                                                 {dispensedPrescriptions.flatMap(p => p.medicines.map(m => (
                                                                                     <tr key={`${p._id}-${m._id || m.name}`} className="hover:bg-blue-50/10 border-b last:border-0 transition-colors">
                                                                                         <td className="p-2 border-r">
-                                                                                            <div className="font-bold text-blue-950 leading-tight">{m.name}</div>
+                                                                                            <div className="font-bold text-blue-950 leading-tight flex items-center gap-2">
+                                                                                                {m.name}
+                                                                                                {m.buyOutside && (
+                                                                                                    <span className="text-[9px] bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded border border-orange-200 uppercase font-black">
+                                                                                                        Buy Outside
+                                                                                                    </span>
+                                                                                                )}
+                                                                                            </div>
                                                                                             <div className="text-[9px] text-gray-500 flex items-center gap-1 mt-0.5">
                                                                                                 <span className="font-medium text-gray-700">{m.dosage}</span>
                                                                                                 <span>|</span>

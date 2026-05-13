@@ -14,7 +14,7 @@ const WardManagement = () => {
     const [wards, setWards] = useState([]);
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
-    const [filterType, setFilterType] = useState('All');
+    const [filterWard, setFilterWard] = useState('All');
     
     // Management States
     const [showModal, setShowModal] = useState(false);
@@ -169,7 +169,7 @@ const WardManagement = () => {
 
     const filteredWards = wards.filter(ward => {
         const matchesSearch = ward.name.toLowerCase().includes(searchTerm.toLowerCase());
-        const matchesFilter = filterType === 'All' || ward.type === filterType;
+        const matchesFilter = filterWard === 'All' || ward._id === filterWard;
         return matchesSearch && matchesFilter;
     });
 
@@ -225,11 +225,12 @@ const WardManagement = () => {
                     <FaFilter className="text-gray-400" />
                     <select
                         className="flex-1 md:w-48 border border-gray-200 rounded-lg py-2 px-3 outline-none focus:ring-2 focus:ring-blue-500 transition"
-                        value={filterType}
-                        onChange={(e) => setFilterType(e.target.value)}
+                        value={filterWard}
+                        onChange={(e) => setFilterWard(e.target.value)}
                     >
-                        {wardTypes.map(type => (
-                            <option key={type} value={type}>{type} Wards</option>
+                        <option value="All">All Wards</option>
+                        {wards.map(ward => (
+                            <option key={ward._id} value={ward._id}>{ward.name}</option>
                         ))}
                     </select>
                     <button 
@@ -245,26 +246,26 @@ const WardManagement = () => {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
                 <div className="bg-blue-600 p-4 rounded-xl text-white shadow-lg shadow-blue-200">
                     <p className="text-blue-100 text-sm font-semibold uppercase tracking-wider">Total Wards</p>
-                    <p className="text-3xl font-bold mt-1">{wards.length}</p>
+                    <p className="text-3xl font-bold mt-1">{filteredWards.length}</p>
                 </div>
                 <div className="bg-green-600 p-4 rounded-xl text-white shadow-lg shadow-green-200">
                     <p className="text-green-100 text-sm font-semibold uppercase tracking-wider">Available Beds</p>
                     <p className="text-3xl font-bold mt-1">
-                        {wards.reduce((sum, w) => sum + w.beds.filter(b => !b.isOccupied).length, 0)}
+                        {filteredWards.reduce((sum, w) => sum + w.beds.filter(b => !b.isOccupied).length, 0)}
                     </p>
                 </div>
                 <div className="bg-red-600 p-4 rounded-xl text-white shadow-lg shadow-red-200">
                     <p className="text-red-100 text-sm font-semibold uppercase tracking-wider">Occupied Beds</p>
                     <p className="text-3xl font-bold mt-1">
-                        {wards.reduce((sum, w) => sum + w.beds.filter(b => b.isOccupied).length, 0)}
+                        {filteredWards.reduce((sum, w) => sum + w.beds.filter(b => b.isOccupied).length, 0)}
                     </p>
                 </div>
                 <div className="bg-indigo-600 p-4 rounded-xl text-white shadow-lg shadow-indigo-200">
                     <p className="text-indigo-100 text-sm font-semibold uppercase tracking-wider">Occupancy Rate</p>
                     <p className="text-3xl font-bold mt-1">
-                        {wards.length > 0 ? (
-                            Math.round((wards.reduce((sum, w) => sum + w.beds.filter(b => b.isOccupied).length, 0) / 
-                            wards.reduce((sum, w) => sum + (w.beds?.length || 0), 0)) * 100)
+                        {filteredWards.length > 0 ? (
+                            Math.round((filteredWards.reduce((sum, w) => sum + w.beds.filter(b => b.isOccupied).length, 0) / 
+                            filteredWards.reduce((sum, w) => sum + (w.beds?.length || 0), 0)) * 100)
                         ) : 0}%
                     </p>
                 </div>

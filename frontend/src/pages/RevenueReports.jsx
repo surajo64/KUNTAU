@@ -121,7 +121,7 @@ const RevenueReports = () => {
                 'Patient': rx.patient?.name || 'N/A',
                 'MRN': rx.patient?.mrn || 'N/A',
                 'Doctor': rx.doctor?.name || 'N/A',
-                'Medicines': rx.medicines.map(m => m.name).join(', '),
+                'Medicines': rx.medicines.map(m => `${m.name}${m.buyOutside ? ' (Buy Outside)' : ''}`).join(', '),
                 'Status': rx.status,
                 'Payment Status': rx.charge?.status || 'N/A',
                 'Amount': rx.charge?.totalAmount || 0

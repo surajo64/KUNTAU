@@ -99,7 +99,7 @@ const VisitReport = () => {
             'Radiology Orders': (v.radiologyOrders || []).map(r => `${r.scanType}: ${r.report || 'Pending'}`).join('; '),
 
             // Drugs
-            'Drugs Prescribed': (v.prescriptions || []).flatMap(p => p.medicines.map(m => `${m.name} (${m.dosage} ${m.frequency} x ${m.duration})`)).join('; '),
+            'Drugs Prescribed': (v.prescriptions || []).flatMap(p => p.medicines.map(m => `${m.name}${m.buyOutside ? ' (Buy Outside)' : ''} (${m.dosage} ${m.frequency} x ${m.duration})`)).join('; '),
 
             // Ward Rounds
             'Ward Round Notes': (v.notes || []).map(n => `[${n.role}] ${n.author}: ${n.text}`).join(' | ')

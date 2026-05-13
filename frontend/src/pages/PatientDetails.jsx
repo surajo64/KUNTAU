@@ -94,6 +94,7 @@ const PatientDetails = () => {
     const [drugSearchTerm, setDrugSearchTerm] = useState('');
     const [filteredDrugs, setFilteredDrugs] = useState([]);
     const [tempDrugs, setTempDrugs] = useState([]); // List of drugs to prescribe
+    const [buyOutside, setBuyOutside] = useState(false); // New state for Buy Outside
     const [showDrugDropdown, setShowDrugDropdown] = useState(false);
     const [metadataOptions, setMetadataOptions] = useState({
         dosage: [],
@@ -523,7 +524,7 @@ const PatientDetails = () => {
                 inventoryUrl += `?pharmacy=${user.assignedPharmacy._id || user.assignedPharmacy}`;
             }
             const inventoryRes = await axios.get(inventoryUrl, config);
-            setInventoryDrugs(inventoryRes.data.filter(item => item.quantity > 0));
+            setInventoryDrugs(inventoryRes.data); // Include all drugs (even 0 qty)
         } catch (error) {
             console.error(error);
         }
@@ -830,6 +831,7 @@ const PatientDetails = () => {
         setSelectedDrug(drug._id);
         setDrugSearchTerm(drug.name);
         setShowDrugDropdown(false);
+        setBuyOutside(false); // Reset Buy Outside toggle when selecting a new drug
 
         // Auto-populate fields from drug data
         setDrugRoute(drug.route || '');
@@ -844,14 +846,17 @@ const PatientDetails = () => {
         const drugData = inventoryDrugs.find(d => d._id === selectedDrug);
         if (!drugData) return;
 
-        if (drugData.expiryDate && new Date(drugData.expiryDate) < new Date()) {
-            toast.error('Cannot prescribe: This drug is expired.');
-            return;
-        }
+        // Restriction Check - Bypass if Buy Outside is checked
+        if (!buyOutside) {
+            if (drugData.expiryDate && new Date(drugData.expiryDate) < new Date()) {
+                toast.error('Cannot prescribe: This drug is expired. Use "Buy Outside" mode if needed for records.');
+                return;
+            }
 
-        if (drugData.quantity < drugQuantity) {
-            toast.error(`Cannot prescribe: Insufficient inventory. Only ${drugData.quantity} available.`);
-            return;
+            if (drugData.quantity < drugQuantity) {
+                toast.error(`Cannot prescribe: Insufficient inventory (Only ${drugData.quantity} available). Use "Buy Outside" mode if needed for records.`);
+                return;
+            }
         }
 
         const newDrugItem = {
@@ -864,7 +869,8 @@ const PatientDetails = () => {
             dosage: drugDosage || 'As directed',
             form: drugForm || 'As directed',
             frequency: drugFrequency || 'As directed',
-            duration: (drugDuration && !isNaN(drugDuration)) ? `${drugDuration} days` : (drugDuration || 'As directed')
+            duration: (drugDuration && !isNaN(drugDuration)) ? `${drugDuration} days` : (drugDuration || 'As directed'),
+            buyOutside: buyOutside // Include flag
         };
 
         setTempDrugs([...tempDrugs, newDrugItem]);
@@ -904,7 +910,8 @@ const PatientDetails = () => {
                     duration: drugItem.duration,
                     route: drugItem.route,
                     form: drugItem.form,
-                    quantity: drugItem.quantity
+                    quantity: drugItem.quantity,
+                    buyOutside: drugItem.buyOutside // Pass the flag
                 }],
                 notes: 'Doctor prescribed'
             },
@@ -2347,7 +2354,14 @@ const PatientDetails = () => {
                                                                                     <div className="flex-1">
                                                                                         {rx.medicines.map((med, idx) => (
                                                                                             <div key={idx} className="mb-3 last:mb-0">
-                                                                                                <p className="font-semibold text-lg text-gray-800">{med.name}</p>
+                                                                                                <p className="font-semibold text-lg text-gray-800 flex items-center gap-2">
+                                                                                                    {med.name}
+                                                                                                    {med.buyOutside && (
+                                                                                                        <span className="text-[10px] bg-orange-100 text-orange-800 px-2 py-0.5 rounded border border-orange-200">
+                                                                                                            BUY OUTSIDE
+                                                                                                        </span>
+                                                                                                    )}
+                                                                                                </p>
                                                                                                 <div className="text-sm text-gray-600 space-y-1 mt-1">
                                                                                                     <p><span className="font-medium">Dosage:</span> {med.dosage}</p>
                                                                                                     <p><span className="font-medium">Frequency:</span> {med.frequency}</p>
@@ -3242,10 +3256,18 @@ const PatientDetails = () => {
                                                     {filteredDrugs.map(drug => (
                                                         <div
                                                             key={drug._id}
-                                                            className="p-2 hover:bg-blue-50 cursor-pointer text-sm"
+                                                            className={`p-2 hover:bg-blue-50 cursor-pointer text-sm ${drug.quantity <= 0 || (drug.expiryDate && new Date(drug.expiryDate) < new Date()) ? 'bg-red-50' : ''}`}
                                                             onClick={() => handleSelectDrugFromSearch(drug)}
                                                         >
-                                                            <div className="font-semibold">{drug.name}</div>
+                                                            <div className="font-semibold flex justify-between">
+                                                                <span>{drug.name}</span>
+                                                                {drug.expiryDate && new Date(drug.expiryDate) < new Date() && (
+                                                                    <span className="text-[10px] bg-red-600 text-white px-1 rounded">EXPIRED</span>
+                                                                )}
+                                                                {drug.quantity <= 0 && (
+                                                                    <span className="text-[10px] bg-gray-600 text-white px-1 rounded">OUT OF STOCK</span>
+                                                                )}
+                                                            </div>
                                                             <div className="text-xs text-gray-500">Stock: {drug.quantity} | ₦{drug.price}</div>
                                                         </div>
                                                     ))}
@@ -3339,10 +3361,19 @@ const PatientDetails = () => {
                                                         min="1"
                                                     />
                                                 </div>
+                                                <div className="flex flex-col items-center justify-center h-full mb-1">
+                                                    <label className="text-[10px] text-gray-600 mb-1 font-bold">Buy Outside</label>
+                                                    <input
+                                                        type="checkbox"
+                                                        className="w-5 h-5 cursor-pointer accent-red-600"
+                                                        checked={buyOutside}
+                                                        onChange={(e) => setBuyOutside(e.target.checked)}
+                                                    />
+                                                </div>
                                                 <div>
                                                     <button
                                                         onClick={handleAddDrugToQueue}
-                                                        className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700 text-sm font-semibold"
+                                                        className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700 text-sm font-semibold h-[38px]"
                                                     >
                                                         Add
                                                     </button>
@@ -3375,8 +3406,17 @@ const PatientDetails = () => {
                                                     </tr>
                                                 ) : (
                                                     tempDrugs.map(drug => (
-                                                        <tr key={drug.id} className="border-b">
-                                                            <td className="p-2 font-semibold">{drug.name}</td>
+                                                        <tr key={drug.id} className={`border-b ${drug.buyOutside ? 'bg-orange-50' : ''}`}>
+                                                            <td className="p-2 font-semibold">
+                                                                <div className="flex items-center gap-1">
+                                                                    {drug.name}
+                                                                    {drug.buyOutside && (
+                                                                        <span className="text-[10px] bg-orange-200 text-orange-800 px-1 rounded border border-orange-300">
+                                                                            BUY OUTSIDE
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </td>
                                                             <td className="p-2">{drug.route}</td>
                                                             <td className="p-2">{drug.dosage}</td>
                                                             <td className="p-2">{drug.form}</td>
