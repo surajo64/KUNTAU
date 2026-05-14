@@ -278,35 +278,35 @@ const RevenueReports = () => {
                     <>
                         {/* Summary Cards */}
                         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-6">
-                            <div className="bg-white p-6 rounded-lg shadow">
+                            <div className="bg-white p-4 rounded-lg shadow">
                                 <p className="text-gray-600 text-sm font-semibold mb-2">Total Revenue</p>
-                                <p className="text-3xl font-bold text-green-600">
+                                <p className="text-2xl font-bold text-green-600">
                                     ₦{reportData.summary?.totalRevenue?.toLocaleString() || 0}
                                 </p>
                                 <p className="text-xs text-gray-500 mt-2">Paid transactions</p>
                             </div>
-                            <div className="bg-white p-6 rounded-lg shadow">
-                                <p className="text-gray-600 text-sm font-semibold mb-2">Pending Insurence</p>
-                                <p className="text-3xl font-bold text-yellow-600">
+                            <div className="bg-white p-4 rounded-lg shadow">
+                                <p className="text-gray-600 text-sm font-semibold mb-2">Pending Insurance</p>
+                                <p className="text-2xl font-bold text-yellow-600">
                                     ₦{reportData.summary?.pendingInsuranceRevenue?.toLocaleString() || 0}
                                 </p>
                                 <p className="text-xs text-gray-500 mt-2">Patient portion not paid</p>
                             </div>
-                            <div className="bg-white p-6 rounded-lg shadow">
+                            <div className="bg-white p-4 rounded-lg shadow">
                                 <p className="text-gray-600 text-sm font-semibold mb-2">Pending Patient</p>
-                                <p className="text-3xl font-bold text-yellow-600">
+                                <p className="text-2xl font-bold text-yellow-600">
                                     ₦{reportData.summary?.pendingPatientRevenue?.toLocaleString() || 0}
                                 </p>
                                 <p className="text-xs text-gray-500 mt-2">Awaiting patient payment</p>
                             </div>
-                            <div className="bg-white p-6 rounded-lg shadow">
+                            <div className="bg-white p-4 rounded-lg shadow">
                                 <p className="text-gray-600 text-sm font-semibold mb-2">Pending HMO Payment</p>
-                                <p className="text-3xl font-bold text-orange-600">
+                                <p className="text-2xl font-bold text-orange-600">
                                     ₦{reportData.summary?.pendingHMOAmount?.toLocaleString() || 0}
                                 </p>
                                 <p className="text-xs text-gray-500 mt-2">Awaiting HMO payment</p>
                             </div>
-                            <div className="bg-white p-6 rounded-lg shadow">
+                            <div className="bg-white p-4 rounded-lg shadow">
                                 <p className="text-gray-600 text-sm font-semibold mb-2">
                                     {department === 'lab' ? 'Total Tests' :
                                         department === 'radiology' ? 'Total Scans' :
@@ -315,7 +315,7 @@ const RevenueReports = () => {
                                                     department === 'retainership' ? 'Total Reg.' :
                                                         'Total Charges'}
                                 </p>
-                                <p className="text-3xl font-bold text-blue-600">
+                                <p className="text-2xl font-bold text-blue-600">
                                     {reportData.summary?.totalTests ||
                                         reportData.summary?.totalScans ||
                                         reportData.summary?.totalPrescriptions ||
@@ -324,7 +324,7 @@ const RevenueReports = () => {
                                 </p>
                                 <p className="text-xs text-gray-500 mt-2">In date range</p>
                             </div>
-                            <div className="bg-white p-6 rounded-lg shadow">
+                            <div className="bg-white p-4 rounded-lg shadow">
                                 <p className="text-gray-600 text-sm font-semibold mb-2">
                                     {department === 'lab' ? 'Paid Tests' :
                                         department === 'radiology' ? 'Paid Scans' :
@@ -333,7 +333,7 @@ const RevenueReports = () => {
                                                     department === 'retainership' ? 'Paid Reg.' :
                                                         'Paid Charges'}
                                 </p>
-                                <p className="text-3xl font-bold text-purple-600">
+                                <p className="text-2xl font-bold text-purple-600">
                                     {reportData.summary?.paidTests ||
                                         reportData.summary?.paidScans ||
                                         reportData.summary?.paidPrescriptions ||
@@ -354,7 +354,7 @@ const RevenueReports = () => {
                                             <p className="text-gray-600 text-sm font-semibold mb-1 capitalize">
                                                 {dept === 'retainership' ? 'Retainership Reg.' : dept}
                                             </p>
-                                            <p className="text-2xl font-bold text-green-600">
+                                            <p className="text-xl font-bold text-green-600">
                                                 ₦{data.revenue?.toLocaleString() || 0}
                                             </p>
                                             <p className="text-xs text-gray-500 mt-1">{data.count} items</p>
