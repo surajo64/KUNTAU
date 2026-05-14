@@ -947,26 +947,106 @@ const getDashboardStats = async (req, res) => {
         const patientsThisWeek = await Visit.countDocuments({ createdAt: { $gte: thisWeek } });
         const patientsThisMonth = await Visit.countDocuments({ createdAt: { $gte: thisMonth } });
 
-        // Revenue
-        const revenueToday = await EncounterCharge.aggregate([
-            { $match: { createdAt: { $gte: today }, status: 'paid' } },
-            { $group: { _id: null, total: { $sum: '$totalAmount' } } }
-        ]);
+        // --- REVENUE CALCULATION (CASH BASIS) ---
+        // Fetch all paid charges for refined calculation
+        const allPaidCharges = await EncounterCharge.find({ status: 'paid' })
+            .populate('charge', 'type name')
+            .populate('receipt');
 
-        const revenueThisWeek = await EncounterCharge.aggregate([
-            { $match: { createdAt: { $gte: thisWeek }, status: 'paid' } },
-            { $group: { _id: null, total: { $sum: '$totalAmount' } } }
-        ]);
+        // Fetch all paid claims to identify collected HMO portions
+        const Claim = require('../models/claimModel');
+        const paidClaims = await Claim.find({ status: 'paid' });
+        const paidClaimsMap = new Map(paidClaims.map(c => [c.encounter.toString(), c]));
 
-        const revenueThisMonth = await EncounterCharge.aggregate([
-            { $match: { createdAt: { $gte: thisMonth }, status: 'paid' } },
-            { $group: { _id: null, total: { $sum: '$totalAmount' } } }
-        ]);
+        // Fetch other revenue sources
+        const familyReceipts = await Receipt.find({ familyFile: { $exists: true } });
+        const retainershipReceipts = await Receipt.find({ hmo: { $exists: true } });
 
-        const totalRevenue = await EncounterCharge.aggregate([
-            { $match: { status: 'paid' } },
-            { $group: { _id: null, total: { $sum: '$totalAmount' } } }
-        ]);
+        // Helper to check if a date is within a range
+        const isToday = (d) => d >= today;
+        const isThisWeek = (d) => d >= thisWeek;
+        const isThisMonth = (d) => d >= thisMonth;
+
+        // Process each charge to calculate its "collected" revenue
+        const processedCharges = allPaidCharges.map(charge => {
+            let collectedRevenue = 0;
+            if (charge.receipt?.paymentMethod === 'insurance') {
+                // Insurance: add patient portion
+                collectedRevenue += (charge.patientPortion || 0);
+
+                // Insurance: add HMO portion ONLY if claim is paid
+                const encId = (charge.encounter?._id || charge.encounter)?.toString();
+                const claim = paidClaimsMap.get(encId);
+                if (claim && claim.paidDate && new Date(charge.createdAt) <= new Date(claim.paidDate)) {
+                    collectedRevenue += (charge.hmoPortion || 0);
+                }
+            } else if (charge.receipt) {
+                // Non-insurance: add full amount
+                collectedRevenue = charge.totalAmount;
+            }
+
+            return {
+                ...charge.toObject(),
+                collectedRevenue,
+                date: new Date(charge.createdAt)
+            };
+        });
+
+        // Sum up totals
+        const revenue = {
+            today: 0,
+            thisWeek: 0,
+            thisMonth: 0,
+            total: 0
+        };
+
+        const revenueByDept = {};
+
+        processedCharges.forEach(c => {
+            const rev = c.collectedRevenue;
+            const date = c.date;
+
+            revenue.total += rev;
+            if (isToday(date)) revenue.today += rev;
+            if (isThisWeek(date)) revenue.thisWeek += rev;
+            if (isThisMonth(date)) revenue.thisMonth += rev;
+
+            // Dept breakdown (All Time)
+            const type = c.charge?.type || 'other';
+            const dept = type === 'drugs' ? 'pharmacy' : type;
+            if (!revenueByDept[dept]) revenueByDept[dept] = 0;
+            revenueByDept[dept] += rev;
+        });
+
+        // Add Family & Retainership revenue
+        familyReceipts.forEach(r => {
+            const rev = r.amountPaid;
+            const date = new Date(r.createdAt);
+            revenue.total += rev;
+            if (isToday(date)) revenue.today += rev;
+            if (isThisWeek(date)) revenue.thisWeek += rev;
+            if (isThisMonth(date)) revenue.thisMonth += rev;
+
+            if (!revenueByDept['family']) revenueByDept['family'] = 0;
+            revenueByDept['family'] += rev;
+        });
+
+        retainershipReceipts.forEach(r => {
+            const rev = r.amountPaid;
+            const date = new Date(r.createdAt);
+            revenue.total += rev;
+            if (isToday(date)) revenue.today += rev;
+            if (isThisWeek(date)) revenue.thisWeek += rev;
+            if (isThisMonth(date)) revenue.thisMonth += rev;
+
+            if (!revenueByDept['retainership']) revenueByDept['retainership'] = 0;
+            revenueByDept['retainership'] += rev;
+        });
+
+        const revenueByDepartmentArray = Object.entries(revenueByDept).map(([name, value]) => ({
+            name: name.charAt(0).toUpperCase() + name.slice(1),
+            revenue: value
+        }));
 
         // Active encounters
         const activeEncounters = await Visit.countDocuments({ encounterStatus: 'active' });
@@ -991,25 +1071,6 @@ const getDashboardStats = async (req, res) => {
                 }
             }
         ]);
-
-        // Revenue by Department (All Time)
-        const charges = await EncounterCharge.find({ status: 'paid' }).populate('charge', 'type');
-        const revenueByDepartment = {};
-
-        charges.forEach(c => {
-            const type = c.charge?.type || 'other';
-            const dept = type === 'drugs' ? 'pharmacy' : type; // Normalize 'drugs' to 'pharmacy'
-
-            if (!revenueByDepartment[dept]) {
-                revenueByDepartment[dept] = 0;
-            }
-            revenueByDepartment[dept] += c.totalAmount;
-        });
-
-        const revenueByDepartmentArray = Object.entries(revenueByDepartment).map(([name, value]) => ({
-            name: name.charAt(0).toUpperCase() + name.slice(1),
-            revenue: value
-        }));
 
         // Calculate Pending HMO Amount correctly
         // 1. Pending charges (not yet paid by patient or HMO)
@@ -1067,10 +1128,10 @@ const getDashboardStats = async (req, res) => {
                 thisMonth: patientsThisMonth
             },
             revenue: {
-                today: revenueToday[0]?.total || 0,
-                thisWeek: revenueThisWeek[0]?.total || 0,
-                thisMonth: revenueThisMonth[0]?.total || 0,
-                total: totalRevenue[0]?.total || 0
+                today: revenue.today,
+                thisWeek: revenue.thisWeek,
+                thisMonth: revenue.thisMonth,
+                total: revenue.total
             },
             counts: {
                 users: totalUsers,
