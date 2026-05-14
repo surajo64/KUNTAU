@@ -286,11 +286,11 @@ const RevenueReports = () => {
                                 <p className="text-xs text-gray-500 mt-2">Paid transactions</p>
                             </div>
                             <div className="bg-white p-4 rounded-lg shadow">
-                                <p className="text-gray-600 text-sm font-semibold mb-2">Pending Insurance</p>
+                                <p className="text-gray-600 text-sm font-semibold mb-2">HMO / Retainership Pending</p>
                                 <p className="text-2xl font-bold text-yellow-600">
                                     ₦{reportData.summary?.pendingInsuranceRevenue?.toLocaleString() || 0}
                                 </p>
-                                <p className="text-xs text-gray-500 mt-2">Patient portion not paid</p>
+                                <p className="text-xs text-gray-500 mt-2">Insurance portion not paid</p>
                             </div>
                             <div className="bg-white p-4 rounded-lg shadow">
                                 <p className="text-gray-600 text-sm font-semibold mb-2">Pending Patient</p>
@@ -300,7 +300,7 @@ const RevenueReports = () => {
                                 <p className="text-xs text-gray-500 mt-2">Awaiting patient payment</p>
                             </div>
                             <div className="bg-white p-4 rounded-lg shadow">
-                                <p className="text-gray-600 text-sm font-semibold mb-2">Pending HMO Payment</p>
+                                <p className="text-gray-600 text-sm font-semibold mb-2">HMO / Retainership Paid Claims</p>
                                 <p className="text-2xl font-bold text-orange-600">
                                     ₦{reportData.summary?.pendingHMOAmount?.toLocaleString() || 0}
                                 </p>
