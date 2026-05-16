@@ -27,6 +27,8 @@ const FrontDeskDashboard = () => {
     const [encounterType, setEncounterType] = useState('Outpatient');
     const [reasonForVisit, setReasonForVisit] = useState('');
     const [isANC, setIsANC] = useState(false);
+    const [isWaived, setIsWaived] = useState(false);
+
 
     const [selectedWard, setSelectedWard] = useState('');
     const [selectedBed, setSelectedBed] = useState('');
@@ -301,6 +303,7 @@ const FrontDeskDashboard = () => {
         setSelectedWard('');
         setSelectedBed('');
         setIsANC(false);
+        setIsWaived(false);
     };
 
     const handleChargeToggle = (chargeId) => {
@@ -319,8 +322,8 @@ const FrontDeskDashboard = () => {
             return;
         }
 
-        if (!isANC && !['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && selectedCharges.length === 0) {
-            toast.error('Please select at least one charge, or check the ANC checkbox to skip charges');
+        if (!isANC && !isWaived && !['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && selectedCharges.length === 0) {
+            toast.error('Please select at least one charge, or check the ANC/Waive Fee checkbox to skip charges');
             return;
         }
 
@@ -340,7 +343,8 @@ const FrontDeskDashboard = () => {
                 encounterStatus: 'registered',
                 ward: encounterType === 'Inpatient' ? selectedWard : undefined,
                 bed: encounterType === 'Inpatient' ? selectedBed : undefined,
-                isANC: isANC
+                isANC: isANC,
+                isWaived: isWaived
             };
             const visitResponse = await axios.post(`${backendUrl}/api/visits`, visitData, config);
 
@@ -361,10 +365,14 @@ const FrontDeskDashboard = () => {
             const totalAmount = selectedChargeObjects.reduce((sum, c) => sum + c.basePrice, 0);
 
             if (!['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType)) {
-                const newStatus = isANC ? 'in_nursing' : (totalAmount > 0 ? 'payment_pending' : 'in_nursing');
+                const newStatus = (isANC || isWaived) ? 'in_nursing' : (totalAmount > 0 ? 'payment_pending' : 'in_nursing');
                 await axios.put(
                     `${backendUrl}/api/visits/${visitResponse.data._id}`,
-                    { encounterStatus: newStatus, isANC: isANC || undefined },
+                    { 
+                        encounterStatus: newStatus, 
+                        isANC: isANC || undefined,
+                        isWaived: isWaived || undefined
+                    },
                     config
                 );
             }
@@ -1037,13 +1045,39 @@ const FrontDeskDashboard = () => {
                                         checked={isANC}
                                         onChange={(e) => {
                                             setIsANC(e.target.checked);
-                                            if (e.target.checked) setSelectedCharges([]);
+                                            if (e.target.checked) {
+                                                setSelectedCharges([]);
+                                                setIsWaived(false);
+                                            }
                                         }}
                                         className="w-5 h-5 accent-pink-600"
                                     />
                                     <div>
                                         <p className="font-bold text-pink-700 text-sm">🤰 Antenatal Care (ANC) Follow-Up Visit</p>
                                         <p className="text-xs text-pink-500 mt-0.5">Check for ANC patients — no charges now. Uncheck when doctor consultation charges are needed.</p>
+                                    </div>
+                                </label>
+                            </div>
+
+                            {/* Waive Fee Checkbox */}
+                            <div className="mb-6">
+                                <label className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${isWaived ? 'bg-green-50 border-green-400' : 'bg-gray-50 border-gray-200 hover:border-green-300'
+                                    }`}>
+                                    <input
+                                        type="checkbox"
+                                        checked={isWaived}
+                                        onChange={(e) => {
+                                            setIsWaived(e.target.checked);
+                                            if (e.target.checked) {
+                                                setSelectedCharges([]);
+                                                setIsANC(false);
+                                            }
+                                        }}
+                                        className="w-5 h-5 accent-green-600"
+                                    />
+                                    <div>
+                                        <p className="font-bold text-green-700 text-sm">🎟 Waive Consultation Fee</p>
+                                        <p className="text-xs text-green-500 mt-0.5">Free Consultation — skip charges and bypass payment validation.</p>
                                     </div>
                                 </label>
                             </div>
@@ -1185,10 +1219,13 @@ const FrontDeskDashboard = () => {
                             </button>
                             <button
                                 onClick={handleCreateEncounter}
-                                className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 flex items-center gap-2"
-                                disabled={!isANC && !['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && selectedCharges.length === 0}
+                                disabled={!isANC && !isWaived && !['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && selectedCharges.length === 0}
+                                className={`px-6 py-2 rounded flex items-center gap-2 transition-all text-white ${(!isANC && !isWaived && !['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && selectedCharges.length === 0)
+                                    ? 'bg-gray-400 cursor-not-allowed'
+                                    : (isANC ? 'bg-pink-600 hover:bg-pink-700' : isWaived ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700')
+                                    }`}
                             >
-                                <FaPlus /> {isANC ? '🤰 Create ANC Encounter' : 'Create Encounter'}
+                                <FaPlus /> {isANC ? '🤰 Create ANC Encounter' : isWaived ? '🎟 Create Waived Encounter' : 'Create Encounter'}
                             </button>
                         </div>
                     </div>

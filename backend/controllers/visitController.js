@@ -5,7 +5,7 @@ const Visit = require('../models/visitModel');
 // @route   POST /api/visits
 // @access  Private
 const createVisit = async (req, res) => {
-    const { patientId, appointmentId, type, clinic, encounterType, reasonForVisit, ward, bed, isANC } = req.body;
+    const { patientId, appointmentId, type, clinic, encounterType, reasonForVisit, ward, bed, isANC, isWaived } = req.body;
 
     // Check for existing visit today
     const startOfDay = new Date();
@@ -67,7 +67,11 @@ const createVisit = async (req, res) => {
             : (type === 'Inpatient' ? 'admitted' : (req.body.encounterStatus || 'registered')),
         status: type === 'Inpatient' ? 'Admitted' : 'In Progress',
         reasonForVisit,
-        isANC: !!isANC
+        isANC: !!isANC,
+        isWaived: !!isWaived,
+        waivedBy: !!isWaived ? req.user._id : undefined
+
+
     });
 
     // Apply Initial Ward Charge for Inpatient
@@ -147,7 +151,8 @@ const getVisits = async (req, res) => {
         .populate('patient', 'name mrn age gender contact')
         .populate('doctor', 'name')
         .populate('clinic', 'name department')
-        .populate('ward', 'name dailyRate');
+        .populate('ward', 'name dailyRate')
+        .populate('waivedBy', 'name');
     res.json(visits);
 };
 
@@ -157,7 +162,7 @@ const getVisits = async (req, res) => {
 const updateVisit = async (req, res) => {
     const {
         chiefComplaint, historyOfIllness, diagnosis, status, dischargeDate,
-        encounterStatus, paymentValidated, receiptNumber, consultingPhysician, nursingNotes, isANC,
+        encounterStatus, paymentValidated, receiptNumber, consultingPhysician, nursingNotes, isANC, isWaived,
         subjective, objective, assessment, plan,
         // New structured clinical documentation fields
         presentingComplaints,
@@ -218,6 +223,16 @@ const updateVisit = async (req, res) => {
         if (consultingPhysician) visit.consultingPhysician = consultingPhysician;
         if (nursingNotes) visit.nursingNotes = nursingNotes;
         if (isANC !== undefined) visit.isANC = !!isANC;
+        if (isWaived !== undefined) {
+            visit.isWaived = !!isWaived;
+            if (!!isWaived && !visit.waivedBy) {
+                visit.waivedBy = req.user._id;
+            } else if (!isWaived) {
+                visit.waivedBy = undefined;
+            }
+        }
+
+
 
         // Structured Clinical Documentation Fields
         if (presentingComplaints !== undefined) visit.presentingComplaints = presentingComplaints;
@@ -270,7 +285,8 @@ const getVisitById = async (req, res) => {
         .populate('doctor', 'name')
         .populate('consultingPhysician', 'name')
         .populate('clinic', 'name department')
-        .populate('ward', 'name dailyRate');
+        .populate('ward', 'name dailyRate')
+        .populate('waivedBy', 'name');
 
     if (visit) {
         res.json(visit);
@@ -307,7 +323,8 @@ const getVisitsByPatient = async (req, res) => {
             .populate('doctor', 'name')
             .populate('consultingPhysician', 'name')
             .populate('clinic', 'name department')
-            .populate('ward', 'name');
+            .populate('ward', 'name')
+            .populate('waivedBy', 'name');
         res.json(visits);
     } catch (error) {
         res.status(500).json({ message: error.message });
