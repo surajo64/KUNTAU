@@ -3,7 +3,7 @@ import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
-import { FaDollarSign, FaFileInvoiceDollar, FaCheckCircle, FaUndo, FaWallet, FaPrint, FaSearch, FaUser, FaExclamationTriangle, FaBuilding, FaHistory, FaPlus } from 'react-icons/fa';
+import { FaDollarSign, FaFileInvoiceDollar, FaCheckCircle, FaUndo, FaWallet, FaPrint, FaSearch, FaUser, FaExclamationTriangle, FaBuilding, FaHistory, FaPlus, FaEdit, FaTrash } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import LoadingOverlay from '../components/loadingOverlay';
 import { formatAge } from '../utils/patientUtils';
@@ -52,6 +52,15 @@ const BillingDashboard = () => {
     const [patientStatementStartDate, setPatientStatementStartDate] = useState('');
     const [patientStatementEndDate, setPatientStatementEndDate] = useState('');
 
+    const [totalRetainershipBalance, setTotalRetainershipBalance] = useState(0);
+
+    const [showHMOEditModal, setShowHMOEditModal] = useState(false);
+    const [editingTransaction, setEditingTransaction] = useState(null);
+    const [editAmount, setEditAmount] = useState('');
+    const [editDescription, setEditDescription] = useState('');
+    const [editReference, setEditReference] = useState('');
+    const [editDate, setEditDate] = useState('');
+
     const { user } = useContext(AuthContext);
     const { backendUrl } = useContext(AppContext);
 
@@ -97,8 +106,69 @@ const BillingDashboard = () => {
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             const { data } = await axios.get(`${backendUrl}/api/patients`, config);
             setPatients(data);
+            fetchTotalRetainershipBalance();
         } catch (error) {
             console.error(error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const fetchTotalRetainershipBalance = async () => {
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const { data } = await axios.get(`${backendUrl}/api/hmo-transactions/total-retainership-balance`, config);
+            setTotalRetainershipBalance(data.balance || 0);
+        } catch (error) {
+            console.error('Error fetching total retainership balance:', error);
+        }
+    };
+
+    const handleEditTransaction = (tx) => {
+        setEditingTransaction(tx);
+        setEditAmount(tx.amount);
+        setEditDescription(tx.description);
+        setEditReference(tx.reference || '');
+        setEditDate(new Date(tx.date).toISOString().split('T')[0]);
+        setShowHMOEditModal(true);
+    };
+
+    const handleUpdateHMOTransaction = async (e) => {
+        e.preventDefault();
+        try {
+            setLoading(true);
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            await axios.put(`${backendUrl}/api/hmo-transactions/${editingTransaction._id}`, {
+                amount: Number(editAmount),
+                description: editDescription,
+                reference: editReference,
+                date: editDate
+            }, config);
+
+            toast.success('Transaction updated successfully');
+            setShowHMOEditModal(false);
+            fetchHMOStatement(selectedHMO._id);
+            fetchTotalRetainershipBalance();
+        } catch (error) {
+            console.error(error);
+            toast.error(error.response?.data?.message || 'Error updating transaction');
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleDeleteTransaction = async (tx) => {
+        if (!window.confirm('Are you sure you want to delete this transaction? This action cannot be undone.')) return;
+        try {
+            setLoading(true);
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            await axios.delete(`${backendUrl}/api/hmo-transactions/${tx._id}`, config);
+            toast.success('Transaction deleted');
+            fetchHMOStatement(selectedHMO._id);
+            fetchTotalRetainershipBalance();
+        } catch (error) {
+            console.error(error);
+            toast.error(error.response?.data?.message || 'Error deleting transaction');
         } finally {
             setLoading(false);
         }
@@ -193,6 +263,7 @@ const BillingDashboard = () => {
 
             // Refresh statement
             fetchHMOStatement(selectedHMO._id);
+            fetchTotalRetainershipBalance();
         } catch (error) {
             console.error(error);
             toast.error(error.response?.data?.message || 'Error adding deposit');
@@ -244,17 +315,17 @@ const BillingDashboard = () => {
             toast.success('Deposit refunded successfully!');
             setShowRefundModal(false);
             setRefundAmount('');
-            
+
             // Refresh patient data
             const patientRes = await axios.get(`${backendUrl}/api/patients/${selectedPatient}`, config);
             const depositRes = await axios.get(`${backendUrl}/api/patients/${selectedPatient}/deposit`, config);
-            
-            setViewingPatient({ 
-                ...patientRes.data, 
-                depositBalance: depositRes.data.balance, 
-                lowDepositThreshold: depositRes.data.threshold 
+
+            setViewingPatient({
+                ...patientRes.data,
+                depositBalance: depositRes.data.balance,
+                lowDepositThreshold: depositRes.data.threshold
             });
-            
+
             fetchPatients();
             fetchReceipts();
         } catch (error) {
@@ -284,12 +355,12 @@ const BillingDashboard = () => {
 
         // Apply date filter if selected
         if (patientStatementStartDate) {
-            patientReceipts = patientReceipts.filter(r => 
+            patientReceipts = patientReceipts.filter(r =>
                 new Date(r.createdAt).toISOString().split('T')[0] >= patientStatementStartDate
             );
         }
         if (patientStatementEndDate) {
-            patientReceipts = patientReceipts.filter(r => 
+            patientReceipts = patientReceipts.filter(r =>
                 new Date(r.createdAt).toISOString().split('T')[0] <= patientStatementEndDate
             );
         }
@@ -668,8 +739,8 @@ const BillingDashboard = () => {
         }
 
         const isFullReversal = selectedChargesToReverse.length === reversingReceipt.charges.length;
-        const confirmMsg = isFullReversal 
-            ? 'Are you sure you want to reverse this entire payment?' 
+        const confirmMsg = isFullReversal
+            ? 'Are you sure you want to reverse this entire payment?'
             : `Are you sure you want to reverse ${selectedChargesToReverse.length} selected item(s)?`;
 
         if (!window.confirm(confirmMsg)) {
@@ -682,7 +753,7 @@ const BillingDashboard = () => {
             await axios.post(`${backendUrl}/api/receipts/${reversingReceipt._id}/reverse`, {
                 chargeIds: selectedChargesToReverse
             }, config);
-            
+
             toast.success(isFullReversal ? 'Payment reversed successfully!' : 'Selected items reversed successfully!');
             setShowReverseModal(false);
             setReversingReceipt(null);
@@ -803,6 +874,8 @@ const BillingDashboard = () => {
 
     const totalReceiptsToday = receipts.filter(r => new Date(r.createdAt).toDateString() === new Date().toDateString()).length;
 
+    const totalPatientDeposits = patients.reduce((sum, p) => sum + (p.depositBalance || 0), 0);
+
     return (
         <Layout>
             {loading && <LoadingOverlay />}
@@ -854,7 +927,7 @@ const BillingDashboard = () => {
             {activeTab === 'invoices' ? (
                 <>
                     {/* Summary Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
                         <div className="bg-green-50 p-6 rounded shadow">
                             <p className="text-green-700 text-sm font-semibold">Collected Today</p>
                             <p className="text-3xl font-bold text-green-800">₦{totalCollectedToday.toLocaleString()}</p>
@@ -867,6 +940,14 @@ const BillingDashboard = () => {
                         <div className="bg-blue-50 p-6 rounded shadow">
                             <p className="text-blue-700 text-sm font-semibold">Total Receipts Today</p>
                             <p className="text-3xl font-bold text-blue-800">{totalReceiptsToday}</p>
+                        </div>
+                        <div className="bg-purple-50 p-6 rounded shadow">
+                            <p className="text-purple-700 text-sm font-semibold">Total Deposit Balance</p>
+                            <p className="text-3xl font-bold text-purple-800">₦{(totalPatientDeposits + totalRetainershipBalance).toLocaleString()}</p>
+                            <div className="flex justify-between text-xs text-purple-600 mt-2 border-t border-purple-200 pt-2">
+                                <span>Patients: ₦{totalPatientDeposits.toLocaleString()}</span>
+                                <span>Retainership: ₦{totalRetainershipBalance.toLocaleString()}</span>
+                            </div>
                         </div>
                     </div>
 
@@ -882,7 +963,7 @@ const BillingDashboard = () => {
                                             <label className="block text-gray-700 mb-2">Search Patient</label>
                                             <input
                                                 type="text"
-                                                placeholder="Name or MRN..."
+                                                placeholder="Name, MRN or Phone..."
                                                 className="w-full border p-2 rounded"
                                                 value={depositSearchTerm}
                                                 onChange={(e) => setDepositSearchTerm(e.target.value)}
@@ -894,7 +975,8 @@ const BillingDashboard = () => {
                                                 .filter(p =>
                                                     !depositSearchTerm ||
                                                     p.name.toLowerCase().includes(depositSearchTerm.toLowerCase()) ||
-                                                    (p.mrn && p.mrn.toLowerCase().includes(depositSearchTerm.toLowerCase()))
+                                                    (p.mrn && p.mrn.toLowerCase().includes(depositSearchTerm.toLowerCase())) ||
+                                                    (p.contact && p.contact.includes(depositSearchTerm))
                                                 )
                                                 .slice(0, 10)
                                                 .map(p => (
@@ -1021,7 +1103,7 @@ const BillingDashboard = () => {
                                 </h3>
                                 <input
                                     type="text"
-                                    placeholder="Search by name or MRN..."
+                                    placeholder="Search by Name, MRN or Phone..."
                                     className="w-full border p-2 rounded mb-4"
                                     value={patientSearchTerm}
                                     onChange={(e) => setPatientSearchTerm(e.target.value)}
@@ -1030,7 +1112,8 @@ const BillingDashboard = () => {
                                     {patients
                                         .filter(p =>
                                             p.name.toLowerCase().includes(patientSearchTerm.toLowerCase()) ||
-                                            (p.mrn && p.mrn.toLowerCase().includes(patientSearchTerm.toLowerCase()))
+                                            (p.mrn && p.mrn.toLowerCase().includes(patientSearchTerm.toLowerCase())) ||
+                                            (p.contact && p.contact.includes(patientSearchTerm))
                                         )
                                         .slice(0, 10)
                                         .map(patient => (
@@ -1050,7 +1133,8 @@ const BillingDashboard = () => {
                                         ))}
                                     {patients.filter(p =>
                                         p.name.toLowerCase().includes(patientSearchTerm.toLowerCase()) ||
-                                        (p.mrn && p.mrn.toLowerCase().includes(patientSearchTerm.toLowerCase()))
+                                        (p.mrn && p.mrn.toLowerCase().includes(patientSearchTerm.toLowerCase())) ||
+                                        (p.contact && p.contact.includes(patientSearchTerm))
                                     ).length === 0 && (
                                             <p className="text-gray-500 text-center py-4">No patients found</p>
                                         )}
@@ -1154,7 +1238,7 @@ const BillingDashboard = () => {
                                     <div className="grid grid-cols-2 gap-4">
                                         <div>
                                             <label className="block text-xs font-semibold text-gray-600 mb-1">Start Date</label>
-                                            <input 
+                                            <input
                                                 type="date"
                                                 value={patientStatementStartDate}
                                                 onChange={(e) => setPatientStatementStartDate(e.target.value)}
@@ -1163,7 +1247,7 @@ const BillingDashboard = () => {
                                         </div>
                                         <div>
                                             <label className="block text-xs font-semibold text-gray-600 mb-1">End Date</label>
-                                            <input 
+                                            <input
                                                 type="date"
                                                 value={patientStatementEndDate}
                                                 onChange={(e) => setPatientStatementEndDate(e.target.value)}
@@ -1172,7 +1256,7 @@ const BillingDashboard = () => {
                                         </div>
                                     </div>
                                     {(patientStatementStartDate || patientStatementEndDate) && (
-                                        <button 
+                                        <button
                                             onClick={() => {
                                                 setPatientStatementStartDate('');
                                                 setPatientStatementEndDate('');
@@ -1191,18 +1275,20 @@ const BillingDashboard = () => {
                                     >
                                         <FaPrint /> Print Statement
                                     </button>
-                                    <button
-                                        onClick={() => {
-                                            setSelectedPatient(viewingPatient._id);
-                                            setShowRefundModal(true);
-                                            setRefundAmount('');
-                                            // Keep viewingPatient for context in the refund modal
-                                        }}
-                                        disabled={(viewingPatient.depositBalance || 0) <= 0}
-                                        className={`flex-1 px-4 py-2 rounded flex items-center justify-center gap-2 ${ (viewingPatient.depositBalance || 0) <= 0 ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-orange-600 text-white hover:bg-orange-700' }`}
-                                    >
-                                        <FaUndo /> Refund
-                                    </button>
+                                    {(user?.role === 'admin' || user?.role === 'super_admin') && (
+                                        <button
+                                            onClick={() => {
+                                                setSelectedPatient(viewingPatient._id);
+                                                setShowRefundModal(true);
+                                                setRefundAmount('');
+                                                // Keep viewingPatient for context in the refund modal
+                                            }}
+                                            disabled={(viewingPatient.depositBalance || 0) <= 0}
+                                            className={`flex-1 px-4 py-2 rounded flex items-center justify-center gap-2 ${(viewingPatient.depositBalance || 0) <= 0 ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-orange-600 text-white hover:bg-orange-700'}`}
+                                        >
+                                            <FaUndo /> Refund
+                                        </button>
+                                    )}
                                     <button
                                         onClick={() => {
                                             setSelectedPatient(viewingPatient._id);
@@ -1228,7 +1314,7 @@ const BillingDashboard = () => {
                                             <FaUndo className="text-red-600" /> Reverse Payment
                                         </h3>
                                         <p className="text-sm text-gray-500 mt-1">
-                                            Receipt: <span className="font-mono font-bold">{reversingReceipt.receiptNumber}</span> | 
+                                            Receipt: <span className="font-mono font-bold">{reversingReceipt.receiptNumber}</span> |
                                             Patient: <span className="font-bold">{reversingReceipt.patient?.name || reversingReceipt.familyFile?.familyName || 'N/A'}</span>
                                         </p>
                                     </div>
@@ -1253,7 +1339,7 @@ const BillingDashboard = () => {
                                         <thead className="bg-gray-100 sticky top-0">
                                             <tr>
                                                 <th className="p-3 border-b">
-                                                    <input 
+                                                    <input
                                                         type="checkbox"
                                                         checked={selectedChargesToReverse.length === reversingReceipt.charges?.length}
                                                         onChange={(e) => {
@@ -1274,7 +1360,7 @@ const BillingDashboard = () => {
                                             {reversingReceipt.charges?.map((item) => (
                                                 <tr key={item._id} className="hover:bg-gray-50">
                                                     <td className="p-3 border-b">
-                                                        <input 
+                                                        <input
                                                             type="checkbox"
                                                             checked={selectedChargesToReverse.includes(item._id)}
                                                             onChange={(e) => {
@@ -1327,11 +1413,10 @@ const BillingDashboard = () => {
                                         <button
                                             onClick={confirmReverseReceipt}
                                             disabled={selectedChargesToReverse.length === 0}
-                                            className={`px-6 py-2 rounded-lg flex items-center gap-2 font-bold transition shadow-md ${
-                                                selectedChargesToReverse.length === 0 
-                                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed' 
+                                            className={`px-6 py-2 rounded-lg flex items-center gap-2 font-bold transition shadow-md ${selectedChargesToReverse.length === 0
+                                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
                                                 : 'bg-red-600 text-white hover:bg-red-700'
-                                            }`}
+                                                }`}
                                         >
                                             <FaUndo /> Confirm Reverse
                                         </button>
@@ -1736,6 +1821,10 @@ const BillingDashboard = () => {
                                                 <th className="p-3 border-b">Description</th>
                                                 <th className="p-3 border-b">Reference</th>
                                                 <th className="p-3 border-b text-right">Amount</th>
+                                                {(user?.role === 'admin' || user?.role === 'super_admin') && (
+                                                    <th className="p-3 border-b text-center">Actions</th>
+                                                )}
+
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -1773,6 +1862,30 @@ const BillingDashboard = () => {
                                                             }`}>
                                                             {tx.isCredit ? '+' : '-'}₦{tx.amount.toLocaleString()}
                                                         </td>
+                                                        {(user?.role === 'admin' || user?.role === 'super_admin') && (
+                                                            <td className="p-3 border-b text-center">
+                                                                {tx.type === 'Deposit' ? (
+                                                                    <div className="flex justify-center gap-2 text-sm">
+                                                                        <button
+                                                                            onClick={() => handleEditTransaction(tx)}
+                                                                            className="text-blue-600 hover:text-blue-800"
+                                                                            title="Edit Transaction"
+                                                                        >
+                                                                            <FaEdit />
+                                                                        </button>
+                                                                        <button
+                                                                            onClick={() => handleDeleteTransaction(tx)}
+                                                                            className="text-red-600 hover:text-red-800"
+                                                                            title="Delete Transaction"
+                                                                        >
+                                                                            <FaTrash />
+                                                                        </button>
+                                                                    </div>
+                                                                ) : (
+                                                                    <span className="text-gray-300 text-[10px] font-bold">LOCKED</span>
+                                                                )}
+                                                            </td>
+                                                        )}
                                                     </tr>
                                                 ))
                                             )}
@@ -1832,6 +1945,77 @@ const BillingDashboard = () => {
                                             className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700"
                                         >
                                             Add Deposit
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
+                    {/* HMO Edit Transaction Modal */}
+                    {showHMOEditModal && (
+                        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                            <div className="bg-white p-6 rounded-lg w-[400px] shadow-2xl">
+                                <h3 className="text-xl font-bold mb-4 flex items-center gap-2">
+                                    <FaEdit className="text-blue-600" /> Edit Transaction
+                                </h3>
+                                <div className="mb-4 text-xs bg-blue-50 p-3 rounded-lg text-blue-700 border border-blue-100 flex items-center gap-2">
+                                    <FaExclamationTriangle />
+                                    <span>Updating this transaction will affect the current balance.</span>
+                                </div>
+                                <form onSubmit={handleUpdateHMOTransaction}>
+                                    <div className="mb-4">
+                                        <label className="block text-gray-700 text-sm font-semibold mb-1">Date</label>
+                                        <input
+                                            type="date"
+                                            className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                                            value={editDate}
+                                            onChange={(e) => setEditDate(e.target.value)}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="mb-4">
+                                        <label className="block text-gray-700 text-sm font-semibold mb-1">Amount (₦)</label>
+                                        <input
+                                            type="number"
+                                            className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                                            value={editAmount}
+                                            onChange={(e) => setEditAmount(e.target.value)}
+                                            required
+                                            min="0"
+                                        />
+                                    </div>
+                                    <div className="mb-4">
+                                        <label className="block text-gray-700 text-sm font-semibold mb-1">Description</label>
+                                        <input
+                                            type="text"
+                                            className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                                            value={editDescription}
+                                            onChange={(e) => setEditDescription(e.target.value)}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="mb-6">
+                                        <label className="block text-gray-700 text-sm font-semibold mb-1">Reference</label>
+                                        <input
+                                            type="text"
+                                            className="w-full border p-2 rounded focus:ring-2 focus:ring-blue-500 outline-none"
+                                            value={editReference}
+                                            onChange={(e) => setEditReference(e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="flex justify-end gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => setShowHMOEditModal(false)}
+                                            className="px-6 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-bold"
+                                        >
+                                            Cancel
+                                        </button>
+                                        <button
+                                            type="submit"
+                                            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold shadow-md"
+                                        >
+                                            Save Changes
                                         </button>
                                     </div>
                                 </form>

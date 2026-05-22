@@ -50,8 +50,6 @@ const PatientManagement = () => {
     const [selectedBed, setSelectedBed] = useState('');
     const [pendingEncounterPatient, setPendingEncounterPatient] = useState(null);
     const [isANC, setIsANC] = useState(false);
-    const [isWaived, setIsWaived] = useState(false);
-
 
     // Watch for pending encounter patient and register modal closing
     useEffect(() => {
@@ -209,7 +207,6 @@ const PatientManagement = () => {
         setSelectedWard('');
         setSelectedBed('');
         setIsANC(false);
-        setIsWaived(false);
     };
 
     const handleChargeToggle = (chargeId) => {
@@ -220,8 +217,8 @@ const PatientManagement = () => {
 
     const handleCreateEncounter = async () => {
         if (!encounterPatient) return;
-        if (!isANC && !isWaived && !['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && selectedCharges.length === 0) {
-            toast.error('Please select at least one charge, or check ANC/Waive Fee to skip charges');
+        if (!isANC && !['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && selectedCharges.length === 0) {
+            toast.error('Please select at least one charge, or check ANC to skip charges');
             return;
         }
         try {
@@ -238,8 +235,7 @@ const PatientManagement = () => {
                 encounterStatus: 'registered',
                 ward: encounterType === 'Inpatient' ? selectedWard : undefined,
                 bed: encounterType === 'Inpatient' ? selectedBed : undefined,
-                isANC: isANC,
-                isWaived: isWaived
+                isANC: isANC
             };
             const visitResponse = await axios.post(`${backendUrl}/api/visits`, visitData, config);
             for (const chargeId of selectedCharges) {
@@ -251,15 +247,10 @@ const PatientManagement = () => {
                     notes: 'Added at registration'
                 }, config);
             }
-            const selectedChargeObjects = charges.filter(c => selectedCharges.includes(c._id));
+            const total = charges.filter(c => selectedCharges.includes(c._id)).reduce((s, c) => s + c.basePrice, 0);
             if (!['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType)) {
-                const total = selectedChargeObjects.reduce((sum, c) => sum + c.basePrice, 0);
                 await axios.put(`${backendUrl}/api/visits/${visitResponse.data._id}`,
-                    { 
-                        encounterStatus: (isANC || isWaived) ? 'in_nursing' : (total > 0 ? 'payment_pending' : 'in_nursing'), 
-                        isANC: isANC || undefined,
-                        isWaived: isWaived || undefined
-                    }, config);
+                    { encounterStatus: isANC ? 'in_nursing' : (total > 0 ? 'payment_pending' : 'in_nursing'), isANC: isANC || undefined }, config);
             }
             toast.success('Encounter created successfully!');
             closeEncounterModal();
@@ -746,12 +737,6 @@ const PatientManagement = () => {
                                                 <p className="text-sm text-gray-600">
                                                     Created By: {encounter.doctor?.name || 'N/A'}
                                                 </p>
-                                                {encounter.isWaived && (
-                                                    <p className="text-sm text-green-600 font-bold flex items-center gap-1 mt-1">
-                                                        🎟 Waived by: {encounter.waivedBy?.name || encounter.doctor?.name || 'N/A'}
-                                                    </p>
-                                                )}
-
                                             </div>
                                             <div className="flex gap-2 items-center">
                                                 <select
@@ -1004,13 +989,14 @@ const PatientManagement = () => {
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-semibold mb-1">Address</label>
+                                <label className="block text-sm font-semibold mb-1">Address *</label>
                                 <textarea
                                     className="w-full border p-2 rounded"
                                     rows="2"
                                     name="address"
                                     value={editPatient.address || ''}
                                     onChange={handleEditChange}
+                                    required
                                 />
                             </div>
 
@@ -1234,47 +1220,20 @@ const PatientManagement = () => {
 
                             {/* ANC Checkbox */}
                             <div className="mb-6">
-                                <label className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                                    isANC ? 'bg-pink-50 border-pink-400' : 'bg-gray-50 border-gray-200 hover:border-pink-300'
-                                }`}>
+                                <label className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${isANC ? 'bg-pink-50 border-pink-400' : 'bg-gray-50 border-gray-200 hover:border-pink-300'
+                                    }`}>
                                     <input
                                         type="checkbox"
                                         checked={isANC}
                                         onChange={(e) => {
                                             setIsANC(e.target.checked);
-                                            if (e.target.checked) {
-                                                setSelectedCharges([]);
-                                                setIsWaived(false);
-                                            }
+                                            if (e.target.checked) setSelectedCharges([]);
                                         }}
                                         className="w-5 h-5 accent-pink-600"
                                     />
                                     <div>
                                         <p className="font-bold text-pink-700 text-sm">🤰 Antenatal Care (ANC) Visit</p>
                                         <p className="text-xs text-pink-500 mt-0.5">Check for ANC patients — no charges now. Uncheck when doctor consultation charges are needed.</p>
-                                    </div>
-                                </label>
-                            </div>
-
-                            {/* Waive Fee Checkbox */}
-                            <div className="mb-6">
-                                <label className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${isWaived ? 'bg-green-50 border-green-400' : 'bg-gray-50 border-gray-200 hover:border-green-300'
-                                    }`}>
-                                    <input
-                                        type="checkbox"
-                                        checked={isWaived}
-                                        onChange={(e) => {
-                                            setIsWaived(e.target.checked);
-                                            if (e.target.checked) {
-                                                setSelectedCharges([]);
-                                                setIsANC(false);
-                                            }
-                                        }}
-                                        className="w-5 h-5 accent-green-600"
-                                    />
-                                    <div>
-                                        <p className="font-bold text-green-700 text-sm">🎟 Waive Consultation Fee</p>
-                                        <p className="text-xs text-green-500 mt-0.5">Free Consultation — skip charges and bypass payment validation.</p>
                                     </div>
                                 </label>
                             </div>
@@ -1321,8 +1280,8 @@ const PatientManagement = () => {
                                 </div>
                             )}
 
-                            {/* Charges Selection */}
-                            {!isANC && !isWaived && !['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && (
+                            {/* Charges */}
+                            {!isANC && !['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && (
                                 <div className="mb-6">
                                     <label className="block text-gray-700 font-semibold mb-2">
                                         Consultation Charges <span className="text-red-500">*</span>
@@ -1358,15 +1317,11 @@ const PatientManagement = () => {
                             <div className="flex gap-3 pt-4 border-t">
                                 <button
                                     onClick={handleCreateEncounter}
-                                    disabled={loading || (!isANC && !isWaived && !['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && selectedCharges.length === 0)}
-                                    className={`flex-1 py-2 rounded flex items-center justify-center gap-2 text-white transition-all ${loading || (!isANC && !isWaived && !['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && selectedCharges.length === 0)
-                                        ? 'bg-gray-400 cursor-not-allowed'
-                                        : (isANC ? 'bg-pink-600 hover:bg-pink-700' : isWaived ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700')
-                                        }`}
+                                    disabled={loading || (!isANC && !['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && selectedCharges.length === 0)}
+                                    className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:bg-gray-400 flex items-center justify-center gap-2"
                                 >
-                                    <FaCalendarCheck /> {loading ? 'Creating...' : (isANC ? '🤰 Create ANC Encounter' : isWaived ? '🎟 Create Waived Encounter' : 'Create Encounter')}
+                                    <FaCalendarCheck /> {loading ? 'Creating...' : (isANC ? '🤰 Create ANC Encounter' : 'Create Encounter')}
                                 </button>
-
                                 <button
                                     onClick={closeEncounterModal}
                                     className="flex-1 bg-gray-400 text-white py-2 rounded hover:bg-gray-500"

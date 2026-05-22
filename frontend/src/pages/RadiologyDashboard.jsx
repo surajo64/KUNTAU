@@ -63,7 +63,8 @@ const RadiologyDashboard = () => {
         }
         const filtered = radiologyOrders.filter(order =>
             order.patient?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            order.patient?.mrn?.toLowerCase().includes(searchTerm.toLowerCase())
+            order.patient?.mrn?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            order.patient?.contact?.includes(searchTerm)
         );
         setRadiologyOrders(filtered);
     };
@@ -286,7 +287,8 @@ const RadiologyDashboard = () => {
             return (
                 o.scanType?.toLowerCase().includes(searchLower) ||
                 o.patient?.name?.toLowerCase().includes(searchLower) ||
-                o.patient?.mrn?.toLowerCase().includes(searchLower)
+                o.patient?.mrn?.toLowerCase().includes(searchLower) ||
+                o.patient?.contact?.includes(searchLower)
             );
         })
         .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
@@ -320,7 +322,7 @@ const RadiologyDashboard = () => {
                 <div className="flex gap-2">
                     <input
                         type="text"
-                        placeholder="Search by Patient Name or MRN..."
+                        placeholder="Search by Patient Name, MRN or Phone..."
                         className="flex-1 border p-2 rounded"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -636,7 +638,7 @@ Normal chest X-ray. No acute cardiopulmonary disease.
                         <div className="flex gap-2">
                             <input
                                 type="text"
-                                placeholder="Search by Scan Type, Patient Name, or MRN..."
+                                placeholder="Search by Scan Type, Patient Name, MRN or Phone..."
                                 className="flex-1 border p-2 rounded"
                                 value={completedSearchTerm}
                                 onChange={(e) => setCompletedSearchTerm(e.target.value)}

@@ -4,7 +4,7 @@ import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
-import { FaFlask, FaSearch, FaCheckCircle, FaEdit, FaSave, FaTimes, FaFileAlt, FaCog } from 'react-icons/fa';
+import { FaFlask, FaSearch, FaCheckCircle, FaEdit, FaSave, FaTimes, FaFileAlt, FaCog, FaChevronDown, FaChevronUp } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import { parseRange, checkRange, getRangeColorClass } from '../utils/labUtils';
 
@@ -26,6 +26,8 @@ const LabDashboard = () => {
     const [systemSettings, setSystemSettings] = useState(null);
     const { user } = useContext(AuthContext);
     const { backendUrl } = useContext(AppContext);
+    const [hasSearched, setHasSearched] = useState(false);
+    const [expandedEncounter, setExpandedEncounter] = useState(null);
 
 
 
@@ -81,15 +83,8 @@ const LabDashboard = () => {
     };
 
     const searchPatients = () => {
-        if (!searchTerm) {
-            fetchLabOrders();
-            return;
-        }
-        const filtered = labOrders.filter(order =>
-            order.patient?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            order.patient?.mrn?.toLowerCase().includes(searchTerm.toLowerCase())
-        );
-        setLabOrders(filtered);
+        setHasSearched(true);
+        fetchLabOrders(); // Refresh data from server on search
     };
 
     const handleSelectOrder = async (order) => {
@@ -315,6 +310,13 @@ const LabDashboard = () => {
                         </div>
                     </div>
 
+                    ${order.clinicalDetails ? `
+                    <div style="margin-bottom: 20px; padding: 10px; background: #f9fafb; border-left: 4px solid #9ca3af; font-style: italic;">
+                        <p style="margin: 0; font-weight: bold; font-style: normal; color: #374151; font-size: 14px;">Clinical Detail:</p>
+                        <p style="margin: 5px 0 0 0; font-size: 13px; color: #4b5563;">${order.clinicalDetails}</p>
+                    </div>
+                    ` : ''}
+
                     <div class="results-section">
                         <h3>Test Results:</h3>
                         ${(() => {
@@ -426,10 +428,42 @@ const LabDashboard = () => {
             return (
                 o.testName?.toLowerCase().includes(searchLower) ||
                 o.patient?.name?.toLowerCase().includes(searchLower) ||
-                o.patient?.mrn?.toLowerCase().includes(searchLower)
+                o.patient?.mrn?.toLowerCase().includes(searchLower) ||
+                o.patient?.contact?.includes(searchLower)
             );
         })
         .sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt));
+
+    // Group orders for search results
+    const groupedEncounters = Object.values(
+        (hasSearched ? labOrders : [])
+            .filter(order => {
+                if (!searchTerm) return true;
+                const s = searchTerm.toLowerCase();
+                return (
+                    order.patient?.name?.toLowerCase().includes(s) ||
+                    order.patient?.mrn?.toLowerCase().includes(s) ||
+                    order.patient?.contact?.includes(s)
+                );
+            })
+            .reduce((acc, order) => {
+                const visitId = order.visit?._id || 'external-' + order.patient?._id;
+                if (!acc[visitId]) {
+                    acc[visitId] = {
+                        id: visitId,
+                        patient: order.patient,
+                        visit: order.visit,
+                        orders: []
+                    };
+                }
+                acc[visitId].orders.push(order);
+                return acc;
+            }, {})
+    ).sort((a, b) => {
+        const dateA = a.visit?.createdAt || a.orders[0]?.createdAt;
+        const dateB = b.visit?.createdAt || b.orders[0]?.createdAt;
+        return new Date(dateB) - new Date(dateA);
+    });
 
     return (
         <Layout>
@@ -467,7 +501,7 @@ const LabDashboard = () => {
                 <div className="flex gap-2">
                     <input
                         type="text"
-                        placeholder="Search by Patient Name or MRN..."
+                        placeholder="Search by Patient Name, MRN or Phone..."
                         className="flex-1 border p-2 rounded"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -482,41 +516,120 @@ const LabDashboard = () => {
                 </div>
             </div>
 
-            {/* Pending Orders */}
+            {/* Grouped Search Results */}
             {!selectedOrder && (
-                <div className="bg-white p-6 rounded shadow mb-6">
-                    <h3 className="text-xl font-bold mb-4">Pending Lab Tests</h3>
-                    {pendingOrders.length === 0 ? (
-                        <p className="text-gray-500">No pending tests</p>
-                    ) : (
-                        <div className="space-y-2">
-                            {pendingOrders.map(order => (
-                                <div
-                                    key={order._id}
-                                    className="border p-4 rounded hover:bg-gray-50 cursor-pointer"
-                                    onClick={() => handleSelectOrder(order)}
-                                >
-                                    <div className="flex justify-between items-start">
-                                        <div>
-                                            <p className="font-bold text-lg">{order.testName}</p>
-                                            <p className="text-gray-600">
-                                                Patient: {order.patient?.name} (MRN: {order.patient?.mrn})
-                                            </p>
-                                            <p className="text-sm text-gray-500">
-                                                Ordered: {new Date(order.createdAt).toLocaleString()}
-                                            </p>
-                                            {order.labSpecialization && (
-                                                <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded mt-1 inline-block">
-                                                    {order.labSpecialization}
-                                                </span>
-                                            )}
-                                        </div>
-                                        <span className="bg-yellow-100 text-yellow-800 px-3 py-1 rounded text-sm">
-                                            {order.status}
-                                        </span>
-                                    </div>
+                <div className="mb-6">
+                    {hasSearched ? (
+                        <div className="space-y-4">
+                            {groupedEncounters.length === 0 ? (
+                                <div className="bg-white p-12 rounded shadow text-center text-gray-500">
+                                    <p className="text-lg font-semibold">No results found</p>
+                                    <p className="text-sm">Try searching with a different name or MRN.</p>
                                 </div>
-                            ))}
+                            ) : (
+                                groupedEncounters.map(group => (
+                                    <div key={group.id} className="bg-white rounded shadow overflow-hidden border border-purple-100">
+                                        {/* Encounter Header */}
+                                        <div
+                                            className="p-4 cursor-pointer hover:bg-purple-50 flex justify-between items-center transition-colors"
+                                            onClick={() => setExpandedEncounter(expandedEncounter === group.id ? null : group.id)}
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className="bg-purple-100 p-3 rounded-full text-purple-600">
+                                                    <FaFlask size={20} />
+                                                </div>
+                                                <div>
+                                                    <h4 className="font-bold text-gray-800 text-lg">{group.patient?.name}</h4>
+                                                    <p className="text-sm text-gray-600">
+                                                        MRN: <span className="font-semibold">{group.patient?.mrn}</span>
+                                                        <span className="mx-2 text-gray-300">|</span>
+                                                        {group.visit ? (
+                                                            <>
+                                                                <span className="text-purple-600 font-medium">{group.visit.type}</span>
+                                                                <span className="mx-2 text-gray-300">•</span>
+                                                                {new Date(group.visit.createdAt).toLocaleDateString()}
+                                                            </>
+                                                        ) : (
+                                                            <span className="text-blue-600 font-medium italic">External Investigation</span>
+                                                        )}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-4">
+                                                <div className="text-right mr-4">
+                                                    <span className="bg-purple-600 text-white px-3 py-1 rounded-full text-xs font-bold">
+                                                        {group.orders.length} {group.orders.length === 1 ? 'Test' : 'Tests'}
+                                                    </span>
+                                                    <p className="text-[10px] text-gray-400 mt-1 uppercase tracking-wider font-bold">
+                                                        {group.orders.some(o => o.status === 'pending') ? 'Pending items' : 'Completed'}
+                                                    </p>
+                                                </div>
+                                                {expandedEncounter === group.id ? <FaChevronUp className="text-gray-400" /> : <FaChevronDown className="text-gray-400" />}
+                                            </div>
+                                        </div>
+
+                                        {/* Tests List (Expanded) */}
+                                        {expandedEncounter === group.id && (
+                                            <div className="bg-gray-50 border-t divide-y">
+                                                {group.orders.map(order => (
+                                                    <div
+                                                        key={order._id}
+                                                        className={`p-4 transition-colors flex justify-between items-center ${order.status === 'completed' && order.approvedBy
+                                                            ? 'bg-gray-50 cursor-not-allowed opacity-75'
+                                                            : 'hover:bg-white cursor-pointer'
+                                                            }`}
+                                                        onClick={() => {
+                                                            if (order.status === 'completed' && order.approvedBy) return;
+                                                            handleSelectOrder(order);
+                                                        }}
+                                                    >
+                                                        <div className="flex-1">
+                                                            <div className="flex items-center gap-2 mb-1">
+                                                                <p className="font-bold text-gray-800">{order.testName}</p>
+                                                                {order.labSpecialization && (
+                                                                    <span className="text-[10px] bg-purple-100 text-purple-700 px-2 py-0.5 rounded font-bold uppercase">
+                                                                        {order.labSpecialization}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <p className="text-xs text-gray-500">
+                                                                Ordered: {new Date(order.createdAt).toLocaleString()}
+                                                            </p>
+                                                            {order.clinicalDetails && (
+                                                                <div className="mt-2 p-2 bg-blue-50 border-l-4 border-blue-400 text-xs italic">
+                                                                    <p className="font-bold text-blue-800 not-italic uppercase text-[9px] mb-1">Clinical context:</p>
+                                                                    <p className="text-gray-700">{order.clinicalDetails}</p>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        <div className="flex items-center gap-4">
+                                                            <span className={`px-3 py-1 rounded text-xs font-bold uppercase tracking-wider ${order.status === 'completed'
+                                                                    ? 'bg-green-100 text-green-800 border border-green-200'
+                                                                    : 'bg-yellow-100 text-yellow-800 border border-yellow-200'
+                                                                }`}>
+                                                                {order.status}
+                                                            </span>
+                                                            {order.status === 'completed' && order.approvedBy ? (
+                                                                <span title="Result approved — editing locked" className="text-gray-300" style={{ fontSize: '1rem' }}>🔒</span>
+                                                            ) : (
+                                                                <FaEdit className="text-blue-600" />
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    ) : (
+                        <div className="bg-white p-12 rounded shadow text-center text-gray-400 border-2 border-dashed border-gray-100">
+                            <FaSearch size={48} className="mx-auto mb-4 opacity-20" />
+                            <h4 className="text-xl font-bold text-gray-500">No Patient Selected</h4>
+                            <p className="max-w-md mx-auto mt-2 text-sm">
+                                Please use the search bar above to find a patient by Name, MRN or Phone number to process their lab orders.
+                            </p>
                         </div>
                     )}
                 </div>
@@ -531,6 +644,12 @@ const LabDashboard = () => {
                                 <p className="font-bold text-lg">{selectedOrder.testName}</p>
                                 <p className="text-gray-700">Patient: {selectedOrder.patient?.name}</p>
                                 <p className="text-sm text-gray-600">MRN: {selectedOrder.patient?.mrn}</p>
+                                {selectedOrder.clinicalDetails && (
+                                    <div className="mt-3 p-3 bg-white bg-opacity-60 border-l-4 border-purple-400 text-sm">
+                                        <p className="font-semibold text-purple-900">Clinical Detail:</p>
+                                        <p className="text-gray-800 italic">{selectedOrder.clinicalDetails}</p>
+                                    </div>
+                                )}
                             </div>
                             <button
                                 onClick={() => {
@@ -701,7 +820,7 @@ const LabDashboard = () => {
                         <div className="flex gap-2">
                             <input
                                 type="text"
-                                placeholder="Search by Test Name, Patient Name, or MRN..."
+                                placeholder="Search by Test Name, Patient Name, MRN or Phone..."
                                 className="flex-1 border p-2 rounded"
                                 value={completedSearchTerm}
                                 onChange={(e) => setCompletedSearchTerm(e.target.value)}
@@ -843,6 +962,13 @@ const LabDashboard = () => {
                                     <p><strong>Date Ordered:</strong> {new Date(viewResultModal.createdAt).toLocaleDateString()}</p>
                                 </div>
                             </div>
+
+                            {viewResultModal.clinicalDetails && (
+                                <div className="mb-6 p-4 bg-gray-50 border-l-4 border-gray-400 text-sm italic">
+                                    <p className="font-bold text-gray-700 not-italic mb-1">Clinical Detail:</p>
+                                    <p>{viewResultModal.clinicalDetails}</p>
+                                </div>
+                            )}
 
                             <div className="border-t border-b border-gray-300 py-4 mb-6">
                                 <h3 className="font-bold text-lg mb-3">Test Results:</h3>

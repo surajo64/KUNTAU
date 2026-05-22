@@ -77,6 +77,7 @@ const PatientDetails = () => {
     const [tempLabOrders, setTempLabOrders] = useState([]); // Multi-select for Lab
     const [labSearchTerm, setLabSearchTerm] = useState('');
     const [showLabDropdown, setShowLabDropdown] = useState(false);
+    const [labClinicalDetails, setLabClinicalDetails] = useState('');
 
     const [selectedRadTest, setSelectedRadTest] = useState('');
     const [tempRadOrders, setTempRadOrders] = useState([]); // Multi-select for Radiology
@@ -437,7 +438,7 @@ const PatientDetails = () => {
                     return isMedication && !isConsumable;
                 })
             })).filter(p => p.medicines.length > 0);
-            
+
             setDispensedPrescriptions(dispensedRx);
             setAdministrationHistory(historyRes.data);
         } catch (error) {
@@ -711,7 +712,8 @@ const PatientDetails = () => {
                         visitId: encounter._id,
                         chargeId: chargeRes.data._id, // Link to charge
                         testName: test.name,
-                        notes: 'Doctor ordered'
+                        notes: 'Doctor ordered',
+                        clinicalDetails: labClinicalDetails
                     },
                     config
                 );
@@ -720,6 +722,7 @@ const PatientDetails = () => {
             toast.success(`${ordersToPlace.length} Lab order(s) placed!`);
             setSelectedLabTest('');
             setTempLabOrders([]);
+            setLabClinicalDetails('');
             setShowLabModal(false);
             // Refresh list
             const labRes = await axios.get(`${backendUrl}/api/lab/visit/${encounter._id}`, config);
@@ -2091,6 +2094,12 @@ const PatientDetails = () => {
                                                             <div className="flex-1">
                                                                 <p className="font-semibold text-lg">{order.testName}</p>
                                                                 <p className="text-sm text-gray-600">Ordered: {new Date(order.createdAt).toLocaleString()}</p>
+                                                                {order.clinicalDetails && (
+                                                                    <div className="mt-2 p-2 bg-blue-50 border-l-4 border-blue-400 text-xs italic">
+                                                                        <span className="font-bold text-blue-800 not-italic">Clinical Context: </span>
+                                                                        {order.clinicalDetails}
+                                                                    </div>
+                                                                )}
                                                                 {order.result && (
                                                                     <details className="mt-2">
                                                                         <summary className="cursor-pointer text-blue-600 hover:text-blue-800 text-sm font-semibold">
@@ -3086,6 +3095,17 @@ const PatientDetails = () => {
                                         </table>
                                     </div>
                                 )}
+
+                                <div>
+                                    <label className="block text-gray-700 mb-2 font-semibold">Clinical Detail</label>
+                                    <textarea
+                                        className="w-full border p-2 rounded"
+                                        rows="3"
+                                        placeholder="Add clinical details for the lab scientist..."
+                                        value={labClinicalDetails}
+                                        onChange={(e) => setLabClinicalDetails(e.target.value)}
+                                    ></textarea>
+                                </div>
 
                                 <div className="flex gap-2 justify-end mt-4">
                                     <button

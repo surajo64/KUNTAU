@@ -10,6 +10,7 @@ const labOrderSchema = mongoose.Schema({
     result: { type: String },
     status: { type: String, enum: ['pending', 'completed'], default: 'pending' },
     notes: { type: String },
+    clinicalDetails: { type: String },
 
     // Signature tracking
     signedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

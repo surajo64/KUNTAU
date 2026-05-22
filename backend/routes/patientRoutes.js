@@ -24,6 +24,6 @@ router.route('/:id/deposit')
     .post(protect, addDeposit)
     .get(protect, getDepositBalance);
 
-router.route('/:id/refund').post(protect, refundDeposit);
+router.route('/:id/refund').post(protect, admin, refundDeposit);
 
 module.exports = router;

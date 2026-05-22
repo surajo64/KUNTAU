@@ -108,7 +108,7 @@ const updatePatient = async (req, res) => {
 
         // Backfill MRN if missing
         if (!patient.mrn) {
-            patient.mrn = `PAT-${Date.now().toString().slice(-6)}-${Math.floor(1000 + Math.random() * 9000)}`;
+            patient.mrn = `PAT${Date.now().toString().slice(-6)}${Math.floor(1000 + Math.random() * 9000)}`;
         }
 
         // Update medical info
@@ -203,7 +203,7 @@ const addDeposit = async (req, res) => {
 
         // Backfill MRN if missing (to fix legacy data issues)
         if (!patient.mrn) {
-            patient.mrn = `PAT-${Date.now().toString().slice(-6)}-${Math.floor(1000 + Math.random() * 9000)}`;
+            patient.mrn = `PAT${Date.now().toString().slice(-6)}${Math.floor(1000 + Math.random() * 9000)}`;
         }
 
         patient.depositBalance = (patient.depositBalance || 0) + Number(amount);

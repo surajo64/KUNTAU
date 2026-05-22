@@ -10,7 +10,8 @@ const Visit = require('../models/visitModel');
 // @route   POST /api/lab
 // @access  Private (Doctor or Lab Tech for External)
 const createLabOrder = async (req, res) => {
-    const { patientId, visitId, chargeId, testName, notes } = req.body;
+    const { patientId, visitId, chargeId, testName, notes, clinicalDetails } = req.body;
+    console.log('Creating Lab Order - req.body:', { testName, clinicalDetails });
 
     // Check permissions
     if (req.user.role === 'lab_technician' || req.user.role === 'lab_scientist') {
@@ -39,6 +40,7 @@ const createLabOrder = async (req, res) => {
         testName,
         labSpecialization,
         notes,
+        clinicalDetails,
     });
 
     res.status(201).json(order);
@@ -71,6 +73,7 @@ const getLabOrders = async (req, res) => {
     const orders = await LabOrder.find(query)
         .populate('doctor', 'name')
         .populate('patient', 'name mrn')
+        .populate('visit', 'type createdAt')
         .populate('charge', 'status')
         .populate('signedBy', 'name')
         .populate('lastModifiedBy', 'name')

@@ -74,7 +74,8 @@ const PharmacyPrescriptions = () => {
         }
         const filtered = prescriptions.filter(p =>
             p.patient?.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            p.patient?.mrn?.toLowerCase().includes(searchTerm.toLowerCase())
+            p.patient?.mrn?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            p.patient?.contact?.includes(searchTerm)
         );
         setPrescriptions(filtered);
     };
@@ -340,12 +341,12 @@ const PharmacyPrescriptions = () => {
                     let newStatus = visit.encounterStatus;
                     if (visit.encounterType === 'Outpatient') {
                         // Stay active in case they need other services today
-                        newStatus = 'awaiting_services'; 
+                        newStatus = 'awaiting_services';
                     } else if (visit.encounterType === 'Inpatient') {
                         newStatus = 'in_ward';
                     } else if (visit.encounterType === 'External Pharmacy') {
                         // Keep active as per user request
-                        newStatus = 'awaiting_services'; 
+                        newStatus = 'awaiting_services';
                     }
 
                     if (newStatus !== visit.encounterStatus) {
@@ -462,7 +463,7 @@ const PharmacyPrescriptions = () => {
         const unitPrice = getMedicineFee(med.name, selectedPrescription?.patient?.provider);
         const total = unitPrice * (med.quantityDispensed || 0);
         const { patientPortion, hmoPortion } = calculatePortions(total, selectedPrescription?.patient?.provider);
-        
+
         return {
             total: acc.total + total,
             patientPortion: acc.patientPortion + patientPortion,
@@ -485,7 +486,7 @@ const PharmacyPrescriptions = () => {
                 <div className="flex gap-2">
                     <input
                         type="text"
-                        placeholder="Search by patient name or MRN..."
+                        placeholder="Search by patient name, MRN or Phone..."
                         className="flex-1 border p-3 rounded"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -567,53 +568,53 @@ const PharmacyPrescriptions = () => {
                                     {expandedDates[dateKey] && (
                                         <div className="space-y-2 animate-in fade-in slide-in-from-top-2 duration-300">
                                             {groupedPrescriptions[dateKey].map(p => (
-                                            <div
-                                                key={p._id}
-                                                className="border p-4 rounded hover:bg-gray-50 cursor-pointer flex items-center gap-4 bg-white shadow-sm transition-all hover:shadow-md"
-                                            >
-                                                <div onClick={(e) => e.stopPropagation()}>
-                                                    <input
-                                                        type="checkbox"
-                                                        className="w-5 h-5 cursor-pointer accent-green-600"
-                                                        checked={selectedForPrint.includes(p._id)}
-                                                        onChange={() => toggleSelectForPrint(p._id)}
-                                                    />
-                                                </div>
-                                                <div className="flex-1" onClick={() => handleSelectPrescription(p)}>
-                                                    <div className="flex justify-between">
-                                                        <div>
-                                                            <div className="mt-0">
-                                                                {renderMedicines(p.medicines)}
-                                                            </div>
-                                                            <div className="mt-2 flex gap-2">
-                                                                {p.medicines?.some(m => m.buyOutside) ? (
-                                                                    <span className="text-xs px-3 py-1 rounded bg-orange-100 text-orange-800 font-bold border border-orange-200">
-                                                                        External / Record Only
+                                                <div
+                                                    key={p._id}
+                                                    className="border p-4 rounded hover:bg-gray-50 cursor-pointer flex items-center gap-4 bg-white shadow-sm transition-all hover:shadow-md"
+                                                >
+                                                    <div onClick={(e) => e.stopPropagation()}>
+                                                        <input
+                                                            type="checkbox"
+                                                            className="w-5 h-5 cursor-pointer accent-green-600"
+                                                            checked={selectedForPrint.includes(p._id)}
+                                                            onChange={() => toggleSelectForPrint(p._id)}
+                                                        />
+                                                    </div>
+                                                    <div className="flex-1" onClick={() => handleSelectPrescription(p)}>
+                                                        <div className="flex justify-between">
+                                                            <div>
+                                                                <div className="mt-0">
+                                                                    {renderMedicines(p.medicines)}
+                                                                </div>
+                                                                <div className="mt-2 flex gap-2">
+                                                                    {p.medicines?.some(m => m.buyOutside) ? (
+                                                                        <span className="text-xs px-3 py-1 rounded bg-orange-100 text-orange-800 font-bold border border-orange-200">
+                                                                            External / Record Only
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className={`text-xs px-3 py-1 rounded ${!p.charge ? 'bg-blue-100 text-blue-800' : p.charge.status === 'paid' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>
+                                                                            {!p.charge ? 'Process' : p.charge.status === 'paid' ? 'Paid' : 'Unpaid'}
+                                                                        </span>
+                                                                    )}
+                                                                    <span className={`text-xs px-3 py-1 rounded ${p.status === 'dispensed' ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-600'}`}>
+                                                                        {p.status}
                                                                     </span>
-                                                                ) : (
-                                                                    <span className={`text-xs px-3 py-1 rounded ${!p.charge ? 'bg-blue-100 text-blue-800' : p.charge.status === 'paid' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>
-                                                                        {!p.charge ? 'Process' : p.charge.status === 'paid' ? 'Paid' : 'Unpaid'}
-                                                                    </span>
-                                                                )}
-                                                                <span className={`text-xs px-3 py-1 rounded ${p.status === 'dispensed' ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-600'}`}>
-                                                                    {p.status}
-                                                                </span>
-                                                                {p.pharmacy && (
-                                                                    <span className="text-xs px-3 py-1 rounded bg-purple-100 text-purple-800">
-                                                                        Dest: {p.pharmacy.name}
-                                                                    </span>
-                                                                )}
+                                                                    {p.pharmacy && (
+                                                                        <span className="text-xs px-3 py-1 rounded bg-purple-100 text-purple-800">
+                                                                            Dest: {p.pharmacy.name}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         </div>
                                                     </div>
                                                 </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        ))}
-                    </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
                     )}
                     <button
                         onClick={() => setSelectedPatient(null)}
@@ -651,11 +652,11 @@ const PharmacyPrescriptions = () => {
                                 <FaBoxOpen /> External / Record Only Prescription
                             </h3>
                             <p className="text-sm text-orange-700 mb-6">
-                                This medication is marked for <strong>External Purchase (Buy Outside)</strong> or was prescribed for <strong>Record Purposes</strong> only. 
-                                Do not generate charges or dispense from internal hospital inventory. 
+                                This medication is marked for <strong>External Purchase (Buy Outside)</strong> or was prescribed for <strong>Record Purposes</strong> only.
+                                Do not generate charges or dispense from internal hospital inventory.
                                 Simply print the prescription sheet for the patient.
                             </p>
-                            
+
                             <div className="bg-white p-4 rounded border mb-6">
                                 <h4 className="font-bold text-lg mb-3">Medication Details</h4>
                                 {selectedPrescription.medicines.map((med, idx) => (
@@ -676,268 +677,268 @@ const PharmacyPrescriptions = () => {
                     ) : (
                         <>
 
-                    {/* Already Dispensed Check */}
-                    {selectedPrescription.status === 'dispensed' ? (
-                        <div className="border-2 border-green-300 bg-green-50 p-6 rounded mb-6">
-                            <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-green-800">
-                                <FaCheckCircle /> Already Dispensed
-                            </h3>
-                            <p className="text-sm text-gray-700 mb-4">
-                                This prescription has already been dispensed.
-                            </p>
-                        </div>
-                    ) : !selectedPrescription.charge ? (
-                        // CASE 1: NO CHARGE YET (New Workflow)
-                        <div className="border-2 border-blue-300 bg-blue-50 p-6 rounded mb-6">
-                            <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-blue-800">
-                                <FaBoxOpen /> Process Prescription
-                            </h3>
-                            <p className="text-sm text-gray-700 mb-4">
-                                This prescription needs to be processed. Please verify the quantity and generate a charge.
-                            </p>
+                            {/* Already Dispensed Check */}
+                            {selectedPrescription.status === 'dispensed' ? (
+                                <div className="border-2 border-green-300 bg-green-50 p-6 rounded mb-6">
+                                    <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-green-800">
+                                        <FaCheckCircle /> Already Dispensed
+                                    </h3>
+                                    <p className="text-sm text-gray-700 mb-4">
+                                        This prescription has already been dispensed.
+                                    </p>
+                                </div>
+                            ) : !selectedPrescription.charge ? (
+                                // CASE 1: NO CHARGE YET (New Workflow)
+                                <div className="border-2 border-blue-300 bg-blue-50 p-6 rounded mb-6">
+                                    <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-blue-800">
+                                        <FaBoxOpen /> Process Prescription
+                                    </h3>
+                                    <p className="text-sm text-gray-700 mb-4">
+                                        This prescription needs to be processed. Please verify the quantity and generate a charge.
+                                    </p>
 
-                            <div className="bg-white p-4 rounded border mb-4">
-                                <h4 className="font-bold text-lg mb-3">Medication Details</h4>
-                                {dispensingMedicines.map((med, index) => {
-                                    const unitPrice = getMedicineFee(med.name, selectedPrescription?.patient?.provider);
-                                    const totalCost = unitPrice * (med.quantityDispensed || 0);
-                                    const { patientPortion } = calculatePortions(totalCost, selectedPrescription?.patient?.provider);
+                                    <div className="bg-white p-4 rounded border mb-4">
+                                        <h4 className="font-bold text-lg mb-3">Medication Details</h4>
+                                        {dispensingMedicines.map((med, index) => {
+                                            const unitPrice = getMedicineFee(med.name, selectedPrescription?.patient?.provider);
+                                            const totalCost = unitPrice * (med.quantityDispensed || 0);
+                                            const { patientPortion } = calculatePortions(totalCost, selectedPrescription?.patient?.provider);
 
-                                    return (
-                                        <div key={index} className="mb-4 pb-4 border-b last:border-0">
-                                            <div className="flex justify-between items-start mb-2">
-                                                <p className="font-bold text-lg">{med.name}</p>
-                                                <div className="text-right">
-                                                    <p className="text-sm font-semibold text-gray-700">Unit Price: ₦{unitPrice.toLocaleString()}</p>
-                                                    <p className="text-sm font-bold text-blue-600">Total: ₦{totalCost.toLocaleString()}</p>
-                                                    {selectedPrescription?.patient?.provider !== 'Standard' && (
-                                                        <p className="text-xs font-bold text-green-600">Patient Pays (10%): ₦{patientPortion.toLocaleString()}</p>
-                                                    )}
+                                            return (
+                                                <div key={index} className="mb-4 pb-4 border-b last:border-0">
+                                                    <div className="flex justify-between items-start mb-2">
+                                                        <p className="font-bold text-lg">{med.name}</p>
+                                                        <div className="text-right">
+                                                            <p className="text-sm font-semibold text-gray-700">Unit Price: ₦{unitPrice.toLocaleString()}</p>
+                                                            <p className="text-sm font-bold text-blue-600">Total: ₦{totalCost.toLocaleString()}</p>
+                                                            {selectedPrescription?.patient?.provider !== 'Standard' && (
+                                                                <p className="text-xs font-bold text-green-600">Patient Pays (10%): ₦{patientPortion.toLocaleString()}</p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+                                                        <div>
+                                                            <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                                                Quantity to Charge
+                                                            </label>
+                                                            <input
+                                                                type="number"
+                                                                min="1"
+                                                                className="border p-2 rounded w-full"
+                                                                value={med.quantityDispensed}
+                                                                onChange={(e) => updateMedicine(index, 'quantityDispensed', parseInt(e.target.value) || 0)}
+                                                            />
+                                                            <p className="text-xs text-gray-600 mt-1">
+                                                                Available Stock: {inventoryAvailability[med.name]?.available || 0}
+                                                            </p>
+                                                        </div>
+                                                        <div>
+                                                            <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                                                Dosage/Instruction
+                                                            </label>
+                                                            <input
+                                                                type="text"
+                                                                className="border p-2 rounded w-full"
+                                                                value={med.dosage}
+                                                                readOnly
+                                                            />
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                            </div>
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
-                                                <div>
-                                                    <label className="block text-sm font-semibold text-gray-700 mb-1">
-                                                        Quantity to Charge
-                                                    </label>
-                                                    <input
-                                                        type="number"
-                                                        min="1"
-                                                        className="border p-2 rounded w-full"
-                                                        value={med.quantityDispensed}
-                                                        onChange={(e) => updateMedicine(index, 'quantityDispensed', parseInt(e.target.value) || 0)}
-                                                    />
-                                                    <p className="text-xs text-gray-600 mt-1">
-                                                        Available Stock: {inventoryAvailability[med.name]?.available || 0}
-                                                    </p>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-sm font-semibold text-gray-700 mb-1">
-                                                        Dosage/Instruction
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        className="border p-2 rounded w-full"
-                                                        value={med.dosage}
-                                                        readOnly
-                                                    />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
+                                            );
+                                        })}
+                                    </div>
 
-                            {/* Cost Summary */}
-                            {(dispensingMedicines.length > 1 || selectedPrescription?.patient?.provider !== 'Standard') && (
-                                <div className="bg-gray-50 p-4 rounded border-2 border-gray-200 mb-6">
-                                    <h4 className="font-bold text-lg mb-3 border-bottom pb-2">Cost Summary ({selectedPrescription?.patient?.provider})</h4>
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between items-center">
-                                            <span className="text-gray-600">Total Drug Cost:</span>
-                                            <span className="font-bold text-lg">₦{grandTotals.total.toLocaleString()}</span>
-                                        </div>
-                                        {selectedPrescription?.patient?.provider !== 'Standard' && (
-                                            <>
+                                    {/* Cost Summary */}
+                                    {(dispensingMedicines.length > 1 || selectedPrescription?.patient?.provider !== 'Standard') && (
+                                        <div className="bg-gray-50 p-4 rounded border-2 border-gray-200 mb-6">
+                                            <h4 className="font-bold text-lg mb-3 border-bottom pb-2">Cost Summary ({selectedPrescription?.patient?.provider})</h4>
+                                            <div className="space-y-2">
                                                 <div className="flex justify-between items-center">
-                                                    <span className="text-gray-600">HMO Portion:</span>
-                                                    <span className="font-semibold text-blue-600">₦{grandTotals.hmoPortion.toLocaleString()}</span>
+                                                    <span className="text-gray-600">Total Drug Cost:</span>
+                                                    <span className="font-bold text-lg">₦{grandTotals.total.toLocaleString()}</span>
                                                 </div>
-                                                <div className="flex justify-between items-center border-t pt-2">
-                                                    <span className="font-bold text-gray-800 text-lg">PATIENT TO PAY:</span>
-                                                    <span className="font-bold text-2xl text-green-600">₦{grandTotals.patientPortion.toLocaleString()}</span>
-                                                </div>
-                                            </>
-                                        )}
-                                        {selectedPrescription?.patient?.provider === 'Standard' && (
-                                            <div className="flex justify-between items-center border-t pt-2">
-                                                <span className="font-bold text-gray-800 text-lg">TOTAL TO PAY:</span>
-                                                <span className="font-bold text-2xl text-green-600">₦{grandTotals.total.toLocaleString()}</span>
+                                                {selectedPrescription?.patient?.provider !== 'Standard' && (
+                                                    <>
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="text-gray-600">HMO Portion:</span>
+                                                            <span className="font-semibold text-blue-600">₦{grandTotals.hmoPortion.toLocaleString()}</span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center border-t pt-2">
+                                                            <span className="font-bold text-gray-800 text-lg">PATIENT TO PAY:</span>
+                                                            <span className="font-bold text-2xl text-green-600">₦{grandTotals.patientPortion.toLocaleString()}</span>
+                                                        </div>
+                                                    </>
+                                                )}
+                                                {selectedPrescription?.patient?.provider === 'Standard' && (
+                                                    <div className="flex justify-between items-center border-t pt-2">
+                                                        <span className="font-bold text-gray-800 text-lg">TOTAL TO PAY:</span>
+                                                        <span className="font-bold text-2xl text-green-600">₦{grandTotals.total.toLocaleString()}</span>
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
+                                        </div>
+                                    )}
+
+                                    <button
+                                        onClick={async () => {
+                                            try {
+                                                setLoading(true);
+                                                const config = { headers: { Authorization: `Bearer ${user.token}` } };
+                                                // Assume single drug per prescription for now as per current structure
+                                                const qty = dispensingMedicines[0]?.quantityDispensed || 1;
+
+                                                await axios.put(
+                                                    `${backendUrl}/api/prescriptions/${selectedPrescription._id}/generate-charge`,
+                                                    { quantity: qty },
+                                                    config
+                                                );
+                                                toast.success('Charge generated successfully!');
+
+                                                // Refresh
+                                                fetchPrescriptions();
+                                                setSelectedPrescription(null);
+                                                setDispensingMedicines([]);
+                                            } catch (error) {
+                                                console.error(error);
+                                                toast.error(error.response?.data?.message || 'Error generating charge');
+                                            } finally {
+                                                setLoading(false);
+                                            }
+                                        }}
+                                        className="w-full bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700 font-bold flex items-center justify-center gap-2"
+                                    >
+                                        <FaSave /> Generate Charge & Process
+                                    </button>
+                                </div>
+                            ) : selectedPrescription.charge.status !== 'paid' ? (
+                                <div className="border-2 border-red-300 bg-red-50 p-6 rounded mb-6">
+                                    <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-red-800">
+                                        <FaCheckCircle /> Payment Required
+                                    </h3>
+                                    <p className="text-sm text-gray-700 mb-4">
+                                        This prescription has not been paid for yet. Please ask the patient to pay at the cashier before dispensing.
+                                    </p>
+                                    <div className="flex gap-2 items-center">
+                                        <span className="font-bold text-red-600">Status: Unpaid</span>
+                                        <button
+                                            onClick={fetchPrescriptions}
+                                            className="text-blue-600 hover:underline text-sm ml-4"
+                                        >
+                                            Refresh Status
+                                        </button>
                                     </div>
                                 </div>
-                            )}
+                            ) : (
+                                <div>
+                                    <div className="bg-green-50 p-4 rounded mb-6">
+                                        <p className="text-green-700 font-semibold flex items-center gap-2">
+                                            <FaCheckCircle /> Payment Verified - Ready to Dispense
+                                        </p>
+                                    </div>
 
-                            <button
-                                onClick={async () => {
-                                    try {
-                                        setLoading(true);
-                                        const config = { headers: { Authorization: `Bearer ${user.token}` } };
-                                        // Assume single drug per prescription for now as per current structure
-                                        const qty = dispensingMedicines[0]?.quantityDispensed || 1;
+                                    {/* Editable Dispensing Form */}
+                                    <div className="bg-blue-50 p-6 rounded mb-6">
+                                        <h4 className="font-bold text-lg mb-4">Medications to Dispense</h4>
+                                        <p className="text-sm text-gray-600 mb-4">
+                                            Review and edit quantities/dosages as needed based on doctor's instructions and inventory availability.
+                                        </p>
 
-                                        await axios.put(
-                                            `${backendUrl}/api/prescriptions/${selectedPrescription._id}/generate-charge`,
-                                            { quantity: qty },
-                                            config
-                                        );
-                                        toast.success('Charge generated successfully!');
+                                        <div className="space-y-4">
+                                            {dispensingMedicines.map((med, index) => (
+                                                <div key={index} className="bg-white p-4 rounded border">
+                                                    <p className="font-bold text-lg mb-3">{med.name}</p>
 
-                                        // Refresh
-                                        fetchPrescriptions();
-                                        setSelectedPrescription(null);
-                                        setDispensingMedicines([]);
-                                    } catch (error) {
-                                        console.error(error);
-                                        toast.error(error.response?.data?.message || 'Error generating charge');
-                                    } finally {
-                                        setLoading(false);
-                                    }
-                                }}
-                                className="w-full bg-blue-600 text-white px-6 py-3 rounded hover:bg-blue-700 font-bold flex items-center justify-center gap-2"
-                            >
-                                <FaSave /> Generate Charge & Process
-                            </button>
-                        </div>
-                    ) : selectedPrescription.charge.status !== 'paid' ? (
-                        <div className="border-2 border-red-300 bg-red-50 p-6 rounded mb-6">
-                            <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-red-800">
-                                <FaCheckCircle /> Payment Required
-                            </h3>
-                            <p className="text-sm text-gray-700 mb-4">
-                                This prescription has not been paid for yet. Please ask the patient to pay at the cashier before dispensing.
-                            </p>
-                            <div className="flex gap-2 items-center">
-                                <span className="font-bold text-red-600">Status: Unpaid</span>
-                                <button
-                                    onClick={fetchPrescriptions}
-                                    className="text-blue-600 hover:underline text-sm ml-4"
-                                >
-                                    Refresh Status
-                                </button>
-                            </div>
-                        </div>
-                    ) : (
-                        <div>
-                            <div className="bg-green-50 p-4 rounded mb-6">
-                                <p className="text-green-700 font-semibold flex items-center gap-2">
-                                    <FaCheckCircle /> Payment Verified - Ready to Dispense
-                                </p>
-                            </div>
+                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                                        <div>
+                                                            <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                                                Quantity to Dispense
+                                                            </label>
+                                                            <input
+                                                                type="number"
+                                                                min="1"
+                                                                className="border p-2 rounded w-full"
+                                                                value={med.quantityDispensed}
+                                                                onChange={(e) => updateMedicine(index, 'quantityDispensed', parseInt(e.target.value))}
+                                                            />
+                                                            <p className="text-xs text-gray-600 mt-1">
+                                                                Available: {inventoryAvailability[med.name]?.available || 0}
+                                                                {(inventoryAvailability[med.name]?.available || 0) < med.quantityDispensed && (
+                                                                    <span className="text-red-600 font-bold ml-2">INSUFFICIENT STOCK!</span>
+                                                                )}
+                                                            </p>
+                                                        </div>
 
-                            {/* Editable Dispensing Form */}
-                            <div className="bg-blue-50 p-6 rounded mb-6">
-                                <h4 className="font-bold text-lg mb-4">Medications to Dispense</h4>
-                                <p className="text-sm text-gray-600 mb-4">
-                                    Review and edit quantities/dosages as needed based on doctor's instructions and inventory availability.
-                                </p>
+                                                        <div>
+                                                            <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                                                Dosage
+                                                            </label>
+                                                            <input
+                                                                type="text"
+                                                                className="border p-2 rounded w-full"
+                                                                value={med.dosage}
+                                                                onChange={(e) => updateMedicine(index, 'dosage', e.target.value)}
+                                                                placeholder="e.g., 500mg"
+                                                            />
+                                                        </div>
 
-                                <div className="space-y-4">
-                                    {dispensingMedicines.map((med, index) => (
-                                        <div key={index} className="bg-white p-4 rounded border">
-                                            <p className="font-bold text-lg mb-3">{med.name}</p>
+                                                        <div>
+                                                            <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                                                Frequency
+                                                            </label>
+                                                            <input
+                                                                type="text"
+                                                                className="border p-2 rounded w-full"
+                                                                value={med.frequency}
+                                                                onChange={(e) => updateMedicine(index, 'frequency', e.target.value)}
+                                                                placeholder="e.g., Twice daily"
+                                                            />
+                                                        </div>
 
-                                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                                <div>
-                                                    <label className="block text-sm font-semibold text-gray-700 mb-1">
-                                                        Quantity to Dispense
-                                                    </label>
-                                                    <input
-                                                        type="number"
-                                                        min="1"
-                                                        className="border p-2 rounded w-full"
-                                                        value={med.quantityDispensed}
-                                                        onChange={(e) => updateMedicine(index, 'quantityDispensed', parseInt(e.target.value))}
-                                                    />
-                                                    <p className="text-xs text-gray-600 mt-1">
-                                                        Available: {inventoryAvailability[med.name]?.available || 0}
-                                                        {(inventoryAvailability[med.name]?.available || 0) < med.quantityDispensed && (
-                                                            <span className="text-red-600 font-bold ml-2">INSUFFICIENT STOCK!</span>
-                                                        )}
-                                                    </p>
+                                                        <div>
+                                                            <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                                                Duration
+                                                            </label>
+                                                            <input
+                                                                type="text"
+                                                                className="border p-2 rounded w-full"
+                                                                value={(med.duration && !isNaN(med.duration)) ? `${med.duration} days` : med.duration}
+                                                                onChange={(e) => updateMedicine(index, 'duration', e.target.value)}
+                                                                placeholder="e.g., 7 days"
+                                                            />
+                                                        </div>
+                                                    </div>
                                                 </div>
-
-                                                <div>
-                                                    <label className="block text-sm font-semibold text-gray-700 mb-1">
-                                                        Dosage
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        className="border p-2 rounded w-full"
-                                                        value={med.dosage}
-                                                        onChange={(e) => updateMedicine(index, 'dosage', e.target.value)}
-                                                        placeholder="e.g., 500mg"
-                                                    />
-                                                </div>
-
-                                                <div>
-                                                    <label className="block text-sm font-semibold text-gray-700 mb-1">
-                                                        Frequency
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        className="border p-2 rounded w-full"
-                                                        value={med.frequency}
-                                                        onChange={(e) => updateMedicine(index, 'frequency', e.target.value)}
-                                                        placeholder="e.g., Twice daily"
-                                                    />
-                                                </div>
-
-                                                <div>
-                                                    <label className="block text-sm font-semibold text-gray-700 mb-1">
-                                                        Duration
-                                                    </label>
-                                                    <input
-                                                        type="text"
-                                                        className="border p-2 rounded w-full"
-                                                        value={(med.duration && !isNaN(med.duration)) ? `${med.duration} days` : med.duration}
-                                                        onChange={(e) => updateMedicine(index, 'duration', e.target.value)}
-                                                        placeholder="e.g., 7 days"
-                                                    />
-                                                </div>
-                                            </div>
+                                            ))}
                                         </div>
-                                    ))}
+                                    </div>
+
+                                    {/* Dispensing Instructions */}
+                                    <div className="bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded mb-6">
+                                        <h4 className="font-bold text-lg mb-3 flex items-center gap-2">
+                                            <FaBoxOpen className="text-green-600" /> Dispensing Checklist
+                                        </h4>
+                                        <ol className="list-decimal list-inside space-y-2 text-gray-700 text-sm">
+                                            <li>Verify patient identity (Name & MRN)</li>
+                                            <li>Review edited quantities and dosages above</li>
+                                            <li>Counsel patient on proper usage and side effects</li>
+                                            <li>Label medications clearly with patient name and instructions</li>
+                                            <li>Click "Confirm Dispensing" to update inventory automatically</li>
+                                        </ol>
+                                    </div>
+
+                                    <button
+                                        onClick={handleDispenseWithInventory}
+                                        className="w-full bg-green-600 text-white px-6 py-3 rounded hover:bg-green-700 font-bold flex items-center justify-center gap-2"
+                                    >
+                                        <FaSave /> Confirm Dispensing & Update Inventory
+                                    </button>
+                                    <p className="text-xs text-gray-600 mt-2 text-center">
+                                        By confirming, inventory will be automatically deducted using FIFO (First Expiry, First Out) logic
+                                    </p>
                                 </div>
-                            </div>
-
-                            {/* Dispensing Instructions */}
-                            <div className="bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded mb-6">
-                                <h4 className="font-bold text-lg mb-3 flex items-center gap-2">
-                                    <FaBoxOpen className="text-green-600" /> Dispensing Checklist
-                                </h4>
-                                <ol className="list-decimal list-inside space-y-2 text-gray-700 text-sm">
-                                    <li>Verify patient identity (Name & MRN)</li>
-                                    <li>Review edited quantities and dosages above</li>
-                                    <li>Counsel patient on proper usage and side effects</li>
-                                    <li>Label medications clearly with patient name and instructions</li>
-                                    <li>Click "Confirm Dispensing" to update inventory automatically</li>
-                                </ol>
-                            </div>
-
-                            <button
-                                onClick={handleDispenseWithInventory}
-                                className="w-full bg-green-600 text-white px-6 py-3 rounded hover:bg-green-700 font-bold flex items-center justify-center gap-2"
-                            >
-                                <FaSave /> Confirm Dispensing & Update Inventory
-                            </button>
-                            <p className="text-xs text-gray-600 mt-2 text-center">
-                                By confirming, inventory will be automatically deducted using FIFO (First Expiry, First Out) logic
-                            </p>
-                        </div>
-                    )}
-                    </>
+                            )}
+                        </>
                     )}
 
                     <button

@@ -198,8 +198,8 @@ const RegisterPatient = () => {
                         </select>
                     </div>
                     <div>
-                        <label className="block text-gray-700 font-semibold mb-1">Contact *</label>
-                        <input type="text" name="contact" value={formData.contact} onChange={handleChange} className="w-full border p-2 rounded focus:ring-2 focus:ring-green-500" required />
+                        <label className="block text-gray-700 font-semibold mb-1">Contact</label>
+                        <input type="text" name="contact" value={formData.contact} onChange={handleChange} className="w-full border p-2 rounded focus:ring-2 focus:ring-green-500" />
                     </div>
                     <div>
                         <label className="block text-gray-700 font-semibold mb-1">Address</label>

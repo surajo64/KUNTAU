@@ -19,7 +19,7 @@ const HMOManagement = () => {
     const [filterRetainershipType, setFilterRetainershipType] = useState('all');
     const [currentPage, setCurrentPage] = useState(1);
     const itemsPerPage = 10;
-    
+
     const [showModal, setShowModal] = useState(false);
     const [editMode, setEditMode] = useState(false);
     const [retainershipCharges, setRetainershipCharges] = useState([]);
@@ -188,7 +188,7 @@ const HMOManagement = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
         if (currentHMO.category === 'Retainership' && !currentHMO.registrationChargeRef) {
             toast.error('Please select a registration charge plan');
             return;
@@ -198,7 +198,7 @@ const HMOManagement = () => {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             const payload = { ...currentHMO };
-            
+
             if (!editMode && payload.code === 'AUTO-GENERATED') {
                 delete payload.code;
             }
@@ -258,17 +258,17 @@ const HMOManagement = () => {
             setLoading(true);
             setSelectedHMOForDetail(hmo);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            
+
             // Fetch all patients and filter by this HMO
             const { data } = await axios.get(`${backendUrl}/api/patients`, config);
-            
+
             // Patients are linked by provider (Retainership, NHIA, KSCHMA) 
             // and hmo (which stores the name of the HMO/Entity)
-            const filtered = data.filter(p => 
-                (p.provider === hmo.category || (hmo.category === 'State Scheme' && p.provider === 'KSCHMA')) && 
+            const filtered = data.filter(p =>
+                (p.provider === hmo.category || (hmo.category === 'State Scheme' && p.provider === 'KSCHMA')) &&
                 p.hmo === hmo.name
             );
-            
+
             setHmoPatients(filtered);
             setShowDetailModal(true);
         } catch (error) {
@@ -406,8 +406,8 @@ const HMOManagement = () => {
                     <div className="flex flex-wrap gap-4 items-center bg-gray-50 p-3 rounded">
                         <div className="flex items-center gap-2">
                             <label className="text-sm font-bold text-gray-600">Category:</label>
-                            <select 
-                                value={filterCategory} 
+                            <select
+                                value={filterCategory}
                                 onChange={(e) => {
                                     setFilterCategory(e.target.value);
                                     setFilterRetainershipType('all');
@@ -425,8 +425,8 @@ const HMOManagement = () => {
                         {filterCategory === 'Retainership' && (
                             <div className="flex items-center gap-2">
                                 <label className="text-sm font-bold text-gray-600">Type:</label>
-                                <select 
-                                    value={filterRetainershipType} 
+                                <select
+                                    value={filterRetainershipType}
                                     onChange={(e) => setFilterRetainershipType(e.target.value)}
                                     className="border p-1.5 rounded text-sm bg-white"
                                 >
@@ -466,74 +466,73 @@ const HMOManagement = () => {
                                     filteredHMOs
                                         .slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage)
                                         .map((hmo) => (
-                                        <tr key={hmo._id} className="hover:bg-gray-50">
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <div className="font-medium text-gray-900">{hmo.name}</div>
-                                                <div className="flex items-center gap-1">
-                                                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase ${
-                                                        hmo.category === 'Retainership' ? 'bg-purple-100 text-purple-700' :
-                                                        hmo.category === 'NHIA' ? 'bg-green-100 text-green-700' :
-                                                        'bg-blue-100 text-blue-700'
-                                                    }`}>
-                                                        {hmo.category}
+                                            <tr key={hmo._id} className="hover:bg-gray-50">
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="font-medium text-gray-900">{hmo.name}</div>
+                                                    <div className="flex items-center gap-1">
+                                                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase ${hmo.category === 'Retainership' ? 'bg-purple-100 text-purple-700' :
+                                                                hmo.category === 'NHIA' ? 'bg-green-100 text-green-700' :
+                                                                    'bg-blue-100 text-blue-700'
+                                                            }`}>
+                                                            {hmo.category}
+                                                        </span>
+                                                        {hmo.retainershipType && (
+                                                            <span className="text-[10px] text-gray-500 italic">({hmo.retainershipType})</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono font-bold">
+                                                    {hmo.code || '-'}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">
+                                                    {hmo.registrationCharge > 0 ? `₦${hmo.registrationCharge.toLocaleString()}` : '-'}
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                                    <div>{hmo.contactPerson || '-'}</div>
+                                                    <div className="text-xs">{hmo.contactPhone}</div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${hmo.active
+                                                        ? 'bg-green-100 text-green-800'
+                                                        : 'bg-red-100 text-red-800'
+                                                        }`}>
+                                                        {hmo.active ? 'Active' : 'Inactive'}
                                                     </span>
-                                                    {hmo.retainershipType && (
-                                                        <span className="text-[10px] text-gray-500 italic">({hmo.retainershipType})</span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 font-mono font-bold">
-                                                {hmo.code || '-'}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-bold">
-                                                {hmo.registrationCharge > 0 ? `₦${hmo.registrationCharge.toLocaleString()}` : '-'}
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                <div>{hmo.contactPerson || '-'}</div>
-                                                <div className="text-xs">{hmo.contactPhone}</div>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap">
-                                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${hmo.active
-                                                    ? 'bg-green-100 text-green-800'
-                                                    : 'bg-red-100 text-red-800'
-                                                    }`}>
-                                                    {hmo.active ? 'Active' : 'Inactive'}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                                <div className="flex gap-2">
-                                                    <button
-                                                        onClick={() => handleViewDetail(hmo)}
-                                                        className="text-indigo-600 hover:text-indigo-900 border border-indigo-200 p-1.5 rounded bg-indigo-50"
-                                                        title="View Attached Patients"
-                                                    >
-                                                        <FaUsers />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleOpenModal(hmo)}
-                                                        className="text-blue-600 hover:text-blue-900 border border-blue-200 p-1.5 rounded bg-blue-50"
-                                                        title="Edit"
-                                                    >
-                                                        <FaEdit />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleToggleStatus(hmo)}
-                                                        className={hmo.active ? 'text-orange-600 hover:text-orange-900 border border-orange-200 p-1.5 rounded bg-orange-50' : 'text-green-600 hover:text-green-900 border border-green-200 p-1.5 rounded bg-green-50'}
-                                                        title={hmo.active ? 'Deactivate' : 'Activate'}
-                                                    >
-                                                        {hmo.active ? <FaToggleOn /> : <FaToggleOff />}
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDelete(hmo._id)}
-                                                        className="text-red-600 hover:text-red-900 border border-red-200 p-1.5 rounded bg-red-50"
-                                                        title="Delete"
-                                                    >
-                                                        <FaTrash />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            onClick={() => handleViewDetail(hmo)}
+                                                            className="text-indigo-600 hover:text-indigo-900 border border-indigo-200 p-1.5 rounded bg-indigo-50"
+                                                            title="View Attached Patients"
+                                                        >
+                                                            <FaUsers />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleOpenModal(hmo)}
+                                                            className="text-blue-600 hover:text-blue-900 border border-blue-200 p-1.5 rounded bg-blue-50"
+                                                            title="Edit"
+                                                        >
+                                                            <FaEdit />
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleToggleStatus(hmo)}
+                                                            className={hmo.active ? 'text-orange-600 hover:text-orange-900 border border-orange-200 p-1.5 rounded bg-orange-50' : 'text-green-600 hover:text-green-900 border border-green-200 p-1.5 rounded bg-green-50'}
+                                                            title={hmo.active ? 'Deactivate' : 'Activate'}
+                                                        >
+                                                            {hmo.active ? <FaToggleOn /> : <FaToggleOff />}
+                                                        </button>
+                                                        <button
+                                                            onClick={() => handleDelete(hmo._id)}
+                                                            className="text-red-600 hover:text-red-900 border border-red-200 p-1.5 rounded bg-red-50"
+                                                            title="Delete"
+                                                        >
+                                                            <FaTrash />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))
                                 )}
                             </tbody>
                         </table>
@@ -579,11 +578,10 @@ const HMOManagement = () => {
                                             <button
                                                 key={page + 1}
                                                 onClick={() => setCurrentPage(page + 1)}
-                                                className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${
-                                                    currentPage === page + 1
+                                                className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${currentPage === page + 1
                                                         ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
                                                         : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
-                                                }`}
+                                                    }`}
                                             >
                                                 {page + 1}
                                             </button>
@@ -642,7 +640,7 @@ const HMOManagement = () => {
                                                         <span className="text-gray-500">{patient.contact}</span>
                                                     </div>
                                                 </div>
-                                                <Link 
+                                                <Link
                                                     to={`/patient/${patient._id}`}
                                                     className="bg-indigo-50 text-indigo-600 p-2 rounded hover:bg-indigo-600 hover:text-white transition-colors"
                                                     title="Go to Profile"
@@ -657,7 +655,7 @@ const HMOManagement = () => {
                         </div>
 
                         <div className="p-4 border-t bg-gray-50 flex justify-end">
-                            <button 
+                            <button
                                 onClick={() => setShowDetailModal(false)}
                                 className="bg-gray-600 text-white px-6 py-2 rounded hover:bg-gray-700 font-bold text-sm"
                             >
@@ -713,8 +711,8 @@ const HMOManagement = () => {
                                             <label className="block text-sm font-semibold mb-1">Retainership Type *</label>
                                             <select
                                                 value={currentHMO.retainershipType}
-                                                onChange={(e) => setCurrentHMO({ 
-                                                    ...currentHMO, 
+                                                onChange={(e) => setCurrentHMO({
+                                                    ...currentHMO,
                                                     retainershipType: e.target.value,
                                                     registrationChargeRef: '',
                                                     registrationCharge: 0
@@ -749,8 +747,8 @@ const HMOManagement = () => {
                                             >
                                                 <option value="">-- Select a Charge --</option>
                                                 {retainershipCharges
-                                                    .filter(charge => 
-                                                        !currentHMO.retainershipType || 
+                                                    .filter(charge =>
+                                                        !currentHMO.retainershipType ||
                                                         charge.name.toLowerCase().includes(currentHMO.retainershipType.toLowerCase())
                                                     )
                                                     .map(charge => (
@@ -790,21 +788,23 @@ const HMOManagement = () => {
 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-semibold mb-1">Contact Person</label>
+                                        <label className="block text-sm font-semibold mb-1">Contact Person <span className="text-red-500">*</span></label>
                                         <input
                                             type="text"
                                             value={currentHMO.contactPerson}
                                             onChange={(e) => setCurrentHMO({ ...currentHMO, contactPerson: e.target.value })}
                                             className="w-full border p-2 rounded"
+                                            required
                                         />
                                     </div>
                                     <div>
-                                        <label className="block text-sm font-semibold mb-1">Contact Phone</label>
+                                        <label className="block text-sm font-semibold mb-1">Contact Phone <span className="text-red-500">*</span></label>
                                         <input
                                             type="text"
                                             value={currentHMO.contactPhone}
                                             onChange={(e) => setCurrentHMO({ ...currentHMO, contactPhone: e.target.value })}
                                             className="w-full border p-2 rounded"
+                                            required
                                         />
                                     </div>
                                 </div>

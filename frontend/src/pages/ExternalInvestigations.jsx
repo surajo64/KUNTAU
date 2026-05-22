@@ -25,6 +25,7 @@ const ExternalInvestigations = () => {
     const [showLabDropdown, setShowLabDropdown] = useState(false);
     const [selectedLabTest, setSelectedLabTest] = useState('');
     const [tempLabOrders, setTempLabOrders] = useState([]);
+    const [labClinicalDetails, setLabClinicalDetails] = useState('');
     const [orderLoading, setOrderLoading] = useState(false);
 
     const config = { headers: { Authorization: `Bearer ${user.token}` } };
@@ -137,6 +138,7 @@ const ExternalInvestigations = () => {
         setTempLabOrders([]);
         setSelectedLabTest('');
         setLabSearchTerm('');
+        setLabClinicalDetails('');
     };
 
     // ─── Queue management ────────────────────────────────────────────────────
@@ -203,13 +205,15 @@ const ExternalInvestigations = () => {
                         visitId: encounter._id,
                         chargeId: chargeRes.data._id,
                         testName: test.name,
-                        notes: 'Ordered via External Investigations'
+                        notes: 'Ordered via External Investigations',
+                        clinicalDetails: labClinicalDetails
                     },
                     config
                 );
             }
 
             toast.success(`✅ ${ordersToPlace.length} lab order(s) placed! Charges generated — awaiting payment.`);
+            setLabClinicalDetails('');
             handleCloseLabModal();
         } catch (error) {
             console.error(error);
@@ -484,6 +488,19 @@ const ExternalInvestigations = () => {
                                     No tests added yet. Search and click <strong>Add</strong> to queue tests.
                                 </div>
                             )}
+
+                            <div>
+                                <label className="block text-gray-700 mb-1.5 font-semibold text-sm">
+                                    Clinical Detail
+                                </label>
+                                <textarea
+                                    className="w-full border p-2.5 rounded focus:outline-none focus:ring-2 focus:ring-purple-400 text-sm"
+                                    rows="3"
+                                    placeholder="Enter clinical details or context for the lab staff..."
+                                    value={labClinicalDetails}
+                                    onChange={(e) => setLabClinicalDetails(e.target.value)}
+                                ></textarea>
+                            </div>
 
                             {/* Info note */}
                             <div className="bg-blue-50 border border-blue-200 rounded p-3 text-xs text-blue-700">

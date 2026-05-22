@@ -29,7 +29,8 @@ const PatientList = () => {
         } else {
             const filtered = patients.filter(p =>
                 p.name.toLowerCase().includes(search.toLowerCase()) ||
-                (p.mrn && p.mrn.toLowerCase().includes(search.toLowerCase()))
+                (p.mrn && p.mrn.toLowerCase().includes(search.toLowerCase())) ||
+                (p.contact && p.contact.includes(search))
             );
             setFilteredPatients(filtered);
         }
@@ -40,28 +41,28 @@ const PatientList = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            
+
             // Fetch all patients for searching
             const { data: allPatients } = await axios.get(`${backendUrl}/api/patients`, config);
             setPatients(allPatients);
 
             // Fetch today's patients via visits
             const { data: todayVisits } = await axios.get(`${backendUrl}/api/visits?today=true`, config);
-            
+
             // Extract unique patients from visits, maintaining recent order
             const uniqueTodayPatients = [];
             const seenPatientIds = new Set();
-            
+
             // Visits are already sorted by recent in many cases, but we ensure order
             const sortedVisits = [...todayVisits].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-            
+
             sortedVisits.forEach(visit => {
                 if (visit.patient && !seenPatientIds.has(visit.patient._id)) {
                     seenPatientIds.add(visit.patient._id);
                     uniqueTodayPatients.push(visit.patient);
                 }
             });
-            
+
             setTodayPatients(uniqueTodayPatients);
         } catch (error) {
             console.error(error);
@@ -88,7 +89,7 @@ const PatientList = () => {
                 <FaSearch className="absolute left-3 top-3 text-gray-400" />
                 <input
                     type="text"
-                    placeholder="Search by Name or MRN..."
+                    placeholder="Search by Name, MRN or Phone..."
                     className="w-full pl-10 p-2 border rounded focus:outline-none focus:border-green-500"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
