@@ -368,10 +368,10 @@ const FrontDeskDashboard = () => {
                 const newStatus = (isANC || isWaived) ? 'in_nursing' : (totalAmount > 0 ? 'payment_pending' : 'in_nursing');
                 await axios.put(
                     `${backendUrl}/api/visits/${visitResponse.data._id}`,
-                    { 
-                        encounterStatus: newStatus, 
-                        isANC: isANC || undefined,
-                        isWaived: isWaived || undefined
+                    {
+                        encounterStatus: newStatus,
+                        isANC: !!isANC,
+                        isWaived: !!isWaived
                     },
                     config
                 );
@@ -1366,8 +1366,8 @@ const FrontDeskDashboard = () => {
                                                         <label
                                                             key={charge._id}
                                                             className={`flex items-center justify-between p-3 rounded border cursor-pointer transition-colors ${isSelected
-                                                                    ? 'bg-green-50 border-green-400'
-                                                                    : 'bg-white border-gray-200 hover:bg-gray-50'
+                                                                ? 'bg-green-50 border-green-400'
+                                                                : 'bg-white border-gray-200 hover:bg-gray-50'
                                                                 }`}
                                                         >
                                                             <div className="flex items-center gap-3">
@@ -1432,8 +1432,8 @@ const FrontDeskDashboard = () => {
                                     onClick={handleSubmitAdditionalCharges}
                                     disabled={selectedAdditionalCharges.length === 0}
                                     className={`px-6 py-2 rounded text-white font-semibold flex items-center gap-2 ${selectedAdditionalCharges.length === 0
-                                            ? 'bg-green-300 cursor-not-allowed'
-                                            : 'bg-green-600 hover:bg-green-700'
+                                        ? 'bg-green-300 cursor-not-allowed'
+                                        : 'bg-green-600 hover:bg-green-700'
                                         }`}
                                 >
                                     <FaDollarSign /> Add to Encounter

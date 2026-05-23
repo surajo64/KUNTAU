@@ -255,10 +255,10 @@ const PatientManagement = () => {
             if (!['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType)) {
                 const total = selectedChargeObjects.reduce((sum, c) => sum + c.basePrice, 0);
                 await axios.put(`${backendUrl}/api/visits/${visitResponse.data._id}`,
-                    { 
-                        encounterStatus: (isANC || isWaived) ? 'in_nursing' : (total > 0 ? 'payment_pending' : 'in_nursing'), 
-                        isANC: isANC || undefined,
-                        isWaived: isWaived || undefined
+                    {
+                        encounterStatus: (isANC || isWaived) ? 'in_nursing' : (total > 0 ? 'payment_pending' : 'in_nursing'),
+                        isANC: !!isANC,
+                        isWaived: !!isWaived
                     }, config);
             }
             toast.success('Encounter created successfully!');
@@ -1234,9 +1234,8 @@ const PatientManagement = () => {
 
                             {/* ANC Checkbox */}
                             <div className="mb-6">
-                                <label className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${
-                                    isANC ? 'bg-pink-50 border-pink-400' : 'bg-gray-50 border-gray-200 hover:border-pink-300'
-                                }`}>
+                                <label className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${isANC ? 'bg-pink-50 border-pink-400' : 'bg-gray-50 border-gray-200 hover:border-pink-300'
+                                    }`}>
                                     <input
                                         type="checkbox"
                                         checked={isANC}

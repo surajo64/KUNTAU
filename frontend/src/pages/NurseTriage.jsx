@@ -96,7 +96,7 @@ const NurseTriage = () => {
         if (user) {
             fetchDoctors();
             fetchNursingCharges();
-            
+
             if (patientId) {
                 handleFetchAndSelectPatient(patientId, encounterId);
             }
@@ -107,14 +107,14 @@ const NurseTriage = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            
+
             // Fetch patient details
             const { data: patient } = await axios.get(`${backendUrl}/api/patients/${pId}`, config);
             setSelectedPatient(patient);
-            
+
             // Fetch patient's encounters
             const { data: patientEncounters } = await axios.get(`${backendUrl}/api/visits?patient=${pId}`, config);
-            
+
             // Filter by relevant statuses if needed (optional, but keep consistent with previous logic if it was filtering)
             const filteredEncounters = patientEncounters.filter(v =>
                 ['registered', 'payment_pending', 'in_nursing', 'with_doctor', 'awaiting_services', 'in_pharmacy', 'in_lab', 'in_radiology', 'in_ward', 'admitted', 'completed', 'cancelled', 'discharged'].includes(v.encounterStatus)
@@ -122,7 +122,7 @@ const NurseTriage = () => {
 
             filteredEncounters.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
             setEncounters(filteredEncounters);
-            
+
             if (eId) {
                 const targetEncounter = filteredEncounters.find(e => e._id === eId);
                 if (targetEncounter) {
@@ -253,7 +253,7 @@ const NurseTriage = () => {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             const { data: patientEncounters } = await axios.get(`${backendUrl}/api/visits?patient=${patient._id}`, config);
-            
+
             const filteredEncounters = patientEncounters.filter(v =>
                 ['registered', 'payment_pending', 'in_nursing', 'with_doctor', 'awaiting_services', 'in_pharmacy', 'in_lab', 'in_radiology', 'in_ward', 'admitted', 'completed', 'cancelled', 'discharged'].includes(v.encounterStatus)
 
@@ -272,8 +272,14 @@ const NurseTriage = () => {
     const handleSelectEncounter = async (encounter) => {
         setSelectedEncounter(encounter);
 
-        // Check if already validated OR if it's an ANC visit (bypass payment validation)
-        if (encounter.paymentValidated || encounter.isANC || encounter.isWaived) {
+        // Check if already validated OR if it's an ANC visit OR if fee is waived (bypass payment validation)
+        const isBypassed = encounter.paymentValidated === true ||
+            encounter.isANC === true ||
+            encounter.isWaived === true ||
+            encounter.receiptNumber === 'WAIVED' ||
+            encounter.receiptNumber === 'ANC-BYPASS';
+
+        if (isBypassed) {
             setReceiptValidated(true);
             setReceiptNumber(encounter.receiptNumber || (encounter.isANC ? 'ANC-BYPASS' : encounter.isWaived ? 'WAIVED' : 'PRE-VALIDATED'));
         } else {
@@ -529,7 +535,7 @@ const NurseTriage = () => {
                     return isMedication && !isConsumable;
                 })
             })).filter(p => p.medicines.length > 0);
-            
+
             setDispensedPrescriptions(filteredPrescriptions);
 
             const { data: history } = await axios.get(`${backendUrl}/api/drug-administration/visit/${encounterId}`, config);
@@ -820,7 +826,7 @@ const NurseTriage = () => {
             }, config);
 
             toast.success('Patient discharged successfully!');
-            
+
             // Refresh patient encounters if this patient is selected
             if (selectedPatient && (selectedPatient._id === encounter.patient._id || selectedPatient._id === encounter.patient)) {
                 handleSelectPatient(selectedPatient);
@@ -1130,7 +1136,7 @@ const NurseTriage = () => {
                                             <span className="text-[10px] bg-blue-500/50 px-2 py-0.5 rounded-full uppercase tracking-widest font-bold border border-blue-400/30">Dispensed</span>
                                         </div>
                                     </div>
-                                    
+
                                     <div className="bg-white border-x border-b border-blue-200 rounded-b-lg shadow-sm overflow-hidden">
                                         {dispensedPrescriptions.length === 0 ? (
                                             <div className="p-8 text-center text-gray-400 italic text-sm">
@@ -1142,39 +1148,39 @@ const NurseTriage = () => {
                                                 {(() => {
                                                     const admissionDate = new Date(selectedEncounter.admissionDate || selectedEncounter.createdAt);
                                                     admissionDate.setHours(0, 0, 0, 0);
-                                                    
+
                                                     // Get all unique dates from history, and today
                                                     const historyDates = [...new Set(administrationHistory.map(h => {
                                                         const d = new Date(h.administeredAt);
-                                                        d.setHours(0,0,0,0);
+                                                        d.setHours(0, 0, 0, 0);
                                                         return d.getTime();
                                                     }))];
-                                                    
+
                                                     const today = new Date();
-                                                    today.setHours(0,0,0,0);
+                                                    today.setHours(0, 0, 0, 0);
                                                     if (!historyDates.includes(today.getTime())) {
                                                         historyDates.push(today.getTime());
                                                     }
-                                                    
+
                                                     return historyDates.sort().reverse().map((dateTimestamp, idx) => {
                                                         const currentDate = new Date(dateTimestamp);
                                                         const diffTime = dateTimestamp - admissionDate.getTime();
                                                         const dayNum = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
                                                         const isExpanded = expandedDays[dateTimestamp] !== false; // Default to true if not explicitly false
-                                                        
+
                                                         const dayHistory = administrationHistory.filter(h => {
                                                             const d = new Date(h.administeredAt);
-                                                            d.setHours(0,0,0,0);
+                                                            d.setHours(0, 0, 0, 0);
                                                             return d.getTime() === dateTimestamp;
                                                         });
-                                                        
-                                                        const dayTimes = [...new Set(dayHistory.map(h => 
+
+                                                        const dayTimes = [...new Set(dayHistory.map(h =>
                                                             new Date(h.administeredAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
                                                         ))].sort();
 
                                                         return (
                                                             <div key={dateTimestamp} className="border-b last:border-0">
-                                                                <button 
+                                                                <button
                                                                     onClick={() => setExpandedDays(prev => ({ ...prev, [dateTimestamp]: !isExpanded }))}
                                                                     className="w-full bg-gray-50/50 px-4 py-2 hover:bg-blue-50 transition-colors flex items-center justify-between text-blue-900 border-b border-gray-100"
                                                                 >
@@ -1188,7 +1194,7 @@ const NurseTriage = () => {
                                                                         {dayHistory.length} Administrations recorded
                                                                     </div>
                                                                 </button>
-                                                                
+
                                                                 {isExpanded && (
                                                                     <div className="overflow-x-auto">
                                                                         <table className="w-full text-xs text-left border-collapse">
@@ -1223,8 +1229,8 @@ const NurseTriage = () => {
                                                                                             </div>
                                                                                         </td>
                                                                                         {dayTimes.map(timeStr => {
-                                                                                            const admin = dayHistory.find(h => 
-                                                                                                new Date(h.administeredAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) === timeStr && 
+                                                                                            const admin = dayHistory.find(h =>
+                                                                                                new Date(h.administeredAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) === timeStr &&
                                                                                                 (h.medicineId === m._id || h.medicineName === m.name)
                                                                                             );
                                                                                             return (
