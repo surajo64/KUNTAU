@@ -9,7 +9,7 @@ import { checkRange, getRangeColorClass } from '../utils/labUtils';
 import Layout from '../components/Layout';
 import LoadingOverlay from '../components/loadingOverlay';
 import AppointmentModal from '../components/AppointmentModal';
-import { FaTimes, FaFileMedical, FaPills, FaChevronDown, FaChevronUp, FaHeartbeat, FaNotesMedical, FaProcedures, FaXRay, FaVial, FaUserMd, FaCalendarPlus, FaPlus, FaTrash, FaEdit, FaSearch, FaClock, FaChevronRight, FaFileAlt, FaCheckCircle } from 'react-icons/fa';
+import { FaTimes, FaFileMedical, FaPills, FaChevronDown, FaChevronUp, FaHeartbeat, FaNotesMedical, FaProcedures, FaXRay, FaVial, FaUserMd, FaCalendarPlus, FaPlus, FaTrash, FaEdit, FaSearch, FaClock, FaChevronRight, FaFileAlt, FaCheckCircle, FaInfoCircle } from 'react-icons/fa';
 import icd11Data from '../data/icd11.json';
 
 const PatientDetails = () => {
@@ -2241,15 +2241,30 @@ const PatientDetails = () => {
                                                                 <p className="text-sm text-gray-600">Ordered: {new Date(order.createdAt).toLocaleString()}</p>
                                                                 {order.clinicalDetails && (
                                                                     <div className="mt-2 p-2 bg-blue-50 border-l-4 border-blue-400 text-xs italic">
-                                                                        <span className="font-bold text-blue-800 not-italic">Clinical Context: </span>
+                                                                        <span className="font-bold text-blue-800 not-italic">Clinical Detail: </span>
                                                                         {order.clinicalDetails}
                                                                     </div>
                                                                 )}
-                                                                {order.result && order.approvedBy ? (
-                                                                    <details className="mt-2">
-                                                                        <summary className="cursor-pointer text-blue-600 hover:text-blue-800 text-sm font-semibold">
-                                                                            View Results
+                                                                {order.result ? (
+                                                                    <details className="mt-2" open={!order.approvedBy}>
+                                                                        <summary className="cursor-pointer text-blue-600 hover:text-blue-800 text-sm font-semibold flex items-center gap-2">
+                                                                            {order.approvedBy ? (
+                                                                                <>View Official Results</>
+                                                                            ) : (
+                                                                                <>
+                                                                                    <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded-full text-[10px] font-bold border border-orange-200">
+                                                                                        PRELIMINARY
+                                                                                    </span>
+                                                                                    View Early Results
+                                                                                </>
+                                                                            )}
                                                                         </summary>
+                                                                        {!order.approvedBy && (
+                                                                            <div className="mt-2 p-2 bg-orange-50 border-l-4 border-orange-400 text-xs text-orange-800 italic">
+                                                                                <FaInfoCircle className="inline mr-1" />
+                                                                                These results have been entered but not yet formally reviewed and approved by a Lab Scientist.
+                                                                            </div>
+                                                                        )}
                                                                         <div className="mt-2 p-3 bg-white rounded border text-sm">
                                                                             {(() => {
                                                                                 try {
@@ -2305,10 +2320,6 @@ const PatientDetails = () => {
                                                                             })()}
                                                                         </div>
                                                                     </details>
-                                                                ) : order.result ? (
-                                                                    <div className="mt-2 p-2 bg-yellow-50 border-l-4 border-yellow-400 text-xs text-yellow-800 italic">
-                                                                        Result is being verified by the Lab Scientist.
-                                                                    </div>
                                                                 ) : null}
                                                             </div>
                                                             <div className="flex gap-2 ml-4">
