@@ -9,7 +9,7 @@ import { checkRange, getRangeColorClass } from '../utils/labUtils';
 import Layout from '../components/Layout';
 import LoadingOverlay from '../components/loadingOverlay';
 import AppointmentModal from '../components/AppointmentModal';
-import { FaTimes, FaFileMedical, FaPills, FaChevronDown, FaChevronUp, FaHeartbeat, FaNotesMedical, FaProcedures, FaXRay, FaVial, FaUserMd, FaCalendarPlus, FaPlus, FaTrash, FaEdit, FaSearch, FaClock, FaChevronRight } from 'react-icons/fa';
+import { FaTimes, FaFileMedical, FaPills, FaChevronDown, FaChevronUp, FaHeartbeat, FaNotesMedical, FaProcedures, FaXRay, FaVial, FaUserMd, FaCalendarPlus, FaPlus, FaTrash, FaEdit, FaSearch, FaClock, FaChevronRight, FaFileAlt, FaCheckCircle } from 'react-icons/fa';
 import icd11Data from '../data/icd11.json';
 
 const PatientDetails = () => {
@@ -25,6 +25,151 @@ const PatientDetails = () => {
     const [inventoryDrugs, setInventoryDrugs] = useState([]);
     const [expandedDays, setExpandedDays] = useState({});
 
+    const handleUniversalPrint = (order) => {
+        try {
+            const printWindow = window.open("", "_blank");
+            if (!printWindow) {
+                alert("Please allow popups for this website to print reports.");
+                return;
+            }
+
+            const printContent = `
+                <html>
+                    <head>
+                        <title>Laboratory Report - ${order.testName}</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; color: #1a202c; }
+                            .header { text-align: center; margin-bottom: 30px; border-bottom: 3px solid #4a5568; padding-bottom: 20px; }
+                            .header h1 { font-size: 28px; margin: 0; color: #2d3748; text-transform: uppercase; letter-spacing: 1px; }
+                            .hospital-name { font-size: 22px; font-weight: bold; margin-bottom: 5px; color: #2c5282; }
+                            .report-type { font-size: 14px; font-weight: bold; color: #718096; margin-top: 5px; }
+                            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 35px; background: #f7fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; }
+                            .info-grid p { margin: 8px 0; font-size: 14px; }
+                            .label { font-weight: bold; color: #4a5568; width: 120px; display: inline-block; }
+                            .results-table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
+                            .results-table th { background: #edf2f7; text-align: left; padding: 12px; font-size: 13px; font-weight: bold; border-bottom: 2px solid #cbd5e0; }
+                            .results-table td { padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
+                            .text-result { background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; min-height: 200px; white-space: pre-wrap; font-family: 'Courier New', Courier, monospace; }
+                            .signature-container { margin-top: 50px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 30px; }
+                            .sig-box { border-top: 1px solid #a0aec0; padding-top: 10px; text-align: center; }
+                            .sig-name { font-weight: bold; font-size: 14px; }
+                            .sig-label { font-size: 10px; text-transform: uppercase; color: #718096; font-weight: bold; margin-bottom: 4px; }
+                            .sig-date { font-size: 11px; color: #a0aec0; }
+                            @media print { .no-print { display: none; } }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="header">
+                            <div class="hospital-name">ALJOUD CLINIC & LABORATORY</div>
+                            <h1>Laboratory Report</h1>
+                            <div class="report-type">${order.testName}</div>
+                        </div>
+
+                        <div class="info-grid">
+                            <div>
+                                <p><span class="label">Patient:</span> ${patient?.name}</p>
+                                <p><span class="label">MRN:</span> ${patient?.mrn}</p>
+                                <p><span class="label">Age/Sex:</span> ${formatAge(patient?.dateOfBirth)} / ${patient?.gender}</p>
+                            </div>
+                            <div>
+                                <p><span class="label">Ref. Doctor:</span> ${order.doctor?.name || 'Self'}</p>
+                                <p><span class="label">Ordered:</span> ${new Date(order.createdAt).toLocaleString()}</p>
+                                <p><span class="label">Reported:</span> ${new Date().toLocaleString()}</p>
+                            </div>
+                        </div>
+
+                        <div class="results-section">
+                            ${(() => {
+                    try {
+                        const parsed = JSON.parse(order.result);
+                        if (parsed.format === 'table') {
+                            return `
+                                        <table class="results-table">
+                                            <thead>
+                                                <tr>
+                                                    <th>Parameter</th>
+                                                    <th>Result</th>
+                                                    <th>Unit</th>
+                                                    <th>Reference Range</th>
+                                                    <th>Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${parsed.parameters.map(p => {
+                                const rangeS = checkRange(p.value, p.normalRange);
+                                return `
+                                                        <tr>
+                                                            <td>${p.name}</td>
+                                                            <td style="font-weight: bold;">${p.value}</td>
+                                                            <td>${p.unit}</td>
+                                                            <td style="color: #666;">${p.normalRange}</td>
+                                                            <td style="font-weight: bold; color: ${rangeS === 'low' ? '#dd6b20' : rangeS === 'high' ? '#e53e3e' : '#38a169'}">
+                                                                ${rangeS === 'low' ? 'LOW' : rangeS === 'high' ? 'HIGH' : 'NORMAL'}
+                                                            </td>
+                                                        </tr>
+                                                    `;
+                            }).join('')}
+                                            </tbody>
+                                        </table>
+                                    `;
+                        }
+                    } catch (e) { }
+                    return `<div class="text-result">${order.result}</div>`;
+                })()}
+                    </div>
+
+                    <div class="signature-container">
+                        ${order.signedBy ? `
+                            <div class="sig-box">
+                                <div class="sig-label">Performed By</div>
+                                <div class="sig-name">${order.signedBy.name}</div>
+                                <div class="sig-date">${new Date(order.signedAt).toLocaleString()}</div>
+                            </div>
+                        ` : ''}
+                        
+                        ${order.rejectedBy ? `
+                            <div class="sig-box">
+                                <div class="sig-label">Rejected By</div>
+                                <div class="sig-name">${order.rejectedBy.name || 'Lab Scientist'}</div>
+                                <div class="sig-date">${new Date(order.rejectedAt).toLocaleString()}</div>
+                            </div>
+                        ` : ''}
+
+                        ${order.lastModifiedBy ? `
+                            <div class="sig-box">
+                                <div class="sig-label">Edited By</div>
+                                <div class="sig-name">${order.lastModifiedBy.name}</div>
+                                <div class="sig-date">${new Date(order.lastModifiedAt).toLocaleString()}</div>
+                            </div>
+                        ` : ''}
+
+                        ${order.approvedBy ? `
+                            <div class="sig-box" style="border-color: #38a169;">
+                                <div class="sig-label" style="color: #38a169;">Verified & Approved By</div>
+                                <div class="sig-name">${order.approvedBy.name}</div>
+                                <div class="sig-date">${new Date(order.approvedAt).toLocaleString()}</div>
+                            </div>
+                        ` : ''}
+                    </div>
+
+                    <div style="margin-top: 60px; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 10px; font-size: 10px; color: #a0aec0;">
+                        This is an electronically verified report. No physical signature is required.
+                    </div>
+
+                    <script>
+                        window.onload = function() { window.print(); window.close(); }
+                    </script>
+                </body>
+            </html>
+        `;
+
+            printWindow.document.write(printContent);
+            printWindow.document.close();
+        } catch (err) {
+            console.error("Print Error:", err);
+            toast.error("Error generating report: " + err.message);
+        }
+    };
     // State for collapsible clinical notes sections
     const [expandedSections, setExpandedSections] = useState({
         history: true, // History section expanded by default
@@ -204,7 +349,7 @@ const PatientDetails = () => {
                 freqMultiplier = 2;
             } else if (freqLower === 'tds' || freqLower.includes('three times daily') || freqLower === 'tid' || freqLower.includes('trice') || freqLower.includes('8 hourly') || freqLower.includes('8h')) {
                 freqMultiplier = 3;
-            } else if (freqLower === 'qid' || freqLower.includes('four times daily') || freqLower.includes('6 hourly') || freqLower.includes('6h') || freqLower.includes('four times')) {
+            } else if (freqLower === 'qid' || freqLower.includes('four times daily') || freqLower === '6 hourly') {
                 freqMultiplier = 4;
             } else if (freqLower.includes('weekly')) {
                 freqMultiplier = 1 / 7;
@@ -2100,7 +2245,7 @@ const PatientDetails = () => {
                                                                         {order.clinicalDetails}
                                                                     </div>
                                                                 )}
-                                                                {order.result && (
+                                                                {order.result && order.approvedBy ? (
                                                                     <details className="mt-2">
                                                                         <summary className="cursor-pointer text-blue-600 hover:text-blue-800 text-sm font-semibold">
                                                                             View Results
@@ -2160,14 +2305,20 @@ const PatientDetails = () => {
                                                                             })()}
                                                                         </div>
                                                                     </details>
-                                                                )}
+                                                                ) : order.result ? (
+                                                                    <div className="mt-2 p-2 bg-yellow-50 border-l-4 border-yellow-400 text-xs text-yellow-800 italic">
+                                                                        Result is being verified by the Lab Scientist.
+                                                                    </div>
+                                                                ) : null}
                                                             </div>
                                                             <div className="flex gap-2 ml-4">
                                                                 <span className={`text-xs px-3 py-1 rounded ${order.charge?.status === 'paid' ? 'bg-green-200 text-green-800' : 'bg-yellow-200 text-yellow-800'}`}>
                                                                     {order.charge?.status === 'paid' ? 'Paid' : 'Unpaid'}
                                                                 </span>
-                                                                <span className={`text-xs px-3 py-1 rounded ${order.status === 'completed' ? 'bg-blue-200 text-blue-800' : 'bg-gray-200 text-gray-600'}`}>
-                                                                    {order.status}
+                                                                <span className={`text-xs px-3 py-1 rounded font-bold uppercase tracking-wider ${order.status === 'completed'
+                                                                    ? (order.approvedBy ? 'bg-green-600 text-white' : 'bg-blue-200 text-blue-800')
+                                                                    : order.status === 'rejected' ? 'bg-red-100 text-red-800' : 'bg-gray-200 text-gray-600'}`}>
+                                                                    {order.status === 'completed' ? (order.approvedBy ? 'Approved' : 'Review Pending') : order.status}
                                                                 </span>
                                                                 {canEdit && (user.role === 'admin' || order.doctor === user._id || order.doctor?._id === user._id) && order.status !== 'completed' && order.charge?.status !== 'paid' && (
                                                                     <button
@@ -2180,15 +2331,24 @@ const PatientDetails = () => {
                                                                 )}
                                                             </div>
                                                         </div>
-                                                        {order.signedBy && (
-                                                            <p className="text-xs text-gray-500 mt-2 italic border-t pt-2">
-                                                                Result by: {order.signedBy.name}
-                                                            </p>
-                                                        )}
                                                         {order.approvedBy && (
-                                                            <p className="text-xs text-green-600 mt-1 italic font-semibold">
-                                                                Reviewed and Approved by: {order.approvedBy.name}
-                                                            </p>
+                                                            <div className="mt-2 pt-2 border-t flex justify-between items-end">
+                                                                <div className="text-[10px] text-gray-500 italic">
+                                                                    <p>Result by: {order.signedBy?.name}</p>
+                                                                    <p>Approved by: {order.approvedBy.name}</p>
+                                                                </div>
+                                                                <button
+                                                                    type="button"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleUniversalPrint(order);
+                                                                    }}
+                                                                    className="p-1 text-purple-600 hover:bg-purple-100 rounded"
+                                                                    title="Print Report"
+                                                                >
+                                                                    <FaFileAlt />
+                                                                </button>
+                                                            </div>
                                                         )}
                                                     </div>
                                                 ))}

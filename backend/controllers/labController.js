@@ -50,29 +50,13 @@ const createLabOrder = async (req, res) => {
 // @route   GET /api/lab
 // @access  Private
 const getLabOrders = async (req, res) => {
+    // Show all lab orders for the dashboard view to provide patient context
+    // Approval restrictions are handled separately in the approveLabResult function
     let query = {};
-
-    // Filter by specialization for lab technicians and scientists
-    if (req.user.role === 'lab_technician' || req.user.role === 'lab_scientist') {
-        // If user has 'All Lab Test' specialization, they see everything
-        if (req.user.labSpecialization === 'All Lab Test') {
-            query = {};
-        } else {
-            // Only show orders that match user's specialization OR have no specialization
-            query = {
-                $or: [
-                    { labSpecialization: req.user.labSpecialization },
-                    { labSpecialization: { $exists: false } },
-                    { labSpecialization: null },
-                    { labSpecialization: '' }
-                ]
-            };
-        }
-    }
 
     const orders = await LabOrder.find(query)
         .populate('doctor', 'name')
-        .populate('patient', 'name mrn')
+        .populate('patient', 'name mrn contact')
         .populate('visit', 'type createdAt')
         .populate('charge', 'status')
         .populate('signedBy', 'name')
@@ -109,11 +93,15 @@ const getLabOrdersByVisit = async (req, res) => {
     }
 
     const orders = await LabOrder.find(query)
+        .populate('patient', 'name mrn contact')
         .populate('doctor', 'name')
         .populate('charge', 'status')
         .populate('signedBy', 'name')
         .populate('lastModifiedBy', 'name')
-        .populate('approvedBy', 'name');
+        .populate('approvedBy', 'name')
+        .populate('rejectedBy', 'name')
+        .populate('visit', 'type createdAt')
+        .sort({ createdAt: -1 });
     res.json(orders);
 };
 
@@ -125,19 +113,11 @@ const updateLabResult = async (req, res) => {
     const order = await LabOrder.findById(req.params.id);
 
     if (order) {
-        // Specialization check
-        if ((req.user.role === 'lab_technician' || req.user.role === 'lab_scientist')) {
-            if (req.user.labSpecialization !== 'All Lab Test' &&
-                order.labSpecialization &&
-                order.labSpecialization !== req.user.labSpecialization) {
-                return res.status(403).json({ message: `This test requires ${order.labSpecialization} specialization.` });
-            }
-        }
-
         const isFirstSave = !order.result || order.status === 'pending';
 
         order.result = result;
         order.status = 'completed';
+        // Keep rejection history for auditing
 
         if (isFirstSave) {
             // First time signing the result
@@ -149,13 +129,15 @@ const updateLabResult = async (req, res) => {
             order.lastModifiedAt = new Date();
         }
 
-        const updatedOrder = await order.save();
+        await order.save();
 
-        // Populate user info before sending response
-        await updatedOrder.populate('patient', 'name mrn');
-        await updatedOrder.populate('signedBy', 'name');
-        await updatedOrder.populate('lastModifiedBy', 'name');
-        await updatedOrder.populate('approvedBy', 'name');
+        // Re-fetch with full population for audit trail
+        const updatedOrder = await LabOrder.findById(order._id)
+            .populate('patient', 'name mrn')
+            .populate('signedBy', 'name')
+            .populate('lastModifiedBy', 'name')
+            .populate('approvedBy', 'name')
+            .populate('rejectedBy', 'name');
 
         res.json(updatedOrder);
     } else {
@@ -181,6 +163,11 @@ const approveLabResult = async (req, res) => {
             return res.status(403).json({ message: `This test requires ${order.labSpecialization} specialization to approve.` });
         }
 
+        // Mutual approval check: A scientist cannot approve a result they entered themselves
+        if (order.signedBy && order.signedBy.toString() === req.user._id.toString()) {
+            return res.status(400).json({ message: 'You cannot approve a result you entered yourself. Another Lab Scientist must review it.' });
+        }
+
         order.approvedBy = req.user._id;
         order.approvedAt = new Date();
 
@@ -189,6 +176,51 @@ const approveLabResult = async (req, res) => {
         await updatedOrder.populate('patient', 'name mrn');
         await updatedOrder.populate('signedBy', 'name');
         await updatedOrder.populate('approvedBy', 'name');
+
+        res.json(updatedOrder);
+    } else {
+        res.status(404).json({ message: 'Order not found' });
+    }
+};
+
+// @desc    Reject lab result
+// @route   PUT /api/lab/:id/reject
+// @access  Private (Lab Scientist)
+const rejectLabResult = async (req, res) => {
+    const { reason } = req.body;
+    const order = await LabOrder.findById(req.params.id);
+
+    if (order) {
+        if (req.user.role !== 'lab_scientist') {
+            return res.status(403).json({ message: 'Only Lab Scientists can reject results.' });
+        }
+
+        // Specialization check
+        if (req.user.labSpecialization !== 'All Lab Test' &&
+            order.labSpecialization &&
+            order.labSpecialization !== req.user.labSpecialization) {
+            return res.status(403).json({ message: `This test requires ${order.labSpecialization} specialization to reject.` });
+        }
+
+        // Mutual exclusion check: Cannot reject own result
+        if (order.signedBy && order.signedBy.toString() === req.user._id.toString()) {
+            return res.status(400).json({ message: 'You cannot reject a result you entered yourself. Another Lab Scientist must review it.' });
+        }
+
+        // Formalize rejection: Reset status, record who and when
+        order.status = 'rejected';
+        order.rejectionReason = reason;
+        order.rejectedBy = req.user._id;
+        order.rejectedAt = new Date();
+
+        // Keep signedBy but clear approvedBy if any
+        order.approvedBy = null;
+        order.approvedAt = null;
+
+        await order.save();
+        const updatedOrder = await LabOrder.findById(order._id)
+            .populate('signedBy', 'name')
+            .populate('rejectedBy', 'name');
 
         res.json(updatedOrder);
     } else {
@@ -233,5 +265,6 @@ module.exports = {
     getLabOrdersByVisit,
     updateLabResult,
     approveLabResult,
+    rejectLabResult,
     deleteLabOrder,
 };

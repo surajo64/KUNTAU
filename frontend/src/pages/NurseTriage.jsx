@@ -96,7 +96,7 @@ const NurseTriage = () => {
         if (user) {
             fetchDoctors();
             fetchNursingCharges();
-
+            
             if (patientId) {
                 handleFetchAndSelectPatient(patientId, encounterId);
             }
@@ -107,14 +107,14 @@ const NurseTriage = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-
+            
             // Fetch patient details
             const { data: patient } = await axios.get(`${backendUrl}/api/patients/${pId}`, config);
             setSelectedPatient(patient);
-
+            
             // Fetch patient's encounters
             const { data: patientEncounters } = await axios.get(`${backendUrl}/api/visits?patient=${pId}`, config);
-
+            
             // Filter by relevant statuses if needed (optional, but keep consistent with previous logic if it was filtering)
             const filteredEncounters = patientEncounters.filter(v =>
                 ['registered', 'payment_pending', 'in_nursing', 'with_doctor', 'awaiting_services', 'in_pharmacy', 'in_lab', 'in_radiology', 'in_ward', 'admitted', 'completed', 'cancelled', 'discharged'].includes(v.encounterStatus)
@@ -122,7 +122,7 @@ const NurseTriage = () => {
 
             filteredEncounters.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
             setEncounters(filteredEncounters);
-
+            
             if (eId) {
                 const targetEncounter = filteredEncounters.find(e => e._id === eId);
                 if (targetEncounter) {
@@ -229,8 +229,7 @@ const NurseTriage = () => {
             const { data } = await axios.get(`${backendUrl}/api/patients`, config);
             const filtered = data.filter(p =>
                 p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (p.mrn && p.mrn.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                (p.contact && p.contact.includes(searchTerm))
+                (p.mrn && p.mrn.toLowerCase().includes(searchTerm.toLowerCase()))
             );
             setPatients(filtered);
         } catch (error) {
@@ -254,7 +253,7 @@ const NurseTriage = () => {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             const { data: patientEncounters } = await axios.get(`${backendUrl}/api/visits?patient=${patient._id}`, config);
-
+            
             const filteredEncounters = patientEncounters.filter(v =>
                 ['registered', 'payment_pending', 'in_nursing', 'with_doctor', 'awaiting_services', 'in_pharmacy', 'in_lab', 'in_radiology', 'in_ward', 'admitted', 'completed', 'cancelled', 'discharged'].includes(v.encounterStatus)
 
@@ -274,9 +273,9 @@ const NurseTriage = () => {
         setSelectedEncounter(encounter);
 
         // Check if already validated OR if it's an ANC visit (bypass payment validation)
-        if (encounter.paymentValidated || encounter.isANC) {
+        if (encounter.paymentValidated || encounter.isANC || encounter.isWaived) {
             setReceiptValidated(true);
-            setReceiptNumber(encounter.receiptNumber || (encounter.isANC ? 'ANC-BYPASS' : 'PRE-VALIDATED'));
+            setReceiptNumber(encounter.receiptNumber || (encounter.isANC ? 'ANC-BYPASS' : encounter.isWaived ? 'WAIVED' : 'PRE-VALIDATED'));
         } else {
             setReceiptValidated(false);
             setReceiptNumber('');
@@ -530,7 +529,7 @@ const NurseTriage = () => {
                     return isMedication && !isConsumable;
                 })
             })).filter(p => p.medicines.length > 0);
-
+            
             setDispensedPrescriptions(filteredPrescriptions);
 
             const { data: history } = await axios.get(`${backendUrl}/api/drug-administration/visit/${encounterId}`, config);
@@ -821,7 +820,7 @@ const NurseTriage = () => {
             }, config);
 
             toast.success('Patient discharged successfully!');
-
+            
             // Refresh patient encounters if this patient is selected
             if (selectedPatient && (selectedPatient._id === encounter.patient._id || selectedPatient._id === encounter.patient)) {
                 handleSelectPatient(selectedPatient);
@@ -849,7 +848,7 @@ const NurseTriage = () => {
                 <div className="flex gap-2 mb-4">
                     <input
                         type="text"
-                        placeholder="Search by Name, MRN or Phone Number..."
+                        placeholder="Search by Name or MRN..."
                         className="flex-1 border p-2 rounded"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -895,7 +894,7 @@ const NurseTriage = () => {
                                 }}
                                 className="text-blue-600 text-sm mt-2 hover:underline"
                             >
-                                Ã¢â€ Â Change Patient
+                                Ã¢â€ Â  Change Patient
                             </button>
                         </div>
 
@@ -916,20 +915,28 @@ const NurseTriage = () => {
                                                     {encounter.type} Visit
                                                     {encounter.isANC && (
                                                         <span className="bg-pink-100 text-pink-700 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
-                                                            ðŸ¤° ANC
+                                                            🤰 ANC
                                                         </span>
                                                     )}
+                                                    {encounter.isWaived && (
+                                                        <span className="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1" title={`Waived by ${encounter.waivedBy?.name || encounter.doctor?.name || 'Authorized Personnel'}`}>
+                                                            🎟 Waived
+                                                        </span>
+                                                    )}
+                                                    <span className="text-[10px] text-gray-400 font-normal">
+                                                        by {encounter.doctor?.name}
+                                                    </span>
                                                 </p>
                                                 <p className="text-sm text-gray-600">
                                                     {new Date(encounter.createdAt).toLocaleDateString()} - Status: {encounter.encounterStatus}
                                                 </p>
                                             </div>
                                             <div className="flex flex-col items-end gap-2">
-                                                <span className={`px-3 py-1 rounded text-sm ${(encounter.paymentValidated || encounter.isANC)
+                                                <span className={`px-3 py-1 rounded text-sm ${(encounter.paymentValidated || encounter.isANC || encounter.isWaived)
                                                     ? 'bg-green-100 text-green-800'
                                                     : 'bg-yellow-100 text-yellow-800'
                                                     }`}>
-                                                    {(encounter.paymentValidated || encounter.isANC) ? (encounter.isANC ? 'ANC' : 'Paid') : 'Pending'}
+                                                    {(encounter.paymentValidated || encounter.isANC || encounter.isWaived) ? (encounter.isANC ? 'ANC' : encounter.isWaived ? 'Waived' : 'Paid') : 'Pending'}
                                                 </span>
 
                                                 {/* Admit Button (Active Outpatient/Emergency -> Inpatient) */}
@@ -970,9 +977,17 @@ const NurseTriage = () => {
                                 {selectedPatient.name} - {selectedEncounter.type} Visit
                                 {selectedEncounter.isANC && (
                                     <span className="bg-pink-100 text-pink-700 text-xs px-2 py-1 rounded-full font-bold">
-                                        ðŸ¤° ANC Visit (Payment Bypassed)
+                                        🤰 ANC Visit (Payment Bypassed)
                                     </span>
                                 )}
+                                {selectedEncounter.isWaived && (
+                                    <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-bold">
+                                        🎟 Fee Waived by {selectedEncounter.waivedBy?.name || selectedEncounter.doctor?.name || 'Authorized Personnel'}
+                                    </span>
+                                )}
+                                <span className="text-xs text-gray-500 font-normal ml-2">
+                                    (Created by: {selectedEncounter.doctor?.name})
+                                </span>
                             </p>
                             <p className="text-sm text-gray-600">
                                 {new Date(selectedEncounter.createdAt).toLocaleDateString()}
@@ -1018,7 +1033,7 @@ const NurseTriage = () => {
                         <div>
                             <div className="bg-green-50 p-4 rounded mb-6">
                                 <p className="text-green-700 font-semibold flex items-center gap-2">
-                                    <FaCheckCircle /> {selectedEncounter.isANC ? 'ANC Visit - Payment Verification Bypassed' : `Payment Validated - Receipt #${receiptNumber}`}
+                                    <FaCheckCircle /> {selectedEncounter.isANC ? 'ANC Visit - Payment Verification Bypassed' : selectedEncounter.isWaived ? `Fee Waived by ${selectedEncounter.waivedBy?.name || 'Authorized Personnel'} - Payment Verification Bypassed` : `Payment Validated - Receipt #${receiptNumber}`}
                                 </p>
                             </div>
 
@@ -1115,7 +1130,7 @@ const NurseTriage = () => {
                                             <span className="text-[10px] bg-blue-500/50 px-2 py-0.5 rounded-full uppercase tracking-widest font-bold border border-blue-400/30">Dispensed</span>
                                         </div>
                                     </div>
-
+                                    
                                     <div className="bg-white border-x border-b border-blue-200 rounded-b-lg shadow-sm overflow-hidden">
                                         {dispensedPrescriptions.length === 0 ? (
                                             <div className="p-8 text-center text-gray-400 italic text-sm">
@@ -1127,39 +1142,39 @@ const NurseTriage = () => {
                                                 {(() => {
                                                     const admissionDate = new Date(selectedEncounter.admissionDate || selectedEncounter.createdAt);
                                                     admissionDate.setHours(0, 0, 0, 0);
-
+                                                    
                                                     // Get all unique dates from history, and today
                                                     const historyDates = [...new Set(administrationHistory.map(h => {
                                                         const d = new Date(h.administeredAt);
-                                                        d.setHours(0, 0, 0, 0);
+                                                        d.setHours(0,0,0,0);
                                                         return d.getTime();
                                                     }))];
-
+                                                    
                                                     const today = new Date();
-                                                    today.setHours(0, 0, 0, 0);
+                                                    today.setHours(0,0,0,0);
                                                     if (!historyDates.includes(today.getTime())) {
                                                         historyDates.push(today.getTime());
                                                     }
-
+                                                    
                                                     return historyDates.sort().reverse().map((dateTimestamp, idx) => {
                                                         const currentDate = new Date(dateTimestamp);
                                                         const diffTime = dateTimestamp - admissionDate.getTime();
                                                         const dayNum = Math.floor(diffTime / (1000 * 60 * 60 * 24)) + 1;
                                                         const isExpanded = expandedDays[dateTimestamp] !== false; // Default to true if not explicitly false
-
+                                                        
                                                         const dayHistory = administrationHistory.filter(h => {
                                                             const d = new Date(h.administeredAt);
-                                                            d.setHours(0, 0, 0, 0);
+                                                            d.setHours(0,0,0,0);
                                                             return d.getTime() === dateTimestamp;
                                                         });
-
-                                                        const dayTimes = [...new Set(dayHistory.map(h =>
+                                                        
+                                                        const dayTimes = [...new Set(dayHistory.map(h => 
                                                             new Date(h.administeredAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
                                                         ))].sort();
 
                                                         return (
                                                             <div key={dateTimestamp} className="border-b last:border-0">
-                                                                <button
+                                                                <button 
                                                                     onClick={() => setExpandedDays(prev => ({ ...prev, [dateTimestamp]: !isExpanded }))}
                                                                     className="w-full bg-gray-50/50 px-4 py-2 hover:bg-blue-50 transition-colors flex items-center justify-between text-blue-900 border-b border-gray-100"
                                                                 >
@@ -1173,7 +1188,7 @@ const NurseTriage = () => {
                                                                         {dayHistory.length} Administrations recorded
                                                                     </div>
                                                                 </button>
-
+                                                                
                                                                 {isExpanded && (
                                                                     <div className="overflow-x-auto">
                                                                         <table className="w-full text-xs text-left border-collapse">
@@ -1208,8 +1223,8 @@ const NurseTriage = () => {
                                                                                             </div>
                                                                                         </td>
                                                                                         {dayTimes.map(timeStr => {
-                                                                                            const admin = dayHistory.find(h =>
-                                                                                                new Date(h.administeredAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) === timeStr &&
+                                                                                            const admin = dayHistory.find(h => 
+                                                                                                new Date(h.administeredAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) === timeStr && 
                                                                                                 (h.medicineId === m._id || h.medicineName === m.name)
                                                                                             );
                                                                                             return (

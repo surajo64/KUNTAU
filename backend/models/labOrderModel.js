@@ -8,7 +8,7 @@ const labOrderSchema = mongoose.Schema({
     testName: { type: String, required: true },
     labSpecialization: { type: String },
     result: { type: String },
-    status: { type: String, enum: ['pending', 'completed'], default: 'pending' },
+    status: { type: String, enum: ['pending', 'completed', 'rejected'], default: 'pending' },
     notes: { type: String },
     clinicalDetails: { type: String },
 
@@ -21,6 +21,11 @@ const labOrderSchema = mongoose.Schema({
     // Approval tracking
     approvedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
     approvedAt: { type: Date },
+
+    // Rejection tracking
+    rejectedBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    rejectedAt: { type: Date },
+    rejectionReason: { type: String },
 }, {
     timestamps: true,
 });

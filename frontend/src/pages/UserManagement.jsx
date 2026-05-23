@@ -504,6 +504,7 @@ const UserManagement = () => {
                                     <option value="doctor">Doctor</option>
                                     <option value="nurse">Nurse</option>
                                     <option value="pharmacist">Pharmacist</option>
+                                    <option value="lab_scientist">Lab Scientist</option>
                                     <option value="lab_technician">Lab Technician</option>
                                     <option value="radiologist">Radiologist</option>
                                     <option value="cashier">Cashier</option>
