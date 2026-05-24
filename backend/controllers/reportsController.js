@@ -270,92 +270,83 @@ const getPharmacyRevenue = async (req, res) => {
             })
             .sort({ createdAt: -1 });
 
+        // --- NEW: Include Standalone Pharmacy Charges (POS sales) ---
+        const standaloneCharges = await EncounterCharge.find({
+            $or: [
+                { itemType: 'Pharmacy' },
+                { itemType: 'Drug', visit: { $exists: true } }, // Standalone drugs
+                { department: 'Pharmacy' }
+            ],
+            createdAt: { $gte: start, $lte: end }
+        })
+            .populate('patient', 'name mrn')
+            .populate('receipt');
+
         const totalPrescriptions = prescriptions.length;
         const dispensedPrescriptions = prescriptions.filter(p => p.status === 'dispensed').length;
-        const paidPrescriptions = prescriptions.filter(p => p.charge?.status === 'paid').length;
 
-        const totalRevenue = prescriptions
+        // Combine revenue from prescriptions and standalone charges
+        const prescriptionRevenue = prescriptions
             .filter(p => p.charge?.status === 'paid')
             .reduce((sum, p) => sum + (p.charge?.totalAmount || 0), 0);
 
-        const pendingRevenue = prescriptions
+        const standaloneRevenue = standaloneCharges
+            .filter(c => c.status === 'paid')
+            .reduce((sum, c) => sum + (c.totalAmount || 0), 0);
+
+        const totalRevenue = prescriptionRevenue + standaloneRevenue;
+
+        // Pending revenue from both
+        const pendingPrescriptionRevenue = prescriptions
             .filter(p => p.charge?.status === 'pending')
             .reduce((sum, p) => sum + (p.charge?.totalAmount || 0), 0);
 
-        // Calculate pending revenue breakdown
-        let pendingInsuranceRevenue = 0;
-        let pendingPatientRevenue = 0;
+        const pendingStandaloneRevenue = standaloneCharges
+            .filter(c => c.status === 'pending')
+            .reduce((sum, c) => sum + (c.totalAmount || 0), 0);
 
-        prescriptions.forEach(p => {
-            const c = p.charge;
-            if (c?.status === 'pending') {
-                if (c.hmoPortion !== undefined || c.patientPortion !== undefined) {
-                    pendingInsuranceRevenue += (c.hmoPortion || 0);
-                    pendingPatientRevenue += (c.patientPortion || 0);
-                } else {
-                    pendingPatientRevenue += (c.totalAmount || 0);
-                }
-            }
-        });
+        const pendingRevenue = pendingPrescriptionRevenue + pendingStandaloneRevenue;
 
-        // Calculate Pending HMO Amount
-        let pendingHMOAmount = 0;
-        const paidInsuranceCharges = prescriptions
-            .filter(p => p.charge?.status === 'paid' && p.charge?.receipt?.paymentMethod === 'insurance')
-            .map(p => p.charge);
-
-        if (paidInsuranceCharges.length > 0) {
-            const Claim = require('../models/claimModel');
-            const insuranceEncIds = [...new Set(paidInsuranceCharges.map(c =>
-                (c.encounter?._id || c.encounter)?.toString()
-            ).filter(id => id))];
-
-            if (insuranceEncIds.length > 0) {
-                const unpaidClaims = await Claim.find({
-                    encounter: { $in: insuranceEncIds },
-                    status: { $ne: 'paid' }
-                });
-
-                const unpaidClaimEncounters = new Set(unpaidClaims.map(c => c.encounter.toString()));
-
-                pendingHMOAmount = paidInsuranceCharges
-                    .filter(c => {
-                        const encId = (c.encounter?._id || c.encounter)?.toString();
-                        return encId && unpaidClaimEncounters.has(encId);
-                    })
-                    .reduce((sum, c) => sum + (c.hmoPortion || 0), 0);
-            }
-        }
-
-        // Group by drug
+        // Group by drug from both sources
         const byDrug = {};
         prescriptions.forEach(prescription => {
             prescription.medicines.forEach(med => {
-                if (!byDrug[med.name]) {
-                    byDrug[med.name] = {
-                        count: 0,
-                        totalQuantity: 0
-                    };
-                }
+                if (!byDrug[med.name]) byDrug[med.name] = { count: 0, totalQuantity: 0 };
                 byDrug[med.name].count++;
                 byDrug[med.name].totalQuantity += (med.quantity || 1);
             });
         });
 
+        standaloneCharges.forEach(charge => {
+            const drugName = charge.itemName || 'Drug';
+            if (!byDrug[drugName]) byDrug[drugName] = { count: 0, totalQuantity: 0 };
+            byDrug[drugName].count++;
+            byDrug[drugName].totalQuantity += (charge.quantity || 1);
+        });
+
+        // Convert standalone charges to a Prescription-like format for frontend display compatibility
+        const virtualPrescriptions = standaloneCharges.map(c => ({
+            _id: c._id,
+            patient: c.patient,
+            status: 'dispensed',
+            createdAt: c.createdAt,
+            charge: c,
+            medicines: [{ name: c.itemName, quantity: c.quantity }],
+            doctor: { name: 'Direct Sale' },
+            isStandalonePOS: true
+        }));
+
         res.json({
             summary: {
-                totalPrescriptions,
-                dispensedPrescriptions,
-                paidPrescriptions,
+                totalPrescriptions: totalPrescriptions + standaloneCharges.length,
+                dispensedPrescriptions: dispensedPrescriptions + standaloneCharges.length,
+                paidPrescriptions: (prescriptions.filter(p => p.charge?.status === 'paid').length) + (standaloneCharges.filter(c => c.status === 'paid').length),
                 totalRevenue,
                 pendingRevenue,
-                pendingInsuranceRevenue,
-                pendingPatientRevenue,
-                pendingHMOAmount,
                 dateRange: { start, end }
             },
             byDrug,
-            prescriptions
+            prescriptions: [...prescriptions, ...virtualPrescriptions].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -674,8 +665,20 @@ const getOverallRevenue = async (req, res) => {
         }
 
         paidCharges.forEach(charge => {
-            const type = charge.charge?.type || 'other';
-            const dept = type === 'drugs' ? 'pharmacy' : type;
+            let dept = 'other';
+            const type = charge.charge?.type;
+            const itemType = charge.itemType;
+            const department = charge.department;
+
+            if (type === 'drugs' || itemType === 'Pharmacy' || itemType === 'Drug' || department === 'Pharmacy') {
+                dept = 'pharmacy';
+            } else if (type) {
+                dept = type;
+            } else if (itemType) {
+                dept = itemType.toLowerCase();
+            } else if (department) {
+                dept = department.toLowerCase();
+            }
 
             if (!byDepartment[dept]) {
                 byDepartment[dept] = { revenue: 0, count: 0 };
@@ -1494,8 +1497,8 @@ const getVisitReport = async (req, res) => {
 
         if (searchTerm) {
             const regex = new RegExp(searchTerm, 'i');
-            visits = visits.filter(v => 
-                (v.patient && (regex.test(v.patient.name) || regex.test(v.patient.mrn))) || 
+            visits = visits.filter(v =>
+                (v.patient && (regex.test(v.patient.name) || regex.test(v.patient.mrn))) ||
                 regex.test(v._id.toString())
             );
         }

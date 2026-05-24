@@ -6,7 +6,8 @@ const {
     createPharmacy,
     updatePharmacy,
     deletePharmacy,
-    getMainPharmacy
+    getMainPharmacy,
+    processDirectSale
 } = require('../controllers/pharmacyController');
 const { protect, admin } = require('../middleware/authMiddleware');
 
@@ -15,6 +16,9 @@ router.route('/')
     .post(protect, admin, createPharmacy);
 
 router.get('/main', protect, getMainPharmacy);
+
+// POS direct sale endpoint
+router.post('/pos-sale', protect, processDirectSale);
 
 router.route('/:id')
     .get(protect, getPharmacyById)

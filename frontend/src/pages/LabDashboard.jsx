@@ -326,10 +326,12 @@ const LabDashboard = () => {
                         <div>
                             <p><strong>Patient Name:</strong> ${order.patient?.name}</p>
                             <p><strong>MRN:</strong> ${order.patient?.mrn}</p>
+                            <p><strong>Age:</strong> ${order.patient?.age || 'N/A'}</p>
                         </div>
                         <div>
                             <p><strong>Test Name:</strong> ${order.testName}</p>
                             <p><strong>Date Ordered:</strong> ${new Date(order.createdAt).toLocaleDateString()}</p>
+                            <p><strong>Gender:</strong> ${order.patient?.gender || 'N/A'}</p>
                         </div>
                     </div>
 
@@ -690,7 +692,7 @@ const LabDashboard = () => {
                                                         </p>
                                                         {order.clinicalDetails && (
                                                             <div className="mt-2 p-2 bg-blue-50 border-l-4 border-blue-400 text-xs italic">
-                                                                <p className="font-bold text-blue-800 not-italic uppercase text-[9px] mb-1">Clinical Detail:</p>
+                                                                <p className="font-bold text-blue-800 not-italic uppercase text-[9px] mb-1">Clinical context:</p>
                                                                 <p className="text-gray-700">{order.clinicalDetails}</p>
                                                             </div>
                                                         )}
@@ -1030,10 +1032,12 @@ const LabDashboard = () => {
                                 <div>
                                     <p><strong>Patient Name:</strong> {viewResultModal.patient?.name}</p>
                                     <p><strong>MRN:</strong> {viewResultModal.patient?.mrn}</p>
+                                    <p><strong>Age:</strong> {viewResultModal.patient?.age || 'N/A'}</p>
                                 </div>
                                 <div>
                                     <p><strong>Test Name:</strong> {viewResultModal.testName}</p>
                                     <p><strong>Date Ordered:</strong> {new Date(viewResultModal.createdAt).toLocaleDateString()}</p>
+                                    <p><strong>Gender:</strong> {viewResultModal.patient?.gender || 'N/A'}</p>
                                 </div>
                             </div>
 

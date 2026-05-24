@@ -56,4 +56,12 @@ const adminOrReceptionist = (req, res, next) => {
     }
 };
 
-module.exports = { protect, admin, superAdmin, pharmacy, adminOrReceptionist };
+const scientist = (req, res, next) => {
+    if (req.user && (req.user.role === 'lab_scientist' || req.user.role === 'admin' || req.user.role === 'super_admin')) {
+        next();
+    } else {
+        res.status(401).json({ message: 'Not authorized as a lab scientist' });
+    }
+};
+
+module.exports = { protect, admin, superAdmin, pharmacy, adminOrReceptionist, scientist };

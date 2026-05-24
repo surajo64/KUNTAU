@@ -22,6 +22,9 @@ import LabTestManagement from './pages/LabTestManagement';
 import ExternalInvestigations from './pages/ExternalInvestigations';
 import ExternalRadiology from './pages/ExternalRadiology';
 import ExternalPharmacy from './pages/ExternalPharmacy';
+import PharmacyPOS from './pages/PharmacyPOS';
+import LabPOS from './pages/LabPOS';
+import RadiologyPOS from './pages/RadiologyPOS';
 import RadiologyDashboard from './pages/RadiologyDashboard';
 import RadiologyTestManagement from './pages/RadiologyTestManagement';
 import BillingDashboard from './pages/BillingDashboard';
@@ -70,6 +73,9 @@ function App() {
             <Route path="/radiology/manage-tests" element={<RadiologyTestManagement />} />
             <Route path="/radiology/external-investigations" element={<ExternalRadiology />} />
             <Route path="/pharmacy/external-investigations" element={<ExternalPharmacy />} />
+            <Route path="/pharmacy/pos" element={<PharmacyPOS />} />
+            <Route path="/lab/pos" element={<LabPOS />} />
+            <Route path="/radiology/pos" element={<RadiologyPOS />} />
             <Route path="/appointments" element={<Appointments />} />
             <Route path="/hmo-management" element={<HMOManagement />} />
             <Route path="/nurse/triage/:patientId?/:encounterId?" element={<NurseTriage />} />
