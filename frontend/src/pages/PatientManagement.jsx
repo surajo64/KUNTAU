@@ -224,6 +224,11 @@ const PatientManagement = () => {
             toast.error('Please select at least one charge, or check ANC/Waive Fee to skip charges');
             return;
         }
+
+        if (encounterType === 'Inpatient' && (!selectedWard || !selectedBed)) {
+            toast.error('Ward and Bed are required for Inpatient admission');
+            return;
+        }
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };

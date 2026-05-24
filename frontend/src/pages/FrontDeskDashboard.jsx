@@ -325,6 +325,11 @@ const FrontDeskDashboard = () => {
             return;
         }
 
+        if (encounterType === 'Inpatient' && (!selectedWard || !selectedBed)) {
+            toast.error('Ward and Bed are required for Inpatient admission');
+            return;
+        }
+
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
