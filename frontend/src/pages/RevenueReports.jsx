@@ -4,7 +4,7 @@ import AuthContext from '../context/AuthContext';
 import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
 import LoadingOverlay from '../components/loadingOverlay';
-import { FaChartLine, FaDownload, FaCalendar, FaMoneyBillWave, FaHospital, FaUserInjured, FaFileInvoiceDollar, FaWallet, FaClock, FaHandshake } from 'react-icons/fa';
+import { FaChartLine, FaDownload, FaCalendar, FaMoneyBillWave, FaHospital, FaUserInjured, FaFileInvoiceDollar, FaWallet, FaClock, FaHandshake, FaTrash, FaTimes } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
@@ -17,6 +17,9 @@ const RevenueReports = () => {
     const [loading, setLoading] = useState(false);
     const [totalPatientDeposits, setTotalPatientDeposits] = useState(0);
     const [totalRetainershipBalance, setTotalRetainershipBalance] = useState(0);
+    const [showPendingModal, setShowPendingModal] = useState(false);
+    const [pendingItems, setPendingItems] = useState([]);
+    const [pendingModalType, setPendingModalType] = useState(''); // 'hmo' or 'patient'
     const { user } = useContext(AuthContext);
     const { backendUrl } = useContext(AppContext);
 
@@ -102,6 +105,40 @@ const RevenueReports = () => {
             console.error(error);
             toast.error('Error fetching report');
             setLoading(false);
+        }
+    };
+
+    const openPendingModal = (type) => {
+        if (!reportData?.charges) return;
+
+        let filtered = [];
+        if (type === 'hmo') {
+            filtered = reportData.charges.filter(c => c.status === 'pending' && (c.hmoPortion || 0) > 0);
+        } else {
+            filtered = reportData.charges.filter(c => c.status === 'pending' && (c.patientPortion || 0) > 0);
+        }
+
+        setPendingItems(filtered);
+        setPendingModalType(type);
+        setShowPendingModal(true);
+    };
+
+    const handleRemoveCharge = async (chargeId) => {
+        if (!window.confirm('Are you sure you want to remove this pending charge?')) return;
+
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            await axios.delete(`${backendUrl}/api/encounter-charges/${chargeId}`, config);
+            toast.success('Pending charge removed');
+
+            // Refresh modal list
+            setPendingItems(prev => prev.filter(item => item._id !== chargeId));
+
+            // Refresh main report
+            fetchReport();
+        } catch (error) {
+            console.error(error);
+            toast.error(error.response?.data?.message || 'Error removing charge');
         }
     };
 
@@ -315,7 +352,10 @@ const RevenueReports = () => {
                             </div>
 
                             {/* HMO/Retainership Pending */}
-                            <div className="relative overflow-hidden bg-gradient-to-br from-amber-400 to-yellow-600 text-white p-5 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300">
+                            <div
+                                onClick={() => openPendingModal('hmo')}
+                                className="relative overflow-hidden bg-gradient-to-br from-amber-400 to-yellow-600 text-white p-5 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer hover:-translate-y-1"
+                            >
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <p className="text-yellow-100 text-xs font-semibold uppercase tracking-wider mb-1">HMO Pending</p>
@@ -332,7 +372,10 @@ const RevenueReports = () => {
                             </div>
 
                             {/* Pending Patient */}
-                            <div className="relative overflow-hidden bg-gradient-to-br from-orange-400 to-orange-600 text-white p-5 rounded-xl shadow-lg hover:shadow-xl transition-shadow duration-300">
+                            <div
+                                onClick={() => openPendingModal('patient')}
+                                className="relative overflow-hidden bg-gradient-to-br from-orange-400 to-orange-600 text-white p-5 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer hover:-translate-y-1"
+                            >
                                 <div className="flex justify-between items-start">
                                     <div>
                                         <p className="text-orange-100 text-xs font-semibold uppercase tracking-wider mb-1">Patient Pending</p>
@@ -523,6 +566,78 @@ const RevenueReports = () => {
                         </div>
                         <h3 className="text-xl font-bold text-gray-700 mb-2">No Report Data</h3>
                         <p className="text-gray-500">Select a date range above to generate your revenue report</p>
+                    </div>
+                )}
+
+                {/* Pending Fees Modal */}
+                {showPendingModal && (
+                    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                        <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden animate-in fade-in zoom-in duration-200">
+                            <div className={`p-6 flex justify-between items-center text-white bg-gradient-to-r ${pendingModalType === 'hmo' ? 'from-amber-500 to-yellow-600' : 'from-orange-500 to-orange-600'}`}>
+                                <div>
+                                    <h3 className="text-xl font-bold">List of Pending {pendingModalType === 'hmo' ? 'HMO' : 'Patient'} Fees</h3>
+                                    <p className="text-sm opacity-90">Total: ₦{pendingItems.reduce((sum, item) => sum + (pendingModalType === 'hmo' ? item.hmoPortion : (item.patientPortion || item.totalAmount)), 0).toLocaleString()}</p>
+                                </div>
+                                <button onClick={() => setShowPendingModal(false)} className="bg-white bg-opacity-20 hover:bg-opacity-30 p-2 rounded-full transition-colors">
+                                    <FaTimes />
+                                </button>
+                            </div>
+                            <div className="p-6 overflow-x-auto max-h-[60vh]">
+                                {pendingItems.length === 0 ? (
+                                    <div className="text-center py-12 text-gray-500">
+                                        <p>No pending {pendingModalType} fees found for this period.</p>
+                                    </div>
+                                ) : (
+                                    <table className="w-full text-left">
+                                        <thead className="bg-gray-50 text-gray-700 uppercase text-xs font-bold border-b">
+                                            <tr>
+                                                <th className="px-4 py-3">Date</th>
+                                                <th className="px-4 py-3">Patient</th>
+                                                <th className="px-4 py-3">Item Name</th>
+                                                <th className="px-4 py-3 text-right">Amount (₦)</th>
+                                                <th className="px-4 py-3 text-center">Action</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y divide-gray-100">
+                                            {pendingItems.map((item) => (
+                                                <tr key={item._id} className="hover:bg-gray-50 transition-colors">
+                                                    <td className="px-4 py-3 text-sm text-gray-600">
+                                                        {new Date(item.createdAt).toLocaleDateString()}
+                                                    </td>
+                                                    <td className="px-4 py-3 font-medium text-gray-800">
+                                                        {item.patient?.name || 'Unknown'}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-sm">
+                                                        <span className="bg-gray-100 text-gray-700 px-2 py-0.5 rounded text-xs mr-2">{item.itemType || 'Charge'}</span>
+                                                        {item.itemName || item.charge?.name}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right font-bold text-gray-900">
+                                                        {(pendingModalType === 'hmo' ? item.hmoPortion : (item.patientPortion || item.totalAmount)).toLocaleString()}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-center">
+                                                        <button
+                                                            onClick={() => handleRemoveCharge(item._id)}
+                                                            className="text-red-500 hover:text-red-700 p-2 rounded hover:bg-red-50 transition-all"
+                                                            title="Remove pending charge"
+                                                        >
+                                                            <FaTrash />
+                                                        </button>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
+                            <div className="p-4 bg-gray-50 border-t flex justify-end">
+                                <button
+                                    onClick={() => setShowPendingModal(false)}
+                                    className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-6 py-2 rounded-lg font-semibold transition-colors"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>

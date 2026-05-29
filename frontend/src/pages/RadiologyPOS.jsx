@@ -30,8 +30,12 @@ const RadiologyPOS = () => {
 
     // Sale state
     const [loading, setLoading] = useState(false);
-    const [completedReceipt, setCompletedReceipt] = useState(null);
     const [systemSettings, setSystemSettings] = useState(null);
+
+    // Transaction History State
+    const [receipts, setReceipts] = useState([]);
+    const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+    const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
 
     useEffect(() => {
         const fetchCharges = async () => {
@@ -57,7 +61,22 @@ const RadiologyPOS = () => {
 
         fetchCharges();
         fetchSystemSettings();
+        fetchReceipts();
     }, [backendUrl, user.token]);
+
+    const fetchReceipts = async () => {
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const { data } = await axios.get(`${backendUrl}/api/receipts/with-claim-status`, config);
+            // Filter receipts for Radiology
+            const radiologyReceipts = data.filter(r =>
+                r.validatedBy?.some(v => v.department === 'Radiology')
+            );
+            setReceipts(radiologyReceipts);
+        } catch (error) {
+            console.error('Error fetching receipts:', error);
+        }
+    };
 
     // Filter based on search
     useEffect(() => {
@@ -134,13 +153,12 @@ const RadiologyPOS = () => {
             const { data } = await axios.post(`${backendUrl}/api/radiology/pos-sale`, payload, {
                 headers: { Authorization: `Bearer ${user.token}` }
             });
-
-            setCompletedReceipt(data);
-            toast.success(`Sale completed! Receipt: ${data.receiptNumber}`);
-
+            const receipt = data.receipt || data;
+            // Automatically trigger receipt print
             if (data.receipt) {
                 handlePrintReceipt(data.receipt);
             }
+            toast.success(`Sale completed! Receipt: ${receipt.receiptNumber}`);
 
             // Reset
             setCart([]);
@@ -148,6 +166,7 @@ const RadiologyPOS = () => {
             setAge('');
             setGender('Male');
             setPaymentMethod('cash');
+            fetchReceipts();
 
         } catch (error) {
             toast.error(error.response?.data?.message || 'Sale failed');
@@ -157,7 +176,7 @@ const RadiologyPOS = () => {
     };
 
     const handlePrintReceipt = (receiptToPrint) => {
-        const receipt = receiptToPrint || completedReceipt?.receipt;
+        const receipt = receiptToPrint;
         if (!receipt) return;
 
         const printWindow = window.open('', '', 'width=600,height=600');
@@ -205,10 +224,13 @@ const RadiologyPOS = () => {
                         <tbody>
                             ${receipt.charges?.map(c => `
                                 <tr>
-                                    <td>${c.itemName}</td>
-                                    <td style="text-align: right;">₦${(c.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                                    <td>
+                                        ${c.itemName || c.name || 'Drug'} 
+                                        ${c.quantity > 1 ? `(x${c.quantity})` : ''}
+                                    </td>
+                                    <td style="text-align: right;">₦${(c.totalAmount || (c.unitPrice * (c.quantity || 1)) || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
                                 </tr>
-                            `).join('')}
+                            `).join('') || ''}
                         </tbody>
                     </table>
 
@@ -239,24 +261,6 @@ const RadiologyPOS = () => {
                     </p>
                 </div>
             </div>
-
-            {completedReceipt && (
-                <div className="bg-blue-50 border border-blue-300 rounded-lg p-4 mb-6 flex items-start gap-3">
-                    <FaCheckCircle className="text-blue-500 mt-1 text-xl" />
-                    <div>
-                        <p className="font-bold text-blue-800">Sale Completed!</p>
-                        <p className="text-blue-700 text-sm">Receipt: {completedReceipt.receiptNumber}</p>
-                        <div className="mt-2 flex gap-2">
-                            <button onClick={handlePrintReceipt} className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700 flex items-center gap-1">
-                                <FaPrint /> Print
-                            </button>
-                            <button onClick={() => setCompletedReceipt(null)} className="bg-gray-200 text-gray-700 px-3 py-1 rounded text-sm hover:bg-gray-300">
-                                Dismiss
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
                 <div className="lg:col-span-3 space-y-4">
@@ -384,6 +388,121 @@ const RadiologyPOS = () => {
                             Complete Sale
                         </button>
                     </div>
+                </div>
+            </div>
+
+            {/* Transaction History Table */}
+            <div className="mt-12 bg-white p-6 rounded-lg shadow-lg">
+                <div className="flex justify-between items-center mb-6 border-b pb-4">
+                    <h3 className="text-xl font-bold flex items-center gap-2 text-gray-800">
+                        <FaReceipt className="text-blue-600" /> Radiology Transaction History
+                    </h3>
+                    <div className="flex gap-4 items-center bg-gray-50 p-2 rounded-lg">
+                        <div className="flex items-center gap-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase">From:</label>
+                            <input
+                                type="date"
+                                value={startDate}
+                                onChange={(e) => setStartDate(e.target.value)}
+                                className="border rounded p-1.5 text-sm focus:ring-2 focus:ring-blue-400"
+                            />
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <label className="text-xs font-bold text-gray-500 uppercase">To:</label>
+                            <input
+                                type="date"
+                                value={endDate}
+                                onChange={(e) => setEndDate(e.target.value)}
+                                className="border rounded p-1.5 text-sm focus:ring-2 focus:ring-blue-400"
+                            />
+                        </div>
+                    </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead>
+                            <tr className="bg-gray-100 text-gray-600 text-xs uppercase font-bold">
+                                <th className="p-3 border-b">Receipt #</th>
+                                <th className="p-3 border-b">Customer</th>
+                                <th className="p-3 border-b">Amount</th>
+                                <th className="p-3 border-b">Method</th>
+                                <th className="p-3 border-b">Radiologist</th>
+                                <th className="p-3 border-b">Time</th>
+                                <th className="p-3 border-b text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="text-sm">
+                            {receipts
+                                .filter(r => {
+                                    const receiptDate = new Date(r.createdAt).toISOString().split('T')[0];
+                                    return receiptDate >= startDate && receiptDate <= endDate;
+                                })
+                                .length === 0 ? (
+                                <tr>
+                                    <td colSpan="7" className="p-10 text-center text-gray-400 italic">
+                                        No transactions found for the selected period.
+                                    </td>
+                                </tr>
+                            ) : (
+                                receipts
+                                    .filter(r => {
+                                        const receiptDate = new Date(r.createdAt).toISOString().split('T')[0];
+                                        return receiptDate >= startDate && receiptDate <= endDate;
+                                    })
+                                    .map((receipt) => (
+                                        <tr key={receipt._id} className="hover:bg-blue-50 transition-colors border-b last:border-0 text-gray-700">
+                                            <td className="p-3 font-mono font-bold text-blue-600">{receipt.receiptNumber}</td>
+                                            <td className="p-3 font-semibold">
+                                                {receipt.patient?.name || 'Walk-in'}
+                                            </td>
+                                            <td className="p-3 text-green-600 font-bold">
+                                                ₦{(receipt.amountPaid || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                            </td>
+                                            <td className="p-3">
+                                                <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${receipt.paymentMethod === 'cash' ? 'bg-green-100 text-green-800' :
+                                                    receipt.paymentMethod === 'card' ? 'bg-blue-100 text-blue-800' :
+                                                        'bg-purple-100 text-purple-800'
+                                                    }`}>
+                                                    {receipt.paymentMethod}
+                                                </span>
+                                            </td>
+                                            <td className="p-3 font-medium text-gray-600">{receipt.cashier?.name}</td>
+                                            <td className="p-3 text-xs text-gray-400">{new Date(receipt.createdAt).toLocaleString()}</td>
+                                            <td className="p-3 text-center">
+                                                <button
+                                                    onClick={() => handlePrintReceipt(receipt)}
+                                                    className="text-blue-500 hover:text-blue-700 p-2 hover:bg-blue-100 rounded-full transition-all"
+                                                    title="Print Receipt"
+                                                >
+                                                    <FaPrint />
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    ))
+                            )}
+                        </tbody>
+                        {receipts.filter(r => {
+                            const receiptDate = new Date(r.createdAt).toISOString().split('T')[0];
+                            return receiptDate >= startDate && receiptDate <= endDate;
+                        }).length > 0 && (
+                                <tfoot>
+                                    <tr className="bg-gray-50 font-bold text-gray-800">
+                                        <td colSpan="2" className="p-4 text-right uppercase text-xs tracking-wider">Total Revenue:</td>
+                                        <td className="p-4 text-green-700 text-lg">
+                                            ₦{receipts
+                                                .filter(r => {
+                                                    const receiptDate = new Date(r.createdAt).toISOString().split('T')[0];
+                                                    return receiptDate >= startDate && receiptDate <= endDate;
+                                                })
+                                                .reduce((sum, r) => sum + (r.amountPaid || 0), 0)
+                                                .toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                        </td>
+                                        <td colSpan="4"></td>
+                                    </tr>
+                                </tfoot>
+                            )}
+                    </table>
                 </div>
             </div>
         </Layout>
