@@ -14,7 +14,7 @@ const Inventory = () => {
     const { backendUrl } = useContext(AppContext);
 
     // Authorization Check
-    const isAdminOrMain = user?.role === 'admin' || user?.role === 'super_admin' || (user?.role === 'pharmacist' && user?.assignedPharmacy?.isMainPharmacy);
+    const isAdminOrMain = user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'pharmacist';
 
     // States
     const [items, setItems] = useState([]);
@@ -436,6 +436,10 @@ const Inventory = () => {
         setSelectedPharmacy(newPharmacyId);
     };
 
+    // Calculate Summary Stats
+    const totalUniqueDrugs = filteredItems.length;
+    const totalItemsInStock = filteredItems.reduce((acc, item) => acc + (item.quantity || 0), 0);
+
     return (
         <Layout>
             {loading && <LoadingOverlay />}
@@ -531,6 +535,28 @@ const Inventory = () => {
                     )}
                 </div>
             )}
+
+            {/* Inventory Summary Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded shadow flex items-center justify-between">
+                    <div>
+                        <p className="text-blue-800 font-bold text-lg">Total Unique Drugs</p>
+                        <p className="text-3xl font-black text-blue-900 mt-1">{totalUniqueDrugs.toLocaleString()}</p>
+                    </div>
+                    <div className="text-blue-200">
+                        <FaChartLine size={48} />
+                    </div>
+                </div>
+                <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded shadow flex items-center justify-between">
+                    <div>
+                        <p className="text-green-800 font-bold text-lg">Total Items in Stock</p>
+                        <p className="text-3xl font-black text-green-900 mt-1">{totalItemsInStock.toLocaleString()}</p>
+                    </div>
+                    <div className="text-green-200">
+                        <FaPlus size={48} />
+                    </div>
+                </div>
+            </div>
 
             {/* Search, Filter, Download */}
             <div className="flex flex-col md:flex-row md:items-center gap-4 mb-6">
