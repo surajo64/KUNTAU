@@ -961,13 +961,45 @@ const PatientDetails = () => {
         }
     };
 
-    // Filter drugs based on search term
+    // Filter drugs based on search term - Aggregate batches by name
     useEffect(() => {
         if (drugSearchTerm) {
             const filtered = inventoryDrugs.filter(d =>
                 d.name.toLowerCase().includes(drugSearchTerm.toLowerCase())
             );
-            setFilteredDrugs(filtered);
+
+            // Group by name
+            const grouped = filtered.reduce((acc, drug) => {
+                const key = drug.name.toLowerCase();
+                if (!acc[key]) {
+                    acc[key] = {
+                        ...drug,
+                        quantity: 0,
+                        batches: []
+                    };
+                }
+                acc[key].quantity += drug.quantity;
+                acc[key].batches.push(drug);
+                return acc;
+            }, {});
+
+            // Sort batches within each group by expiryDate (earliest first)
+            Object.values(grouped).forEach(drugGroup => {
+                drugGroup.batches.sort((a, b) => {
+                    if (!a.expiryDate) return 1;
+                    if (!b.expiryDate) return -1;
+                    return new Date(a.expiryDate) - new Date(b.expiryDate);
+                });
+                // Update primary drug info to use the earliest non-expired batch if possible
+                const earliestActive = drugGroup.batches.find(b => b.quantity > 0 && (!b.expiryDate || new Date(b.expiryDate) > new Date())) || drugGroup.batches[0];
+                if (earliestActive) {
+                    drugGroup._id = earliestActive._id;
+                    drugGroup.price = earliestActive.price;
+                    drugGroup.expiryDate = earliestActive.expiryDate;
+                }
+            });
+
+            setFilteredDrugs(Object.values(grouped));
             setShowDrugDropdown(true);
         } else {
             setFilteredDrugs([]);
@@ -3459,7 +3491,9 @@ const PatientDetails = () => {
                                                                     <span className="text-[10px] bg-gray-600 text-white px-1 rounded">OUT OF STOCK</span>
                                                                 )}
                                                             </div>
-                                                            <div className="text-xs text-gray-500">Stock: {drug.quantity} | ₦{drug.price}</div>
+                                                            <div className="text-xs text-gray-500">
+                                                                Total Stock: {drug.quantity} {drug.batches.length > 1 && `(${drug.batches.length} batches)`} | ₦{drug.price}
+                                                            </div>
                                                         </div>
                                                     ))}
                                                 </div>

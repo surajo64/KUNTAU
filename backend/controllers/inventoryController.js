@@ -48,7 +48,7 @@ const getInventory = async (req, res) => {
 
         const items = await Inventory.find(filter)
             .populate('pharmacy', 'name')
-            .sort({ createdAt: -1 });
+            .sort({ name: 1, expiryDate: 1 }); // FEFO: same drug batches sorted by earliest expiry first
 
         res.json(items);
     } catch (error) {
@@ -61,11 +61,11 @@ const getInventory = async (req, res) => {
 // @access Private
 const addInventoryItem = async (req, res) => {
     const userRole = req.user.role ? req.user.role.toLowerCase() : '';
-    const isMainPharmacy = req.user.assignedPharmacy?.isMainPharmacy;
+    const isMainPharmacist = userRole === 'pharmacist' && req.user.assignedPharmacy?.isMainPharmacy === true;
 
-    // Permissions: admin, super_admin, or any pharmacist
-    if (!['admin', 'super_admin', 'pharmacist'].includes(userRole)) {
-        return res.status(403).json({ message: "Access denied. You do not have permission to add drugs." });
+    // Only admin, super_admin, or MAIN pharmacy pharmacists can add drugs
+    if (!['admin', 'super_admin'].includes(userRole) && !isMainPharmacist) {
+        return res.status(403).json({ message: "Access denied. Only main pharmacy pharmacists can add drugs." });
     }
 
     const { name, quantity, price, standardFee, retainershipFee, nhiaFee, kschmaFee, purchasingPrice, expiryDate, supplier, batchNumber, barcode, reorderLevel, route, form, dosage, frequency, drugUnit, pharmacy } = req.body;
@@ -115,11 +115,11 @@ const addInventoryItem = async (req, res) => {
 // @access Private
 const updateInventoryItem = async (req, res) => {
     const userRole = req.user.role ? req.user.role.toLowerCase() : '';
-    const isMainPharmacy = req.user.assignedPharmacy?.isMainPharmacy;
+    const isMainPharmacist = userRole === 'pharmacist' && req.user.assignedPharmacy?.isMainPharmacy === true;
 
-    // Permissions: admin, super_admin, or any pharmacist
-    if (!['admin', 'super_admin', 'pharmacist'].includes(userRole)) {
-        return res.status(403).json({ message: "Access denied. You do not have permission to update drugs." });
+    // Only admin, super_admin, or MAIN pharmacy pharmacists can update drugs
+    if (!['admin', 'super_admin'].includes(userRole) && !isMainPharmacist) {
+        return res.status(403).json({ message: "Access denied. Only main pharmacy pharmacists can edit drugs." });
     }
 
     // Additional check for branch pharmacists (they can only edit their own items)
@@ -174,11 +174,11 @@ const updateInventoryItem = async (req, res) => {
 // @access Private
 const deleteInventoryItem = async (req, res) => {
     const userRole = req.user.role ? req.user.role.toLowerCase() : '';
-    const isMainPharmacy = req.user.assignedPharmacy?.isMainPharmacy;
+    const isMainPharmacist = userRole === 'pharmacist' && req.user.assignedPharmacy?.isMainPharmacy === true;
 
-    // Permissions: admin, super_admin, or any pharmacist
-    if (!['admin', 'super_admin', 'pharmacist'].includes(userRole)) {
-        return res.status(403).json({ message: "Access denied. You do not have permission to remove drugs." });
+    // Only admin, super_admin, or MAIN pharmacy pharmacists can delete drugs
+    if (!['admin', 'super_admin'].includes(userRole) && !isMainPharmacist) {
+        return res.status(403).json({ message: "Access denied. Only main pharmacy pharmacists can remove drugs." });
     }
 
     const item = await Inventory.findById(req.params.id);
@@ -415,11 +415,11 @@ const getProfitLossReport = async (req, res) => {
 const importInventoryFromExcel = async (req, res) => {
     try {
         const userRole = req.user.role ? req.user.role.toLowerCase() : '';
-        const isMainPharmacy = req.user.assignedPharmacy?.isMainPharmacy;
+        const isMainPharmacist = userRole === 'pharmacist' && req.user.assignedPharmacy?.isMainPharmacy === true;
 
-        // Permissions: admin, super_admin, or any pharmacist
-        if (!['admin', 'super_admin', 'pharmacist'].includes(userRole)) {
-            return res.status(403).json({ message: "Access denied. You do not have permission to import inventory." });
+        // Only admin, super_admin, or MAIN pharmacy pharmacists can import inventory
+        if (!['admin', 'super_admin'].includes(userRole) && !isMainPharmacist) {
+            return res.status(403).json({ message: "Access denied. Only main pharmacy pharmacists can import inventory." });
         }
 
         if (!req.file) {

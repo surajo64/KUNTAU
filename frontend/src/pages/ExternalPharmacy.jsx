@@ -62,7 +62,11 @@ const ExternalPharmacy = () => {
         const fetchInventory = async () => {
             try {
                 const config = { headers: { Authorization: `Bearer ${user.token}` } };
-                const { data } = await axios.get(`${backendUrl}/api/inventory`, config);
+                let url = `${backendUrl}/api/inventory`;
+                if (user.assignedPharmacy) {
+                    url += `?pharmacy=${user.assignedPharmacy._id || user.assignedPharmacy}`;
+                }
+                const { data } = await axios.get(url, config);
                 setInventoryDrugs(data);
             } catch (error) {
                 console.error('Error fetching inventory:', error);
@@ -75,13 +79,45 @@ const ExternalPharmacy = () => {
         }
     }, [showRxModal, backendUrl, user.token]);
 
-    // Filter drugs search
+    // Filter drugs search - Aggregate batches by name
     useEffect(() => {
         if (drugSearchTerm) {
             const filtered = inventoryDrugs.filter(d =>
                 d.name.toLowerCase().includes(drugSearchTerm.toLowerCase())
             );
-            setFilteredDrugs(filtered);
+
+            // Group by name
+            const grouped = filtered.reduce((acc, drug) => {
+                const key = drug.name.toLowerCase();
+                if (!acc[key]) {
+                    acc[key] = {
+                        ...drug,
+                        quantity: 0,
+                        batches: []
+                    };
+                }
+                acc[key].quantity += drug.quantity;
+                acc[key].batches.push(drug);
+                return acc;
+            }, {});
+
+            // Sort batches within each group by expiryDate (earliest first)
+            Object.values(grouped).forEach(drugGroup => {
+                drugGroup.batches.sort((a, b) => {
+                    if (!a.expiryDate) return 1;
+                    if (!b.expiryDate) return -1;
+                    return new Date(a.expiryDate) - new Date(b.expiryDate);
+                });
+                // Update primary drug info to use the earliest non-expired batch if possible
+                const earliestActive = drugGroup.batches.find(b => b.quantity > 0 && (!b.expiryDate || new Date(b.expiryDate) > new Date())) || drugGroup.batches[0];
+                if (earliestActive) {
+                    drugGroup._id = earliestActive._id;
+                    drugGroup.price = earliestActive.price;
+                    drugGroup.expiryDate = earliestActive.expiryDate;
+                }
+            });
+
+            setFilteredDrugs(Object.values(grouped));
             setShowDrugDropdown(true);
         } else {
             setFilteredDrugs([]);
@@ -157,14 +193,14 @@ const ExternalPharmacy = () => {
                 `${backendUrl}/api/visits?type=External Pharmacy&encounterStatus=awaiting_services,in_pharmacy`,
                 config
             );
-            
+
             // Re-filter on frontend just to be absolutely sure
             const filtered = data.filter(v => v.type === 'External Pharmacy');
 
             // Sort by date (latest first)
             const sorted = filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
                 .map(v => ({ ...v, patientInfo: v.patient })); // Normalize patient info format
-            
+
             setAllEncounters(sorted);
             setEncounters(sorted);
         } catch (error) {
@@ -219,7 +255,7 @@ const ExternalPharmacy = () => {
                         ...enc,
                         patientInfo: patient
                     }));
-                
+
                 allExternalEncounters = [...allExternalEncounters, ...patientExternalEnc];
             }
 
@@ -546,7 +582,9 @@ const ExternalPharmacy = () => {
                                                             <span className="text-[10px] bg-gray-600 text-white px-1 rounded">OUT OF STOCK</span>
                                                         )}
                                                     </div>
-                                                    <div className="text-xs text-gray-500">Stock: {drug.quantity} | ₦{drug.price}</div>
+                                                    <div className="text-xs text-gray-500">
+                                                        Total Stock: {drug.quantity} {drug.batches.length > 1 && `(${drug.batches.length} batches)`} | ₦{drug.price}
+                                                    </div>
                                                 </div>
                                             ))}
                                         </div>

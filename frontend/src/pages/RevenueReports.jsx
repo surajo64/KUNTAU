@@ -4,7 +4,7 @@ import AuthContext from '../context/AuthContext';
 import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
 import LoadingOverlay from '../components/loadingOverlay';
-import { FaChartLine, FaDownload, FaCalendar, FaMoneyBillWave, FaHospital, FaUserInjured, FaFileInvoiceDollar, FaWallet, FaClock, FaHandshake, FaTrash, FaTimes } from 'react-icons/fa';
+import { FaChartLine, FaDownload, FaCalendar, FaMoneyBillWave, FaHospital, FaUserInjured, FaFileInvoiceDollar, FaWallet, FaClock, FaHandshake, FaTrash, FaTimes, FaStore, FaExternalLinkAlt } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import * as XLSX from 'xlsx';
 import { saveAs } from 'file-saver';
@@ -20,6 +20,8 @@ const RevenueReports = () => {
     const [showPendingModal, setShowPendingModal] = useState(false);
     const [pendingItems, setPendingItems] = useState([]);
     const [pendingModalType, setPendingModalType] = useState(''); // 'hmo' or 'patient'
+    const [showExternalModal, setShowExternalModal] = useState(false);
+    const [externalCashierFilter, setExternalCashierFilter] = useState('');
     const { user } = useContext(AuthContext);
     const { backendUrl } = useContext(AppContext);
 
@@ -435,7 +437,136 @@ const RevenueReports = () => {
                             </div>
                         </div>
 
-                        {/* Department Breakdown */}
+                        {/* External Purchase Card - shown for Lab, Radiology, Pharmacy */}
+                        {['lab', 'radiology', 'pharmacy'].includes(department) && (
+                            <div
+                                onClick={() => { setExternalCashierFilter(''); setShowExternalModal(true); }}
+                                className="relative overflow-hidden bg-gradient-to-br from-cyan-500 to-teal-700 text-white p-5 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer hover:-translate-y-1 mt-4"
+                            >
+                                <div className="flex justify-between items-start">
+                                    <div>
+                                        <p className="text-cyan-100 text-xs font-semibold uppercase tracking-wider mb-1">External Purchase</p>
+                                        <p className="text-2xl font-extrabold">₦{reportData.summary?.externalRevenue?.toLocaleString() || 0}</p>
+                                        <p className="text-cyan-200 text-xs mt-2 font-medium">Walk-in / Standalone services &rarr; click for details</p>
+                                    </div>
+                                    <div className="bg-white bg-opacity-20 p-3 rounded-full">
+                                        <FaStore className="text-2xl text-white" />
+                                    </div>
+                                </div>
+                                <div className="absolute -bottom-3 -right-3 opacity-10">
+                                    <FaStore className="text-8xl text-white" />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* External Details Modal */}
+                        {showExternalModal && reportData?.externalDetails && (() => {
+                            const relevantRoles = {
+                                lab: ['lab_technician', 'lab_scientist', 'cashier'],
+                                pharmacy: ['pharmacist', 'cashier'],
+                                radiology: ['radiologist', 'radiology_technician', 'cashier']
+                            };
+                            const deptRoles = relevantRoles[department] || [];
+
+                            const allCashiers = [...new Map(
+                                reportData.externalDetails
+                                    .filter(e => e.cashier?._id && (deptRoles.includes(e.cashier.role) || e.cashier.role === 'cashier'))
+                                    .map(e => [e.cashier._id, e.cashier])
+                            ).values()];
+
+                            const filtered = externalCashierFilter
+                                ? reportData.externalDetails.filter(e => e.cashier?._id === externalCashierFilter)
+                                : reportData.externalDetails;
+
+                            const filteredTotal = filtered
+                                .filter(e => e.status === 'paid')
+                                .reduce((sum, e) => sum + (e.amount || 0), 0);
+
+                            return (
+                                <div className="fixed inset-0 bg-black bg-opacity-60 z-50 flex items-center justify-center p-4" onClick={() => setShowExternalModal(false)}>
+                                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[85vh] flex flex-col" onClick={e => e.stopPropagation()}>
+                                        {/* Modal Header */}
+                                        <div className="bg-gradient-to-r from-cyan-600 to-teal-700 px-6 py-4 rounded-t-2xl flex justify-between items-center">
+                                            <div>
+                                                <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                                                    <FaStore /> External Purchase Details
+                                                </h3>
+                                                <p className="text-cyan-200 text-xs mt-0.5 flex items-center gap-2">
+                                                    <span>Walk-in and Standalone service transactions</span>
+                                                    <span className="bg-white bg-opacity-10 px-1.5 py-0.5 rounded border border-white border-opacity-10 font-medium">
+                                                        <FaCalendar className="inline mr-1 opacity-70" /> {new Date(startDate).toLocaleDateString()} - {new Date(endDate).toLocaleDateString()}
+                                                    </span>
+                                                </p>
+                                            </div>
+                                            <button onClick={() => setShowExternalModal(false)} className="text-white hover:text-cyan-200 text-xl"><FaTimes /></button>
+                                        </div>
+
+                                        {/* Filters + Total */}
+                                        <div className="px-6 py-3 bg-gray-50 border-b flex flex-col sm:flex-row sm:items-center gap-3">
+                                            <div className="flex-1">
+                                                <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1 block">Filter by Cashier</label>
+                                                <select
+                                                    value={externalCashierFilter}
+                                                    onChange={e => setExternalCashierFilter(e.target.value)}
+                                                    className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-cyan-500 outline-none"
+                                                >
+                                                    <option value="">All Cashiers</option>
+                                                    {allCashiers.map(c => (
+                                                        <option key={c._id} value={c._id}>{c.name}</option>
+                                                    ))}
+                                                </select>
+                                            </div>
+                                            <div className="bg-teal-50 border border-teal-200 rounded-xl px-4 py-2 text-center min-w-[140px]">
+                                                <p className="text-teal-600 text-xs font-semibold uppercase">Total Collected</p>
+                                                <p className="text-teal-800 text-xl font-extrabold">₦{filteredTotal.toLocaleString()}</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Table */}
+                                        <div className="overflow-y-auto flex-1">
+                                            <table className="w-full text-sm">
+                                                <thead className="bg-gray-100 sticky top-0">
+                                                    <tr>
+                                                        <th className="text-left px-4 py-2 text-gray-600 font-semibold">Date</th>
+                                                        <th className="text-left px-4 py-2 text-gray-600 font-semibold">Patient</th>
+                                                        <th className="text-left px-4 py-2 text-gray-600 font-semibold">Service / Drug</th>
+                                                        <th className="text-left px-4 py-2 text-gray-600 font-semibold">Cashier</th>
+                                                        <th className="text-right px-4 py-2 text-gray-600 font-semibold">Amount</th>
+                                                        <th className="text-center px-4 py-2 text-gray-600 font-semibold">Status</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    {filtered.length === 0 ? (
+                                                        <tr>
+                                                            <td colSpan={6} className="text-center py-8 text-gray-400">No external transactions found</td>
+                                                        </tr>
+                                                    ) : filtered.map((item, idx) => (
+                                                        <tr key={item._id || idx} className="border-b hover:bg-gray-50 transition-colors">
+                                                            <td className="px-4 py-2 text-gray-500 whitespace-nowrap">{new Date(item.createdAt).toLocaleDateString()}</td>
+                                                            <td className="px-4 py-2 font-medium text-gray-800">{item.patient?.name || '—'}</td>
+                                                            <td className="px-4 py-2 text-gray-600 max-w-[160px] truncate" title={item.testName}>{item.testName || '—'}</td>
+                                                            <td className="px-4 py-2 text-gray-600">{item.cashier?.name || <span className="text-gray-300 italic">Uncollected</span>}</td>
+                                                            <td className="px-4 py-2 text-right font-semibold">₦{(item.amount || 0).toLocaleString()}</td>
+                                                            <td className="px-4 py-2 text-center">
+                                                                <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${item.status === 'paid' ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'
+                                                                    }`}>{item.status || 'pending'}</span>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        {/* Footer */}
+                                        <div className="px-6 py-3 bg-gray-50 rounded-b-2xl border-t flex justify-between items-center text-xs text-gray-500">
+                                            <span>{filtered.length} transaction{filtered.length !== 1 ? 's' : ''}</span>
+                                            <button onClick={() => setShowExternalModal(false)} className="bg-gray-200 hover:bg-gray-300 text-gray-700 px-4 py-1.5 rounded-lg font-medium transition-colors">Close</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })()}
+
                         {department === 'overall' && reportData.byDepartment && (
                             <div className="bg-white rounded-xl shadow-lg overflow-hidden">
                                 <div className="bg-gradient-to-r from-gray-800 to-gray-700 px-6 py-4">
