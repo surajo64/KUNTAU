@@ -93,8 +93,8 @@ const PatientIDCard = ({ patient, settings, side = 'front' }) => {
                         left: '50%',
                         transform: 'translate(-50%, -50%)',
                         opacity: 0.04,
-                        width: '180px',
-                        height: '180px',
+                        width: '220px',
+                        height: '220px',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -111,8 +111,8 @@ const PatientIDCard = ({ patient, settings, side = 'front' }) => {
                     {/* Header: Logo and Hospital Name */}
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                         <div style={{
-                            width: '40px',
-                            height: '40px',
+                            width: '55px',
+                            height: '55px',
                             backgroundColor: 'white',
                             borderRadius: '50%',
                             padding: '2px',
