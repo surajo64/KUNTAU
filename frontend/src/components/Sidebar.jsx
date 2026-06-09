@@ -234,7 +234,7 @@ const Sidebar = () => {
                     </>
                 )}
 
-                {(user.role === 'admin' || user.role === 'super_admin') && (
+                {(user.role === 'admin' || user.role === 'super_admin' || user.role === 'readonly_admin') && (
                     <>
                         <SidebarDropdown title="General Management" icon={<FaCogs />} name="general">
                             <Link to="/admin/users" className={`flex items-center gap-3 p-2 rounded hover:bg-green-600 transition ${isActive('/admin/users')}`}>

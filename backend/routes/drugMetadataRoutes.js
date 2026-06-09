@@ -6,14 +6,14 @@ const {
     updateDrugMetadata,
     deleteDrugMetadata
 } = require('../controllers/drugMetadataController');
-const { protect, admin, pharmacy } = require('../middleware/authMiddleware');
+const { protect, admin, pharmacy, checkNotReadOnly } = require('../middleware/authMiddleware');
 
 router.route('/')
     .get(protect, getDrugMetadata)
-    .post(protect, pharmacy, createDrugMetadata);
+    .post(protect, pharmacy, checkNotReadOnly, createDrugMetadata);
 
 router.route('/:id')
-    .put(protect, pharmacy, updateDrugMetadata)
-    .delete(protect, pharmacy, deleteDrugMetadata);
+    .put(protect, pharmacy, checkNotReadOnly, updateDrugMetadata)
+    .delete(protect, pharmacy, checkNotReadOnly, deleteDrugMetadata);
 
 module.exports = router;

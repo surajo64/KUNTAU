@@ -914,12 +914,14 @@ const BillingDashboard = () => {
                         >
                             <FaSearch /> Patient Wallet
                         </button>
-                        <button
-                            onClick={() => setShowDepositModal(true)}
-                            className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-2"
-                        >
-                            <FaWallet /> Add Deposit
-                        </button>
+                        {user.role !== 'readonly_admin' && (
+                            <button
+                                onClick={() => setShowDepositModal(true)}
+                                className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-2"
+                            >
+                                <FaWallet /> Add Deposit
+                            </button>
+                        )}
                     </div>
                 )}
             </div>
@@ -1275,7 +1277,7 @@ const BillingDashboard = () => {
                                     >
                                         <FaPrint /> Print Statement
                                     </button>
-                                    {(user?.role === 'admin' || user?.role === 'super_admin') && (
+                                    {(user?.role === 'admin' || user?.role === 'super_admin') && user?.role !== 'readonly_admin' && (
                                         <button
                                             onClick={() => {
                                                 setSelectedPatient(viewingPatient._id);
@@ -1289,16 +1291,18 @@ const BillingDashboard = () => {
                                             <FaUndo /> Refund
                                         </button>
                                     )}
-                                    <button
-                                        onClick={() => {
-                                            setSelectedPatient(viewingPatient._id);
-                                            setShowDepositModal(true);
-                                            setViewingPatient(null);
-                                        }}
-                                        className="flex-1 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center justify-center gap-2"
-                                    >
-                                        <FaWallet /> Add Deposit
-                                    </button>
+                                    {user.role !== 'readonly_admin' && (
+                                        <button
+                                            onClick={() => {
+                                                setSelectedPatient(viewingPatient._id);
+                                                setShowDepositModal(true);
+                                                setViewingPatient(null);
+                                            }}
+                                            className="flex-1 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center justify-center gap-2"
+                                        >
+                                            <FaWallet /> Add Deposit
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                         </div>
@@ -1410,16 +1414,18 @@ const BillingDashboard = () => {
                                         >
                                             Cancel
                                         </button>
-                                        <button
-                                            onClick={confirmReverseReceipt}
-                                            disabled={selectedChargesToReverse.length === 0}
-                                            className={`px-6 py-2 rounded-lg flex items-center gap-2 font-bold transition shadow-md ${selectedChargesToReverse.length === 0
-                                                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                                                : 'bg-red-600 text-white hover:bg-red-700'
-                                                }`}
-                                        >
-                                            <FaUndo /> Confirm Reverse
-                                        </button>
+                                        {user.role !== 'readonly_admin' && (
+                                            <button
+                                                onClick={confirmReverseReceipt}
+                                                disabled={selectedChargesToReverse.length === 0}
+                                                className={`px-6 py-2 rounded-lg flex items-center gap-2 font-bold transition shadow-md ${selectedChargesToReverse.length === 0
+                                                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                                                    : 'bg-red-600 text-white hover:bg-red-700'
+                                                    }`}
+                                            >
+                                                <FaUndo /> Confirm Reverse
+                                            </button>
+                                        )}
                                     </div>
                                 </div>
                             </div>
@@ -1501,7 +1507,7 @@ const BillingDashboard = () => {
                                                         >
                                                             <FaPrint /> Print
                                                         </button>
-                                                        {(user?.role === 'admin' || user?.role === 'super_admin') && (
+                                                        {(user?.role === 'admin' || user?.role === 'super_admin') && user?.role !== 'readonly_admin' && (
                                                             <button
                                                                 onClick={() => handleReverseReceipt(receipt)}
                                                                 className="text-red-600 hover:underline flex items-center gap-1 text-sm"
@@ -1642,12 +1648,14 @@ const BillingDashboard = () => {
                                             ← Change HMO
                                         </button>
                                     </div>
-                                    <button
-                                        onClick={() => setShowHMODepositModal(true)}
-                                        className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 flex items-center gap-2 shadow-lg"
-                                    >
-                                        <FaPlus /> Add Deposit
-                                    </button>
+                                    {user.role !== 'readonly_admin' && (
+                                        <button
+                                            onClick={() => setShowHMODepositModal(true)}
+                                            className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 flex items-center gap-2 shadow-lg"
+                                        >
+                                            <FaPlus /> Add Deposit
+                                        </button>
+                                    )}
                                 </div>
 
                                 {/* Date Range Filter */}
@@ -1862,7 +1870,7 @@ const BillingDashboard = () => {
                                                             }`}>
                                                             {tx.isCredit ? '+' : '-'}₦{tx.amount.toLocaleString()}
                                                         </td>
-                                                        {(user?.role === 'admin' || user?.role === 'super_admin') && (
+                                                        {(user?.role === 'admin' || user?.role === 'super_admin') && user?.role !== 'readonly_admin' && (
                                                             <td className="p-3 border-b text-center">
                                                                 {tx.type === 'Deposit' ? (
                                                                     <div className="flex justify-center gap-2 text-sm">

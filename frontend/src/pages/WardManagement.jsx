@@ -3,9 +3,9 @@ import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
-import { 
-    FaHospital, FaBed, FaSearch, FaFilter, FaUser, 
-    FaPlus, FaTrash, FaEdit, FaSave, FaTimes 
+import {
+    FaHospital, FaBed, FaSearch, FaFilter, FaUser,
+    FaPlus, FaTrash, FaEdit, FaSave, FaTimes
 } from 'react-icons/fa';
 import LoadingOverlay from '../components/loadingOverlay';
 import { toast } from 'react-toastify';
@@ -15,7 +15,7 @@ const WardManagement = () => {
     const [loading, setLoading] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
     const [filterWard, setFilterWard] = useState('All');
-    
+
     // Management States
     const [showModal, setShowModal] = useState(false);
     const [showManageModal, setShowManageModal] = useState(false);
@@ -176,7 +176,7 @@ const WardManagement = () => {
     const wardTypes = ['All', 'General', 'Private', 'ICU', 'Emergency', 'Maternity', 'Pediatric', 'Surgical'];
 
     // Access Check
-    if (user?.role !== 'admin' && user?.role !== 'super_admin' && user?.role !== 'nurse' && user?.role !== 'doctor') {
+    if (user?.role !== 'admin' && user?.role !== 'super_admin' && user?.role !== 'nurse' && user?.role !== 'doctor' && user?.role !== 'readonly_admin') {
         return (
             <Layout>
                 <div className="bg-red-50 border border-red-200 p-6 rounded">
@@ -199,7 +199,7 @@ const WardManagement = () => {
                     </h2>
                     <p className="text-gray-600 mt-2">Monitor occupancy and manage hospital ward configurations.</p>
                 </div>
-                {isAdmin && (
+                {isAdmin && user?.role !== 'readonly_admin' && (
                     <button
                         onClick={() => setShowModal(true)}
                         className="bg-blue-600 text-white px-6 py-2 rounded-xl hover:bg-blue-700 transition flex items-center gap-2 shadow-lg shadow-blue-200"
@@ -233,7 +233,7 @@ const WardManagement = () => {
                             <option key={ward._id} value={ward._id}>{ward.name}</option>
                         ))}
                     </select>
-                    <button 
+                    <button
                         onClick={fetchWards}
                         className="bg-gray-100 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-200 transition font-medium"
                     >
@@ -264,8 +264,8 @@ const WardManagement = () => {
                     <p className="text-indigo-100 text-sm font-semibold uppercase tracking-wider">Occupancy Rate</p>
                     <p className="text-3xl font-bold mt-1">
                         {filteredWards.length > 0 ? (
-                            Math.round((filteredWards.reduce((sum, w) => sum + w.beds.filter(b => b.isOccupied).length, 0) / 
-                            filteredWards.reduce((sum, w) => sum + (w.beds?.length || 0), 0)) * 100)
+                            Math.round((filteredWards.reduce((sum, w) => sum + w.beds.filter(b => b.isOccupied).length, 0) /
+                                filteredWards.reduce((sum, w) => sum + (w.beds?.length || 0), 0)) * 100)
                         ) : 0}%
                     </p>
                 </div>
@@ -282,11 +282,10 @@ const WardManagement = () => {
                         <div key={ward._id} className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow">
                             <div className="p-6 border-b border-gray-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
                                 <div className="flex items-center gap-4">
-                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-inner ${
-                                        percent > 90 ? 'bg-red-50 text-red-600' :
-                                        percent > 70 ? 'bg-orange-50 text-orange-600' :
-                                        'bg-green-50 text-green-600'
-                                    }`}>
+                                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-inner ${percent > 90 ? 'bg-red-50 text-red-600' :
+                                            percent > 70 ? 'bg-orange-50 text-orange-600' :
+                                                'bg-green-50 text-green-600'
+                                        }`}>
                                         <FaHospital />
                                     </div>
                                     <div>
@@ -298,7 +297,7 @@ const WardManagement = () => {
                                         </div>
                                     </div>
                                 </div>
-                                
+
                                 <div className="flex flex-col md:items-end gap-2">
                                     <div className="flex items-center gap-6">
                                         <div className="text-right">
@@ -324,9 +323,9 @@ const WardManagement = () => {
                                                 <text x="18" y="20.35" className="text-[8px] font-bold fill-current text-gray-700" textAnchor="middle">{percent}%</text>
                                             </svg>
                                         </div>
-                                        
+
                                         {/* Admin Actions */}
-                                        {isAdmin && (
+                                        {isAdmin && user?.role !== 'readonly_admin' && (
                                             <div className="flex gap-2 border-l pl-6 ml-2">
                                                 <button
                                                     onClick={() => {
@@ -358,24 +357,23 @@ const WardManagement = () => {
                                     </div>
                                 </div>
                             </div>
-                            
+
                             <div className="p-6 bg-gray-50/50">
                                 <h4 className="text-sm font-bold text-gray-400 uppercase tracking-widest mb-4 flex items-center gap-2">
                                     <FaBed /> Bed Layout & Availability
                                 </h4>
                                 <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-3">
                                     {ward.beds?.map((bed, idx) => (
-                                        <div 
+                                        <div
                                             key={idx}
-                                            className={`relative group p-3 rounded-xl border-2 transition-all duration-300 flex flex-col items-center justify-center gap-1 ${
-                                                bed.isOccupied 
-                                                ? 'bg-red-50 border-red-100 text-red-600' 
-                                                : 'bg-white border-white hover:border-green-400 text-green-600 hover:shadow-md cursor-help shadow-sm'
-                                            }`}
+                                            className={`relative group p-3 rounded-xl border-2 transition-all duration-300 flex flex-col items-center justify-center gap-1 ${bed.isOccupied
+                                                    ? 'bg-red-50 border-red-100 text-red-600'
+                                                    : 'bg-white border-white hover:border-green-400 text-green-600 hover:shadow-md cursor-help shadow-sm'
+                                                }`}
                                         >
                                             <FaBed className={`text-xl ${bed.isOccupied ? 'animate-pulse opacity-40' : ''}`} />
                                             <span className="text-[10px] font-bold uppercase">{bed.number}</span>
-                                            
+
                                             {/* Tooltip on Hover */}
                                             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-gray-900 text-white p-3 rounded-lg text-xs opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-2xl">
                                                 <div className="flex justify-between items-center mb-1 border-b border-gray-700 pb-1">

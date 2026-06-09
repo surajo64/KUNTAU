@@ -229,7 +229,8 @@ const NurseTriage = () => {
             const { data } = await axios.get(`${backendUrl}/api/patients`, config);
             const filtered = data.filter(p =>
                 p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (p.mrn && p.mrn.toLowerCase().includes(searchTerm.toLowerCase()))
+                (p.mrn && p.mrn.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                (p.contact && p.contact.includes(searchTerm))
             );
             setPatients(filtered);
         } catch (error) {
@@ -272,16 +273,10 @@ const NurseTriage = () => {
     const handleSelectEncounter = async (encounter) => {
         setSelectedEncounter(encounter);
 
-        // Check if already validated OR if it's an ANC visit OR if fee is waived (bypass payment validation)
-        const isBypassed = encounter.paymentValidated === true ||
-            encounter.isANC === true ||
-            encounter.isWaived === true ||
-            encounter.receiptNumber === 'WAIVED' ||
-            encounter.receiptNumber === 'ANC-BYPASS';
-
-        if (isBypassed) {
+        // Check if already validated OR if it's an ANC visit (bypass payment validation)
+        if (encounter.paymentValidated || encounter.isANC) {
             setReceiptValidated(true);
-            setReceiptNumber(encounter.receiptNumber || (encounter.isANC ? 'ANC-BYPASS' : encounter.isWaived ? 'WAIVED' : 'PRE-VALIDATED'));
+            setReceiptNumber(encounter.receiptNumber || (encounter.isANC ? 'ANC-BYPASS' : 'PRE-VALIDATED'));
         } else {
             setReceiptValidated(false);
             setReceiptNumber('');
@@ -854,7 +849,7 @@ const NurseTriage = () => {
                 <div className="flex gap-2 mb-4">
                     <input
                         type="text"
-                        placeholder="Search by Name or MRN..."
+                        placeholder="Search by Name, MRN or Phone Number..."
                         className="flex-1 border p-2 rounded"
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
@@ -900,7 +895,7 @@ const NurseTriage = () => {
                                 }}
                                 className="text-blue-600 text-sm mt-2 hover:underline"
                             >
-                                Ã¢â€ Â  Change Patient
+                                Ã¢â€ Â Change Patient
                             </button>
                         </div>
 
@@ -921,28 +916,20 @@ const NurseTriage = () => {
                                                     {encounter.type} Visit
                                                     {encounter.isANC && (
                                                         <span className="bg-pink-100 text-pink-700 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1">
-                                                            🤰 ANC
+                                                            ðŸ¤° ANC
                                                         </span>
                                                     )}
-                                                    {encounter.isWaived && (
-                                                        <span className="bg-green-100 text-green-700 text-[10px] px-2 py-0.5 rounded-full font-bold flex items-center gap-1" title={`Waived by ${encounter.waivedBy?.name || encounter.doctor?.name || 'Authorized Personnel'}`}>
-                                                            🎟 Waived
-                                                        </span>
-                                                    )}
-                                                    <span className="text-[10px] text-gray-400 font-normal">
-                                                        by {encounter.doctor?.name}
-                                                    </span>
                                                 </p>
                                                 <p className="text-sm text-gray-600">
                                                     {new Date(encounter.createdAt).toLocaleDateString()} - Status: {encounter.encounterStatus}
                                                 </p>
                                             </div>
                                             <div className="flex flex-col items-end gap-2">
-                                                <span className={`px-3 py-1 rounded text-sm ${(encounter.paymentValidated || encounter.isANC || encounter.isWaived)
+                                                <span className={`px-3 py-1 rounded text-sm ${(encounter.paymentValidated || encounter.isANC)
                                                     ? 'bg-green-100 text-green-800'
                                                     : 'bg-yellow-100 text-yellow-800'
                                                     }`}>
-                                                    {(encounter.paymentValidated || encounter.isANC || encounter.isWaived) ? (encounter.isANC ? 'ANC' : encounter.isWaived ? 'Waived' : 'Paid') : 'Pending'}
+                                                    {(encounter.paymentValidated || encounter.isANC) ? (encounter.isANC ? 'ANC' : 'Paid') : 'Pending'}
                                                 </span>
 
                                                 {/* Admit Button (Active Outpatient/Emergency -> Inpatient) */}
@@ -983,17 +970,9 @@ const NurseTriage = () => {
                                 {selectedPatient.name} - {selectedEncounter.type} Visit
                                 {selectedEncounter.isANC && (
                                     <span className="bg-pink-100 text-pink-700 text-xs px-2 py-1 rounded-full font-bold">
-                                        🤰 ANC Visit (Payment Bypassed)
+                                        ðŸ¤° ANC Visit (Payment Bypassed)
                                     </span>
                                 )}
-                                {selectedEncounter.isWaived && (
-                                    <span className="bg-green-100 text-green-700 text-xs px-2 py-1 rounded-full font-bold">
-                                        🎟 Fee Waived by {selectedEncounter.waivedBy?.name || selectedEncounter.doctor?.name || 'Authorized Personnel'}
-                                    </span>
-                                )}
-                                <span className="text-xs text-gray-500 font-normal ml-2">
-                                    (Created by: {selectedEncounter.doctor?.name})
-                                </span>
                             </p>
                             <p className="text-sm text-gray-600">
                                 {new Date(selectedEncounter.createdAt).toLocaleDateString()}
@@ -1039,7 +1018,7 @@ const NurseTriage = () => {
                         <div>
                             <div className="bg-green-50 p-4 rounded mb-6">
                                 <p className="text-green-700 font-semibold flex items-center gap-2">
-                                    <FaCheckCircle /> {selectedEncounter.isANC ? 'ANC Visit - Payment Verification Bypassed' : selectedEncounter.isWaived ? `Fee Waived by ${selectedEncounter.waivedBy?.name || 'Authorized Personnel'} - Payment Verification Bypassed` : `Payment Validated - Receipt #${receiptNumber}`}
+                                    <FaCheckCircle /> {selectedEncounter.isANC ? 'ANC Visit - Payment Verification Bypassed' : `Payment Validated - Receipt #${receiptNumber}`}
                                 </p>
                             </div>
 

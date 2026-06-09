@@ -29,7 +29,7 @@ const FamilyFileManagement = () => {
     const { backendUrl } = useContext(AppContext);
 
     useEffect(() => {
-        if (user && (user.role === 'admin' || user.role === 'super_admin' || user.role === 'receptionist')) {
+        if (user && (user.role === 'admin' || user.role === 'super_admin' || user.role === 'receptionist' || user.role === 'readonly_admin')) {
             fetchFamilyFiles();
             fetchFamilyCharges();
         }
@@ -198,7 +198,7 @@ const FamilyFileManagement = () => {
         }
     };
 
-    if (!user || (user.role !== 'admin' && user.role !== 'super_admin' && user.role !== 'receptionist')) {
+    if (!user || (user.role !== 'admin' && user.role !== 'super_admin' && user.role !== 'receptionist' && user.role !== 'readonly_admin')) {
         return (
             <Layout>
                 <div className="bg-red-50 border border-red-200 p-6 rounded">
@@ -237,12 +237,14 @@ const FamilyFileManagement = () => {
                             </div>
                         </div>
 
-                        <button
-                            onClick={() => handleOpenModal()}
-                            className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 flex items-center gap-2"
-                        >
-                            <FaPlus /> Create Family File
-                        </button>
+                        {user.role !== 'readonly_admin' && (
+                            <button
+                                onClick={() => handleOpenModal()}
+                                className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 flex items-center gap-2"
+                            >
+                                <FaPlus /> Create Family File
+                            </button>
+                        )}
                     </div>
                 </div>
 
@@ -299,20 +301,24 @@ const FamilyFileManagement = () => {
                                                     >
                                                         <FaEye />
                                                     </button>
-                                                    <button
-                                                        onClick={() => handleOpenModal(file)}
-                                                        className="text-blue-600 hover:text-blue-900 border border-blue-200 p-1.5 rounded bg-blue-50"
-                                                        title="Edit"
-                                                    >
-                                                        <FaEdit />
-                                                    </button>
-                                                    <button
-                                                        onClick={() => handleDelete(file._id)}
-                                                        className="text-red-600 hover:text-red-900 border border-red-200 p-1.5 rounded bg-red-50"
-                                                        title="Delete"
-                                                    >
-                                                        <FaTrash />
-                                                    </button>
+                                                    {user.role !== 'readonly_admin' && (
+                                                        <>
+                                                            <button
+                                                                onClick={() => handleOpenModal(file)}
+                                                                className="text-blue-600 hover:text-blue-900 border border-blue-200 p-1.5 rounded bg-blue-50"
+                                                                title="Edit"
+                                                            >
+                                                                <FaEdit />
+                                                            </button>
+                                                            <button
+                                                                onClick={() => handleDelete(file._id)}
+                                                                className="text-red-600 hover:text-red-900 border border-red-200 p-1.5 rounded bg-red-50"
+                                                                title="Delete"
+                                                            >
+                                                                <FaTrash />
+                                                            </button>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>

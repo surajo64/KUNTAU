@@ -256,7 +256,7 @@ const RevenueReports = () => {
         toast.success('Report exported successfully!');
     };
 
-    if (user?.role !== 'admin' && user?.role !== 'super_admin') {
+    if (user?.role !== 'admin' && user?.role !== 'super_admin' && user?.role !== 'readonly_admin') {
         return (
             <Layout>
                 <div className="bg-red-50 border border-red-200 p-6 rounded">
@@ -746,13 +746,15 @@ const RevenueReports = () => {
                                                         {(pendingModalType === 'hmo' ? item.hmoPortion : (item.patientPortion || item.totalAmount)).toLocaleString()}
                                                     </td>
                                                     <td className="px-4 py-3 text-center">
-                                                        <button
-                                                            onClick={() => handleRemoveCharge(item._id)}
-                                                            className="text-red-500 hover:text-red-700 p-2 rounded hover:bg-red-50 transition-all"
-                                                            title="Remove pending charge"
-                                                        >
-                                                            <FaTrash />
-                                                        </button>
+                                                        {user.role !== 'readonly_admin' && (
+                                                            <button
+                                                                onClick={() => handleRemoveCharge(item._id)}
+                                                                className="text-red-500 hover:text-red-700 p-2 rounded hover:bg-red-50 transition-all"
+                                                                title="Remove pending charge"
+                                                            >
+                                                                <FaTrash />
+                                                            </button>
+                                                        )}
                                                     </td>
                                                 </tr>
                                             ))}

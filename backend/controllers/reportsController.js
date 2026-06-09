@@ -25,76 +25,23 @@ const getLabRevenue = async (req, res) => {
             createdAt: { $gte: start, $lte: end }
         })
             .populate('patient', 'name mrn')
-            .populate('visit', 'type encounterType')
             .populate({
                 path: 'charge',
-                populate: { path: 'receipt', populate: { path: 'cashier', select: 'name role' } }
+                populate: { path: 'receipt' }
             })
             .sort({ createdAt: -1 });
-
-        // Also fetch standalone POS lab charges (stored as EncounterCharge, not LabOrder)
-        const standaloneLabCharges = await EncounterCharge.find({
-            $or: [
-                { itemType: 'Lab' },
-                { department: 'Lab' }
-            ],
-            createdAt: { $gte: start, $lte: end }
-        })
-            .populate('patient', 'name mrn')
-            .populate('encounter', 'type encounterType')
-            .populate({ path: 'receipt', populate: { path: 'cashier', select: 'name role' } });
-
-        const EXTERNAL_TYPES = ['External Investigation', 'External Lab', 'External Radiology', 'External Pharmacy', 'External Lab/Radiology', 'External', 'Lab POS', 'Radiology POS', 'Pharmacy POS'];
-
-        const externalOrders = labOrders.filter(o =>
-            o.visit && (EXTERNAL_TYPES.includes(o.visit.encounterType) || EXTERNAL_TYPES.includes(o.visit.type))
-        );
-
-        // External from standalone POS: either external visit type OR no encounter at all (pure walk-in)
-        const externalStandaloneCharges = standaloneLabCharges.filter(c =>
-            !c.encounter || EXTERNAL_TYPES.includes(c.encounter.encounterType) || EXTERNAL_TYPES.includes(c.encounter.type)
-        );
-
-
-        const externalRevenue =
-            externalOrders.filter(o => o.charge?.status === 'paid').reduce((sum, o) => sum + (o.charge?.totalAmount || 0), 0) +
-            externalStandaloneCharges.filter(c => c.status === 'paid').reduce((sum, c) => sum + (c.totalAmount || 0), 0);
-
-        const externalDetails = [
-            ...externalOrders.map(o => ({
-                _id: o._id,
-                patient: o.patient,
-                testName: o.testName,
-                status: o.charge?.status,
-                amount: o.charge?.totalAmount || 0,
-                cashier: o.charge?.receipt?.cashier,
-                createdAt: o.createdAt
-            })),
-            ...externalStandaloneCharges.map(c => ({
-                _id: c._id,
-                patient: c.patient,
-                testName: c.itemName || c.charge?.name || 'Lab Test',
-                status: c.status,
-                amount: c.totalAmount || 0,
-                cashier: c.receipt?.cashier,
-                createdAt: c.createdAt
-            }))
-        ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
 
         const totalTests = labOrders.length;
         const completedTests = labOrders.filter(o => o.status === 'completed').length;
         const paidTests = labOrders.filter(o => o.charge?.status === 'paid').length;
 
-        const totalRevenue = (labOrders
+        const totalRevenue = labOrders
             .filter(o => o.charge?.status === 'paid')
-            .reduce((sum, o) => sum + (o.charge?.totalAmount || 0), 0)) +
-            (standaloneLabCharges.filter(c => c.status === 'paid').reduce((sum, c) => sum + (c.totalAmount || 0), 0));
+            .reduce((sum, o) => sum + (o.charge?.totalAmount || 0), 0);
 
-        const pendingRevenue = (labOrders
+        const pendingRevenue = labOrders
             .filter(o => o.charge?.status === 'pending')
-            .reduce((sum, o) => sum + (o.charge?.totalAmount || 0), 0)) +
-            (standaloneLabCharges.filter(c => c.status === 'pending').reduce((sum, c) => sum + (c.totalAmount || 0), 0));
+            .reduce((sum, o) => sum + (o.charge?.totalAmount || 0), 0);
 
         // Calculate pending revenue breakdown
         let pendingInsuranceRevenue = 0;
@@ -155,24 +102,9 @@ const getLabRevenue = async (req, res) => {
             }
             byTestType[testName].count++;
             if (order.charge?.status === 'paid') {
-                byTestType[testName].revenue += (order.charge?.totalAmount || 0);
+                byTestType[testName].revenue += order.charge.totalAmount;
                 byTestType[testName].paid++;
-            } else if (order.charge?.status === 'pending') {
-                byTestType[testName].pending++;
-            }
-        });
-
-        // Include standalone charges in byTestType breakdown
-        standaloneLabCharges.forEach(charge => {
-            const testName = charge.itemName || 'Lab POS';
-            if (!byTestType[testName]) {
-                byTestType[testName] = { count: 0, revenue: 0, paid: 0, pending: 0 };
-            }
-            byTestType[testName].count++;
-            if (charge.status === 'paid') {
-                byTestType[testName].revenue += charge.totalAmount;
-                byTestType[testName].paid++;
-            } else if (charge.status === 'pending') {
+            } else {
                 byTestType[testName].pending++;
             }
         });
@@ -187,12 +119,10 @@ const getLabRevenue = async (req, res) => {
                 pendingInsuranceRevenue,
                 pendingPatientRevenue,
                 pendingHMOAmount,
-                externalRevenue,
                 dateRange: { start, end }
             },
             byTestType,
-            orders: labOrders,
-            externalDetails
+            orders: labOrders
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -214,76 +144,23 @@ const getRadiologyRevenue = async (req, res) => {
             createdAt: { $gte: start, $lte: end }
         })
             .populate('patient', 'name mrn')
-            .populate('visit', 'type encounterType')
             .populate({
                 path: 'charge',
-                populate: { path: 'receipt', populate: { path: 'cashier', select: 'name role' } }
+                populate: { path: 'receipt' }
             })
             .sort({ createdAt: -1 });
-
-        // Also fetch standalone POS radiology charges (stored as EncounterCharge, not RadiologyOrder)
-        const standaloneRadCharges = await EncounterCharge.find({
-            $or: [
-                { itemType: 'Radiology' },
-                { department: 'Radiology' }
-            ],
-            createdAt: { $gte: start, $lte: end }
-        })
-            .populate('patient', 'name mrn')
-            .populate('encounter', 'type encounterType')
-            .populate({ path: 'receipt', populate: { path: 'cashier', select: 'name role' } });
-
-        const EXTERNAL_TYPES = ['External Investigation', 'External Lab', 'External Radiology', 'External Pharmacy', 'External Lab/Radiology', 'External', 'Lab POS', 'Radiology POS', 'Pharmacy POS'];
-
-        const externalOrders = radOrders.filter(o =>
-            o.visit && (EXTERNAL_TYPES.includes(o.visit.encounterType) || EXTERNAL_TYPES.includes(o.visit.type))
-        );
-
-        // External from standalone POS: either external encounter type OR no encounter at all
-        const externalStandaloneCharges = standaloneRadCharges.filter(c =>
-            !c.encounter || EXTERNAL_TYPES.includes(c.encounter.encounterType) || EXTERNAL_TYPES.includes(c.encounter.type)
-        );
-
-
-        const externalRevenue =
-            externalOrders.filter(o => o.charge?.status === 'paid').reduce((sum, o) => sum + (o.charge?.totalAmount || 0), 0) +
-            externalStandaloneCharges.filter(c => c.status === 'paid').reduce((sum, c) => sum + (c.totalAmount || 0), 0);
-
-        const externalDetails = [
-            ...externalOrders.map(o => ({
-                _id: o._id,
-                patient: o.patient,
-                testName: o.scanType,
-                status: o.charge?.status,
-                amount: o.charge?.totalAmount || 0,
-                cashier: o.charge?.receipt?.cashier,
-                createdAt: o.createdAt
-            })),
-            ...externalStandaloneCharges.map(c => ({
-                _id: c._id,
-                patient: c.patient,
-                testName: c.itemName || c.charge?.name || 'Radiology Scan',
-                status: c.status,
-                amount: c.totalAmount || 0,
-                cashier: c.receipt?.cashier,
-                createdAt: c.createdAt
-            }))
-        ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-
 
         const totalScans = radOrders.length;
         const completedScans = radOrders.filter(o => o.status === 'completed').length;
         const paidScans = radOrders.filter(o => o.charge?.status === 'paid').length;
 
-        const totalRevenue = (radOrders
+        const totalRevenue = radOrders
             .filter(o => o.charge?.status === 'paid')
-            .reduce((sum, o) => sum + (o.charge?.totalAmount || 0), 0)) +
-            (standaloneRadCharges.filter(c => c.status === 'paid').reduce((sum, c) => sum + (c.totalAmount || 0), 0));
+            .reduce((sum, o) => sum + (o.charge?.totalAmount || 0), 0);
 
-        const pendingRevenue = (radOrders
+        const pendingRevenue = radOrders
             .filter(o => o.charge?.status === 'pending')
-            .reduce((sum, o) => sum + (o.charge?.totalAmount || 0), 0)) +
-            (standaloneRadCharges.filter(c => c.status === 'pending').reduce((sum, c) => sum + (c.totalAmount || 0), 0));
+            .reduce((sum, o) => sum + (o.charge?.totalAmount || 0), 0);
 
         // Calculate pending revenue breakdown
         let pendingInsuranceRevenue = 0;
@@ -344,24 +221,9 @@ const getRadiologyRevenue = async (req, res) => {
             }
             byScanType[scanType].count++;
             if (order.charge?.status === 'paid') {
-                byScanType[scanType].revenue += (order.charge?.totalAmount || 0);
+                byScanType[scanType].revenue += order.charge.totalAmount;
                 byScanType[scanType].paid++;
-            } else if (order.charge?.status === 'pending') {
-                byScanType[scanType].pending++;
-            }
-        });
-
-        // Include standalone charges in byScanType breakdown
-        standaloneRadCharges.forEach(charge => {
-            const scanType = charge.itemName || 'Radiology POS';
-            if (!byScanType[scanType]) {
-                byScanType[scanType] = { count: 0, revenue: 0, paid: 0, pending: 0 };
-            }
-            byScanType[scanType].count++;
-            if (charge.status === 'paid') {
-                byScanType[scanType].revenue += charge.totalAmount;
-                byScanType[scanType].paid++;
-            } else if (charge.status === 'pending') {
+            } else {
                 byScanType[scanType].pending++;
             }
         });
@@ -376,12 +238,10 @@ const getRadiologyRevenue = async (req, res) => {
                 pendingInsuranceRevenue,
                 pendingPatientRevenue,
                 pendingHMOAmount,
-                externalRevenue,
                 dateRange: { start, end }
             },
             byScanType,
-            orders: radOrders,
-            externalDetails
+            orders: radOrders
         });
     } catch (error) {
         res.status(500).json({ message: error.message });
@@ -404,71 +264,23 @@ const getPharmacyRevenue = async (req, res) => {
         })
             .populate('patient', 'name mrn')
             .populate('doctor', 'name')
-            .populate('visit', 'type encounterType')
             .populate({
                 path: 'charge',
-                populate: { path: 'receipt', populate: { path: 'cashier', select: 'name role' } }
+                populate: { path: 'receipt' }
             })
             .sort({ createdAt: -1 });
 
-        // --- Include Standalone Pharmacy Charges (POS sales) ---
+        // --- NEW: Include Standalone Pharmacy Charges (POS sales) ---
         const standaloneCharges = await EncounterCharge.find({
             $or: [
                 { itemType: 'Pharmacy' },
-                { itemType: 'Drug' },
+                { itemType: 'Drug', visit: { $exists: true } }, // Standalone drugs
                 { department: 'Pharmacy' }
             ],
             createdAt: { $gte: start, $lte: end }
         })
             .populate('patient', 'name mrn')
-            .populate('encounter', 'type encounterType')
-            .populate({ path: 'receipt', populate: { path: 'cashier', select: 'name role' } });
-
-        // External purchase detection
-        const EXTERNAL_TYPES = ['External Investigation', 'External Lab', 'External Radiology', 'External Pharmacy', 'External Lab/Radiology', 'External', 'Lab POS', 'Radiology POS', 'Pharmacy POS'];
-        const externalPrescriptions = prescriptions.filter(p =>
-            p.visit && (EXTERNAL_TYPES.includes(p.visit.encounterType) || EXTERNAL_TYPES.includes(p.visit.type))
-        );
-        const externalStandalone = standaloneCharges.filter(c =>
-            c.encounter && (EXTERNAL_TYPES.includes(c.encounter.encounterType) || EXTERNAL_TYPES.includes(c.encounter.type))
-        );
-        // POS standalone sales without any encounter are inherently external walk-in
-        const noVisitStandalone = standaloneCharges.filter(c => !c.encounter);
-
-
-        const allExternal = [
-            ...externalPrescriptions.map(p => ({
-                _id: p._id,
-                patient: p.patient,
-                testName: p.medicines?.map(m => m.name).join(', ') || 'Drug',
-                status: p.charge?.status,
-                amount: p.charge?.totalAmount || 0,
-                cashier: p.charge?.receipt?.cashier,
-                createdAt: p.createdAt
-            })),
-            ...externalStandalone.map(c => ({
-                _id: c._id,
-                patient: c.patient,
-                testName: c.itemName || 'Drug',
-                status: c.status,
-                amount: c.totalAmount || 0,
-                cashier: c.receipt?.cashier,
-                createdAt: c.createdAt
-            })),
-            ...noVisitStandalone.map(c => ({
-                _id: c._id,
-                patient: c.patient,
-                testName: c.itemName || 'Drug',
-                status: c.status,
-                amount: c.totalAmount || 0,
-                cashier: c.receipt?.cashier,
-                createdAt: c.createdAt
-            }))
-        ].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-        const externalRevenue = allExternal
-            .filter(e => e.status === 'paid')
-            .reduce((sum, e) => sum + e.amount, 0);
-        const externalDetails = allExternal;
+            .populate('receipt');
 
         const totalPrescriptions = prescriptions.length;
         const dispensedPrescriptions = prescriptions.filter(p => p.status === 'dispensed').length;
@@ -531,12 +343,10 @@ const getPharmacyRevenue = async (req, res) => {
                 paidPrescriptions: (prescriptions.filter(p => p.charge?.status === 'paid').length) + (standaloneCharges.filter(c => c.status === 'paid').length),
                 totalRevenue,
                 pendingRevenue,
-                externalRevenue,
                 dateRange: { start, end }
             },
             byDrug,
-            prescriptions: [...prescriptions, ...virtualPrescriptions].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt)),
-            externalDetails
+            prescriptions: [...prescriptions, ...virtualPrescriptions].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
         });
     } catch (error) {
         res.status(500).json({ message: error.message });

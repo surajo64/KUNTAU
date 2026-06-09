@@ -44,7 +44,7 @@ const HMOManagement = () => {
     const { backendUrl } = useContext(AppContext);
 
     useEffect(() => {
-        if (user && (user.role === 'admin' || user.role === 'super_admin' || user.role === 'receptionist')) {
+        if (user && (user.role === 'admin' || user.role === 'super_admin' || user.role === 'readonly_admin' || user.role === 'receptionist')) {
             fetchHMOs();
             fetchRetainershipCharges();
         }
@@ -346,7 +346,7 @@ const HMOManagement = () => {
         }
     };
 
-    if (!user || (user.role !== 'admin' && user.role !== 'super_admin' && user.role !== 'receptionist')) {
+    if (!user || (user.role !== 'admin' && user.role !== 'super_admin' && user.role !== 'receptionist' && user.role !== 'readonly_admin')) {
         return (
             <Layout>
                 <div className="bg-red-50 border border-red-200 p-6 rounded">
@@ -386,16 +386,20 @@ const HMOManagement = () => {
                         </div>
 
                         <div className="flex gap-2 flex-wrap">
-                            <button onClick={() => handleOpenModal()} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-2">
-                                <FaPlus /> Add New
-                            </button>
-                            <button onClick={handleDownloadTemplate} className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 flex items-center gap-2">
-                                <FaDownload /> Template
-                            </button>
-                            <label className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 flex items-center gap-2 cursor-pointer">
-                                <FaUpload /> Import
-                                <input type="file" accept=".xlsx,.xls" onChange={handleImportExcel} className="hidden" />
-                            </label>
+                            {user.role !== 'readonly_admin' && (
+                                <>
+                                    <button onClick={() => handleOpenModal()} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-2">
+                                        <FaPlus /> Add New
+                                    </button>
+                                    <button onClick={handleDownloadTemplate} className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 flex items-center gap-2">
+                                        <FaDownload /> Template
+                                    </button>
+                                    <label className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 flex items-center gap-2 cursor-pointer">
+                                        <FaUpload /> Import
+                                        <input type="file" accept=".xlsx,.xls" onChange={handleImportExcel} className="hidden" />
+                                    </label>
+                                </>
+                            )}
                             <button onClick={handleExportToExcel} className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 flex items-center gap-2">
                                 <FaDownload /> Export
                             </button>
@@ -471,8 +475,8 @@ const HMOManagement = () => {
                                                     <div className="font-medium text-gray-900">{hmo.name}</div>
                                                     <div className="flex items-center gap-1">
                                                         <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold uppercase ${hmo.category === 'Retainership' ? 'bg-purple-100 text-purple-700' :
-                                                                hmo.category === 'NHIA' ? 'bg-green-100 text-green-700' :
-                                                                    'bg-blue-100 text-blue-700'
+                                                            hmo.category === 'NHIA' ? 'bg-green-100 text-green-700' :
+                                                                'bg-blue-100 text-blue-700'
                                                             }`}>
                                                             {hmo.category}
                                                         </span>
@@ -508,27 +512,31 @@ const HMOManagement = () => {
                                                         >
                                                             <FaUsers />
                                                         </button>
-                                                        <button
-                                                            onClick={() => handleOpenModal(hmo)}
-                                                            className="text-blue-600 hover:text-blue-900 border border-blue-200 p-1.5 rounded bg-blue-50"
-                                                            title="Edit"
-                                                        >
-                                                            <FaEdit />
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleToggleStatus(hmo)}
-                                                            className={hmo.active ? 'text-orange-600 hover:text-orange-900 border border-orange-200 p-1.5 rounded bg-orange-50' : 'text-green-600 hover:text-green-900 border border-green-200 p-1.5 rounded bg-green-50'}
-                                                            title={hmo.active ? 'Deactivate' : 'Activate'}
-                                                        >
-                                                            {hmo.active ? <FaToggleOn /> : <FaToggleOff />}
-                                                        </button>
-                                                        <button
-                                                            onClick={() => handleDelete(hmo._id)}
-                                                            className="text-red-600 hover:text-red-900 border border-red-200 p-1.5 rounded bg-red-50"
-                                                            title="Delete"
-                                                        >
-                                                            <FaTrash />
-                                                        </button>
+                                                        {user.role !== 'readonly_admin' && (
+                                                            <>
+                                                                <button
+                                                                    onClick={() => handleOpenModal(hmo)}
+                                                                    className="text-blue-600 hover:text-blue-900 border border-blue-200 p-1.5 rounded bg-blue-50"
+                                                                    title="Edit"
+                                                                >
+                                                                    <FaEdit />
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleToggleStatus(hmo)}
+                                                                    className={hmo.active ? 'text-orange-600 hover:text-orange-900 border border-orange-200 p-1.5 rounded bg-orange-50' : 'text-green-600 hover:text-green-900 border border-green-200 p-1.5 rounded bg-green-50'}
+                                                                    title={hmo.active ? 'Deactivate' : 'Activate'}
+                                                                >
+                                                                    {hmo.active ? <FaToggleOn /> : <FaToggleOff />}
+                                                                </button>
+                                                                <button
+                                                                    onClick={() => handleDelete(hmo._id)}
+                                                                    className="text-red-600 hover:text-red-900 border border-red-200 p-1.5 rounded bg-red-50"
+                                                                    title="Delete"
+                                                                >
+                                                                    <FaTrash />
+                                                                </button>
+                                                            </>
+                                                        )}
                                                     </div>
                                                 </td>
                                             </tr>
@@ -579,8 +587,8 @@ const HMOManagement = () => {
                                                 key={page + 1}
                                                 onClick={() => setCurrentPage(page + 1)}
                                                 className={`relative inline-flex items-center px-4 py-2 border text-sm font-medium ${currentPage === page + 1
-                                                        ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
-                                                        : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+                                                    ? 'z-10 bg-blue-50 border-blue-500 text-blue-600'
+                                                    : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
                                                     }`}
                                             >
                                                 {page + 1}

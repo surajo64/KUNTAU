@@ -11,6 +11,9 @@ import { saveAs } from 'file-saver';
 import LoadingOverlay from '../components/loadingOverlay';
 import RegisterPatientModal from '../components/RegisterPatientModal';
 import { formatAge } from '../utils/patientUtils';
+import { FaIdCard } from 'react-icons/fa';
+import PatientIDCard from '../components/PatientIDCard';
+import useHospitalSettings from '../hooks/useHospitalSettings';
 
 const PatientManagement = () => {
     const [loading, setLoading] = useState(false);
@@ -48,10 +51,69 @@ const PatientManagement = () => {
     const [availableBeds, setAvailableBeds] = useState([]);
     const [selectedWard, setSelectedWard] = useState('');
     const [selectedBed, setSelectedBed] = useState('');
+
+    // Card Modal State
+    const [showCardModal, setShowCardModal] = useState(false);
+    const [cardPatient, setCardPatient] = useState(null);
+    const { settings: hospitalSettings } = useHospitalSettings();
+
+    const handlePrintCard = () => {
+        const frontContent = document.getElementById(`patient-card-front-${cardPatient._id}`);
+        const backContent = document.getElementById(`patient-card-back-${cardPatient._id}`);
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>Patient ID Card - ${cardPatient.name}</title>
+                    <link rel="preconnect" href="https://fonts.googleapis.com">
+                    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+                    <style>
+                        body { 
+                            margin: 0; 
+                            padding: 20px; 
+                            font-family: 'Inter', sans-serif; 
+                            display: flex; 
+                            flex-direction: column; 
+                            align-items: center; 
+                            gap: 20px; 
+                        }
+                        @media print {
+                            @page { size: auto; margin: 0; }
+                            body { margin: 20px; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                            .no-print { display: none; }
+                            div[id^="patient-card"] { 
+                                margin-bottom: 20px !important; 
+                                box-shadow: none !important; 
+                                break-inside: avoid; 
+                                border-top: 5px solid #1b4332 !important; 
+                                border-bottom: 5px solid #1b4332 !important;
+                                -webkit-print-color-adjust: exact !important;
+                                print-color-adjust: exact !important;
+                            }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div style="margin-bottom: 20px;">
+                        ${frontContent.outerHTML}
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                        ${backContent.outerHTML}
+                    </div>
+                    <script>
+                        window.onload = () => {
+                            window.print();
+                            window.onafterprint = () => window.close();
+                        };
+                    </script>
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+    };
     const [pendingEncounterPatient, setPendingEncounterPatient] = useState(null);
     const [isANC, setIsANC] = useState(false);
-    const [isWaived, setIsWaived] = useState(false);
-
 
     // Watch for pending encounter patient and register modal closing
     useEffect(() => {
@@ -69,7 +131,7 @@ const PatientManagement = () => {
     }, [pendingEncounterPatient, showRegisterPatientModal]);
 
     useEffect(() => {
-        if (user && (user.role === 'admin' || user.role === 'super_admin' || user.role === 'receptionist')) {
+        if (user && (user.role === 'admin' || user.role === 'super_admin' || user.role === 'receptionist' || user.role === 'readonly_admin')) {
             fetchPatients();
             fetchHMOs();
             fetchFamilyFiles();
@@ -209,7 +271,6 @@ const PatientManagement = () => {
         setSelectedWard('');
         setSelectedBed('');
         setIsANC(false);
-        setIsWaived(false);
     };
 
     const handleChargeToggle = (chargeId) => {
@@ -220,13 +281,8 @@ const PatientManagement = () => {
 
     const handleCreateEncounter = async () => {
         if (!encounterPatient) return;
-        if (!isANC && !isWaived && !['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && selectedCharges.length === 0) {
-            toast.error('Please select at least one charge, or check ANC/Waive Fee to skip charges');
-            return;
-        }
-
-        if (encounterType === 'Inpatient' && (!selectedWard || !selectedBed)) {
-            toast.error('Ward and Bed are required for Inpatient admission');
+        if (!isANC && !['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && selectedCharges.length === 0) {
+            toast.error('Please select at least one charge, or check ANC to skip charges');
             return;
         }
         try {
@@ -243,8 +299,7 @@ const PatientManagement = () => {
                 encounterStatus: 'registered',
                 ward: encounterType === 'Inpatient' ? selectedWard : undefined,
                 bed: encounterType === 'Inpatient' ? selectedBed : undefined,
-                isANC: isANC,
-                isWaived: isWaived
+                isANC: isANC
             };
             const visitResponse = await axios.post(`${backendUrl}/api/visits`, visitData, config);
             for (const chargeId of selectedCharges) {
@@ -256,15 +311,10 @@ const PatientManagement = () => {
                     notes: 'Added at registration'
                 }, config);
             }
-            const selectedChargeObjects = charges.filter(c => selectedCharges.includes(c._id));
+            const total = charges.filter(c => selectedCharges.includes(c._id)).reduce((s, c) => s + c.basePrice, 0);
             if (!['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType)) {
-                const total = selectedChargeObjects.reduce((sum, c) => sum + c.basePrice, 0);
                 await axios.put(`${backendUrl}/api/visits/${visitResponse.data._id}`,
-                    {
-                        encounterStatus: (isANC || isWaived) ? 'in_nursing' : (total > 0 ? 'payment_pending' : 'in_nursing'),
-                        isANC: !!isANC,
-                        isWaived: !!isWaived
-                    }, config);
+                    { encounterStatus: isANC ? 'in_nursing' : (total > 0 ? 'payment_pending' : 'in_nursing'), isANC: isANC || undefined }, config);
             }
             toast.success('Encounter created successfully!');
             closeEncounterModal();
@@ -420,7 +470,7 @@ const PatientManagement = () => {
         toast.success('Patient list exported successfully!');
     };
 
-    if (user?.role !== 'admin' && user?.role !== 'super_admin' && user?.role !== 'receptionist') {
+    if (user?.role !== 'admin' && user?.role !== 'super_admin' && user?.role !== 'receptionist' && user?.role !== 'readonly_admin') {
         return (
             <Layout>
                 <div className="bg-red-50 border border-red-200 p-6 rounded">
@@ -518,12 +568,14 @@ const PatientManagement = () => {
                         )}
                     </div>
                     <div className="mt-4 flex gap-2">
-                        <button
-                            onClick={() => setShowRegisterPatientModal(true)}
-                            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
-                        >
-                            <FaUserInjured /> Register Patient
-                        </button>
+                        {user.role !== 'readonly_admin' && (
+                            <button
+                                onClick={() => setShowRegisterPatientModal(true)}
+                                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                            >
+                                <FaUserInjured /> Register Patient
+                            </button>
+                        )}
                         <button
                             onClick={exportToExcel}
                             className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
@@ -632,20 +684,22 @@ const PatientManagement = () => {
                                                 >
                                                     <FaHospital />
                                                 </button>
-                                                <button
-                                                    onClick={() => {
-                                                        setEditPatient({
-                                                            ...patient,
-                                                            isFamilyMember: !!patient.familyFile,
-                                                            familyFileId: typeof patient.familyFile === 'object' ? patient.familyFile?._id : (patient.familyFile || '')
-                                                        });
-                                                        setShowEditPatientModal(true);
-                                                    }}
-                                                    className="text-green-600 hover:text-green-800"
-                                                    title="Edit Patient"
-                                                >
-                                                    <FaEdit />
-                                                </button>
+                                                {user.role !== 'readonly_admin' && (
+                                                    <button
+                                                        onClick={() => {
+                                                            setEditPatient({
+                                                                ...patient,
+                                                                isFamilyMember: !!patient.familyFile,
+                                                                familyFileId: typeof patient.familyFile === 'object' ? patient.familyFile?._id : (patient.familyFile || '')
+                                                            });
+                                                            setShowEditPatientModal(true);
+                                                        }}
+                                                        className="text-green-600 hover:text-green-800"
+                                                        title="Edit Patient"
+                                                    >
+                                                        <FaEdit />
+                                                    </button>
+                                                )}
                                                 {(user.role === 'admin' || user.role === 'super_admin') && (
                                                     <button
                                                         onClick={() => handleDeletePatient(patient._id)}
@@ -655,6 +709,16 @@ const PatientManagement = () => {
                                                         <FaTrash />
                                                     </button>
                                                 )}
+                                                <button
+                                                    onClick={() => {
+                                                        setCardPatient(patient);
+                                                        setShowCardModal(true);
+                                                    }}
+                                                    className="text-orange-600 hover:text-orange-800"
+                                                    title="Generate card"
+                                                >
+                                                    <FaIdCard />
+                                                </button>
                                             </div>
                                         </td>
                                     </tr>
@@ -751,18 +815,13 @@ const PatientManagement = () => {
                                                 <p className="text-sm text-gray-600">
                                                     Created By: {encounter.doctor?.name || 'N/A'}
                                                 </p>
-                                                {encounter.isWaived && (
-                                                    <p className="text-sm text-green-600 font-bold flex items-center gap-1 mt-1">
-                                                        🎟 Waived by: {encounter.waivedBy?.name || encounter.doctor?.name || 'N/A'}
-                                                    </p>
-                                                )}
-
                                             </div>
                                             <div className="flex gap-2 items-center">
                                                 <select
+                                                    disabled={user.role === 'readonly_admin'}
                                                     value={encounter.encounterStatus}
                                                     onChange={(e) => handleUpdateEncounterStatus(encounter._id, e.target.value)}
-                                                    className="border p-1 rounded text-sm"
+                                                    className="border p-1 rounded text-sm disabled:opacity-50 disabled:bg-gray-100"
                                                 >
                                                     <option value="registered">Registered</option>
                                                     <option value="admitted">Admitted</option>
@@ -1009,13 +1068,14 @@ const PatientManagement = () => {
                                 </div>
                             </div>
                             <div>
-                                <label className="block text-sm font-semibold mb-1">Address</label>
+                                <label className="block text-sm font-semibold mb-1">Address *</label>
                                 <textarea
                                     className="w-full border p-2 rounded"
                                     rows="2"
                                     name="address"
                                     value={editPatient.address || ''}
                                     onChange={handleEditChange}
+                                    required
                                 />
                             </div>
 
@@ -1246,39 +1306,13 @@ const PatientManagement = () => {
                                         checked={isANC}
                                         onChange={(e) => {
                                             setIsANC(e.target.checked);
-                                            if (e.target.checked) {
-                                                setSelectedCharges([]);
-                                                setIsWaived(false);
-                                            }
+                                            if (e.target.checked) setSelectedCharges([]);
                                         }}
                                         className="w-5 h-5 accent-pink-600"
                                     />
                                     <div>
                                         <p className="font-bold text-pink-700 text-sm">🤰 Antenatal Care (ANC) Visit</p>
                                         <p className="text-xs text-pink-500 mt-0.5">Check for ANC patients — no charges now. Uncheck when doctor consultation charges are needed.</p>
-                                    </div>
-                                </label>
-                            </div>
-
-                            {/* Waive Fee Checkbox */}
-                            <div className="mb-6">
-                                <label className={`flex items-center gap-3 p-4 rounded-lg border-2 cursor-pointer transition-all ${isWaived ? 'bg-green-50 border-green-400' : 'bg-gray-50 border-gray-200 hover:border-green-300'
-                                    }`}>
-                                    <input
-                                        type="checkbox"
-                                        checked={isWaived}
-                                        onChange={(e) => {
-                                            setIsWaived(e.target.checked);
-                                            if (e.target.checked) {
-                                                setSelectedCharges([]);
-                                                setIsANC(false);
-                                            }
-                                        }}
-                                        className="w-5 h-5 accent-green-600"
-                                    />
-                                    <div>
-                                        <p className="font-bold text-green-700 text-sm">🎟 Waive Consultation Fee</p>
-                                        <p className="text-xs text-green-500 mt-0.5">Free Consultation — skip charges and bypass payment validation.</p>
                                     </div>
                                 </label>
                             </div>
@@ -1325,8 +1359,8 @@ const PatientManagement = () => {
                                 </div>
                             )}
 
-                            {/* Charges Selection */}
-                            {!isANC && !isWaived && !['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && (
+                            {/* Charges */}
+                            {!isANC && !['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && (
                                 <div className="mb-6">
                                     <label className="block text-gray-700 font-semibold mb-2">
                                         Consultation Charges <span className="text-red-500">*</span>
@@ -1362,15 +1396,11 @@ const PatientManagement = () => {
                             <div className="flex gap-3 pt-4 border-t">
                                 <button
                                     onClick={handleCreateEncounter}
-                                    disabled={loading || (!isANC && !isWaived && !['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && selectedCharges.length === 0)}
-                                    className={`flex-1 py-2 rounded flex items-center justify-center gap-2 text-white transition-all ${loading || (!isANC && !isWaived && !['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && selectedCharges.length === 0)
-                                        ? 'bg-gray-400 cursor-not-allowed'
-                                        : (isANC ? 'bg-pink-600 hover:bg-pink-700' : isWaived ? 'bg-green-600 hover:bg-green-700' : 'bg-blue-600 hover:bg-blue-700')
-                                        }`}
+                                    disabled={loading || (!isANC && !['External Investigation', 'External Pharmacy', 'External Lab/Radiology', 'Inpatient'].includes(encounterType) && selectedCharges.length === 0)}
+                                    className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700 disabled:bg-gray-400 flex items-center justify-center gap-2"
                                 >
-                                    <FaCalendarCheck /> {loading ? 'Creating...' : (isANC ? '🤰 Create ANC Encounter' : isWaived ? '🎟 Create Waived Encounter' : 'Create Encounter')}
+                                    <FaCalendarCheck /> {loading ? 'Creating...' : (isANC ? '🤰 Create ANC Encounter' : 'Create Encounter')}
                                 </button>
-
                                 <button
                                     onClick={closeEncounterModal}
                                     className="flex-1 bg-gray-400 text-white py-2 rounded hover:bg-gray-500"
@@ -1378,6 +1408,65 @@ const PatientManagement = () => {
                                     Cancel
                                 </button>
                             </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* Patient Card Modal */}
+            {showCardModal && cardPatient && (
+                <div className="fixed inset-0 bg-black bg-opacity-70 flex items-center justify-center z-[60] p-4">
+                    <div className="bg-white rounded-xl shadow-2xl overflow-hidden max-w-md w-full relative">
+                        <div className="bg-gradient-to-r from-orange-500 to-red-600 p-4 flex justify-between items-center text-white">
+                            <h3 className="text-xl font-bold flex items-center gap-2">
+                                <FaIdCard /> Patient ID Card
+                            </h3>
+                            <button
+                                onClick={() => {
+                                    setShowCardModal(false);
+                                    setCardPatient(null);
+                                }}
+                                className="hover:bg-white/20 rounded-full p-1 transition-colors"
+                            >
+                                <FaTimes size={24} />
+                            </button>
+                        </div>
+
+                        <div className="p-10 flex flex-col items-center justify-center bg-gray-50 max-h-[85vh] overflow-y-auto w-full pb-16">
+                            <div className="flex flex-col gap-10 items-center w-full mt-10">
+                                <div className="w-full flex flex-col items-center">
+                                    <p className="text-center text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-3 py-1 bg-gray-200 rounded-full">Front View</p>
+                                    <div className="bg-white p-2 rounded-xl shadow-lg transform hover:scale-[1.02] transition-transform duration-300">
+                                        <PatientIDCard patient={cardPatient} settings={hospitalSettings} side="front" />
+                                    </div>
+                                </div>
+                                <div className="w-full flex flex-col items-center mt-4">
+                                    <p className="text-center text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2 px-3 py-1 bg-gray-200 rounded-full">Back View</p>
+                                    <div className="bg-white p-2 rounded-xl shadow-lg transform hover:scale-[1.02] transition-transform duration-300">
+                                        <PatientIDCard patient={cardPatient} settings={hospitalSettings} side="back" />
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="w-full flex gap-3 mt-10">
+                                <button
+                                    onClick={handlePrintCard}
+                                    className="flex-1 bg-green-600 text-white font-bold py-3 rounded-lg hover:bg-green-700 transition flex items-center justify-center gap-2"
+                                >
+                                    <FaDownload /> Print ID Card
+                                </button>
+                                <button
+                                    onClick={() => {
+                                        setShowCardModal(false);
+                                        setCardPatient(null);
+                                    }}
+                                    className="flex-1 bg-gray-200 text-gray-800 font-bold py-3 rounded-lg hover:bg-gray-300 transition"
+                                >
+                                    Close
+                                </button>
+                            </div>
+                            <p className="mt-4 text-xs text-gray-500 text-center">
+                                Tip: For best results, print on high-quality PVC cards or heavy cardstock.
+                            </p>
                         </div>
                     </div>
                 </div>

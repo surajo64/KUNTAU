@@ -35,7 +35,7 @@ const AdminDashboard = () => {
     const [totalRetainershipBalance, setTotalRetainershipBalance] = useState(0);
 
     useEffect(() => {
-        if (user && (user.role === 'admin' || user.role === 'super_admin')) {
+        if (user && (user.role === 'admin' || user.role === 'super_admin' || user.role === 'readonly_admin')) {
             fetchDashboardData();
             fetchSettings();
         }
@@ -246,12 +246,14 @@ const AdminDashboard = () => {
                                     <Link to="/admin/patients" className="flex-1 bg-green-600 text-white text-xs px-3 py-1 rounded hover:bg-green-700 text-center">
                                         View All
                                     </Link>
-                                    <button
-                                        onClick={() => setShowRegisterPatientModal(true)}
-                                        className="flex-1 bg-blue-600 text-white text-xs px-3 py-1 rounded hover:bg-blue-700"
-                                    >
-                                        Register
-                                    </button>
+                                    {user.role !== 'readonly_admin' && (
+                                        <button
+                                            onClick={() => setShowRegisterPatientModal(true)}
+                                            className="flex-1 bg-blue-600 text-white text-xs px-3 py-1 rounded hover:bg-blue-700"
+                                        >
+                                            Register
+                                        </button>
+                                    )}
                                 </div>
                             </div>
                             <Link to="/billing" className="p-4 border-2 border-blue-200 rounded-lg hover:bg-blue-50 transition flex flex-col items-center gap-2">

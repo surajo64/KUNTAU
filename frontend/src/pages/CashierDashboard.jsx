@@ -674,13 +674,15 @@ const CashierDashboard = () => {
                                         ))}
                                     </div>
 
-                                    <button
-                                        onClick={handleCollectPayment}
-                                        disabled={selectedCharges.length === 0}
-                                        className="w-full bg-green-600 text-white py-3 rounded font-bold hover:bg-green-700 disabled:bg-gray-400 flex items-center justify-center gap-2"
-                                    >
-                                        <FaCheckCircle /> Collect Payment (₦{totalSelectedAmount.toFixed(2)})
-                                    </button>
+                                    {user.role !== 'readonly_admin' && (
+                                        <button
+                                            onClick={handleCollectPayment}
+                                            disabled={selectedCharges.length === 0}
+                                            className="w-full bg-green-600 text-white py-3 rounded font-bold hover:bg-green-700 disabled:bg-gray-400 flex items-center justify-center gap-2"
+                                        >
+                                            <FaCheckCircle /> Collect Payment (₦{totalSelectedAmount.toFixed(2)})
+                                        </button>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -762,9 +764,11 @@ const CashierDashboard = () => {
                                             <option value="card">Card/POS</option>
                                         </select>
                                     </div>
-                                    <button onClick={handleCollectFamilyPayment} className="w-full bg-green-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-green-700 shadow-lg flex items-center justify-center gap-3">
-                                        <FaCheckCircle size={24} /> Collect & Print Receipt (₦{selectedFamilyFile.registrationCharge.toLocaleString()})
-                                    </button>
+                                    {user.role !== 'readonly_admin' && (
+                                        <button onClick={handleCollectFamilyPayment} className="w-full bg-green-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-green-700 shadow-lg flex items-center justify-center gap-3">
+                                            <FaCheckCircle size={24} /> Collect & Print Receipt (₦{selectedFamilyFile.registrationCharge.toLocaleString()})
+                                        </button>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="bg-green-50 p-10 rounded-lg border border-green-200 text-center">
@@ -861,9 +865,11 @@ const CashierDashboard = () => {
                                         </select>
                                     </div>
 
-                                    <button onClick={handleCollectRetainershipPayment} className="w-full bg-purple-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-purple-700 shadow-lg flex items-center justify-center gap-3">
-                                        <FaCheckCircle size={24} /> Collect & Print Receipt (₦{(selectedRetainership.registrationCharge || 0).toLocaleString()})
-                                    </button>
+                                    {user.role !== 'readonly_admin' && (
+                                        <button onClick={handleCollectRetainershipPayment} className="w-full bg-purple-600 text-white py-4 rounded-lg font-bold text-lg hover:bg-purple-700 shadow-lg flex items-center justify-center gap-3">
+                                            <FaCheckCircle size={24} /> Collect & Print Receipt (₦{(selectedRetainership.registrationCharge || 0).toLocaleString()})
+                                        </button>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="bg-green-50 p-10 rounded-lg border border-green-200 text-center">

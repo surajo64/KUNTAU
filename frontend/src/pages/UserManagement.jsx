@@ -24,12 +24,13 @@ const UserManagement = () => {
         labSpecialization: ''
     });
     const [newPassword, setNewPassword] = useState('');
+    const [submitting, setSubmitting] = useState(false);
     const [pharmacies, setPharmacies] = useState([]);
     const { user } = useContext(AuthContext);
     const { backendUrl } = useContext(AppContext);
 
     useEffect(() => {
-        if (user && (user.role === 'admin' || user.role === 'super_admin')) {
+        if (user && (user.role === 'admin' || user.role === 'super_admin' || user.role === 'readonly_admin')) {
             fetchUsers();
             fetchPharmacies();
         }
@@ -81,6 +82,7 @@ const UserManagement = () => {
     const handleAddUser = async (e) => {
         e.preventDefault();
         try {
+            setSubmitting(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             await axios.post(`${backendUrl}/api/users`, newUser, config);
             toast.success('User created successfully!');
@@ -90,12 +92,15 @@ const UserManagement = () => {
         } catch (error) {
             console.error(error);
             toast.error(error.response?.data?.message || 'Error creating user');
+        } finally {
+            setSubmitting(false);
         }
     };
 
     const handleUpdateUser = async (e) => {
         e.preventDefault();
         try {
+            setSubmitting(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             await axios.put(`${backendUrl}/api/users/${selectedUser._id}`, selectedUser, config);
             toast.success('User updated successfully!');
@@ -105,6 +110,8 @@ const UserManagement = () => {
         } catch (error) {
             console.error(error);
             toast.error(error.response?.data?.message || 'Error updating user');
+        } finally {
+            setSubmitting(false);
         }
     };
 
@@ -139,6 +146,7 @@ const UserManagement = () => {
     const handleResetPassword = async (e) => {
         e.preventDefault();
         try {
+            setSubmitting(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             await axios.post(`${backendUrl}/api/users/${selectedUser._id}/reset-password`,
                 { newPassword },
@@ -148,13 +156,16 @@ const UserManagement = () => {
             setShowResetModal(false);
             setSelectedUser(null);
             setNewPassword('');
+            fetchUsers();
         } catch (error) {
             console.error(error);
             toast.error(error.response?.data?.message || 'Error resetting password');
+        } finally {
+            setSubmitting(false);
         }
     };
 
-    if (user?.role !== 'admin' && user?.role !== 'super_admin') {
+    if (user?.role !== 'admin' && user?.role !== 'super_admin' && user?.role !== 'readonly_admin') {
         return (
             <Layout>
                 <div className="bg-red-50 border border-red-200 p-6 rounded">
@@ -198,7 +209,8 @@ const UserManagement = () => {
                         >
                             <option value="all">All Roles</option>
                             <option value="super_admin">Super Admins</option>
-                            <option value="admin">Admins</option>
+                            <option value="admin">Admin Level 1</option>
+                            <option value="readonly_admin">Admin Level 2</option>
                             <option value="doctor">Doctors</option>
                             <option value="nurse">Nurses</option>
                             <option value="pharmacist">Pharmacists</option>
@@ -209,12 +221,14 @@ const UserManagement = () => {
                             <option value="receptionist">Receptionists</option>
                         </select>
                     </div>
-                    <button
-                        onClick={() => setShowAddModal(true)}
-                        className="mt-4 bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
-                    >
-                        <FaPlus /> Add New User
-                    </button>
+                    {user.role !== 'readonly_admin' && (
+                        <button
+                            onClick={() => setShowAddModal(true)}
+                            className="mt-4 bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
+                        >
+                            <FaPlus /> Add New User
+                        </button>
+                    )}
                 </div>
 
                 {/* Users Table */}
@@ -257,47 +271,51 @@ const UserManagement = () => {
                                         {new Date(u.createdAt).toLocaleDateString()}
                                     </td>
                                     <td className="p-4">
-                                        <div className="flex gap-2">
-                                            <button
-                                                onClick={() => {
-                                                    setSelectedUser(u);
-                                                    setShowEditModal(true);
-                                                }}
-                                                className="text-blue-600 hover:text-blue-800"
-                                                title="Edit"
-                                            >
-                                                <FaEdit />
-                                            </button>
-                                            <button
-                                                onClick={() => {
-                                                    setSelectedUser(u);
-                                                    setShowResetModal(true);
-                                                }}
-                                                className="text-orange-600 hover:text-orange-800"
-                                                title="Reset Password"
-                                            >
-                                                <FaKey />
-                                            </button>
-                                            {u._id !== user._id && (
-                                                u.isActive ? (
-                                                    <button
-                                                        onClick={() => handleDeleteUser(u._id)}
-                                                        className="text-red-600 hover:text-red-800"
-                                                        title="Deactivate"
-                                                    >
-                                                        <FaTrash />
-                                                    </button>
-                                                ) : (
-                                                    <button
-                                                        onClick={() => handleActivateUser(u._id)}
-                                                        className="text-green-600 hover:text-green-800"
-                                                        title="Activate"
-                                                    >
-                                                        <FaCheckCircle />
-                                                    </button>
-                                                )
-                                            )}
-                                        </div>
+                                        {user.role !== 'readonly_admin' ? (
+                                            <div className="flex gap-2">
+                                                <button
+                                                    onClick={() => {
+                                                        setSelectedUser(u);
+                                                        setShowEditModal(true);
+                                                    }}
+                                                    className="text-blue-600 hover:text-blue-800"
+                                                    title="Edit"
+                                                >
+                                                    <FaEdit />
+                                                </button>
+                                                <button
+                                                    onClick={() => {
+                                                        setSelectedUser(u);
+                                                        setShowResetModal(true);
+                                                    }}
+                                                    className="text-orange-600 hover:text-orange-800"
+                                                    title="Reset Password"
+                                                >
+                                                    <FaKey />
+                                                </button>
+                                                {u._id !== user._id && (
+                                                    u.isActive ? (
+                                                        <button
+                                                            onClick={() => handleDeleteUser(u._id)}
+                                                            className="text-red-600 hover:text-red-800"
+                                                            title="Deactivate"
+                                                        >
+                                                            <FaTrash />
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => handleActivateUser(u._id)}
+                                                            className="text-green-600 hover:text-green-800"
+                                                            title="Activate"
+                                                        >
+                                                            <FaCheckCircle />
+                                                        </button>
+                                                    )
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <span className="text-gray-400 text-xs italic">View Only</span>
+                                        )}
                                     </td>
                                 </tr>
                             ))}
@@ -390,7 +408,8 @@ const UserManagement = () => {
                                     {user.role === 'super_admin' && (
                                         <option value="super_admin">Super Admin</option>
                                     )}
-                                    <option value="admin">Admin</option>
+                                    <option value="admin">Admin Level 1</option>
+                                    <option value="readonly_admin">Admin Level 2</option>
                                     <option value="doctor">Doctor</option>
                                     <option value="nurse">Nurse</option>
                                     <option value="pharmacist">Pharmacist</option>
@@ -442,9 +461,10 @@ const UserManagement = () => {
                             <div className="flex gap-2">
                                 <button
                                     type="submit"
-                                    className="flex-1 bg-green-600 text-white py-2 rounded hover:bg-green-700"
+                                    disabled={submitting}
+                                    className={`flex-1 text-white py-2 rounded transition-all ${submitting ? 'bg-green-400 cursor-not-allowed' : 'bg-green-600 hover:bg-green-700'}`}
                                 >
-                                    Create User
+                                    {submitting ? 'Creating...' : 'Create User'}
                                 </button>
                                 <button
                                     type="button"
@@ -500,7 +520,8 @@ const UserManagement = () => {
                                     {user.role === 'super_admin' && (
                                         <option value="super_admin">Super Admin</option>
                                     )}
-                                    <option value="admin">Admin</option>
+                                    <option value="admin">Admin Level 1</option>
+                                    <option value="readonly_admin">Admin Level 2</option>
                                     <option value="doctor">Doctor</option>
                                     <option value="nurse">Nurse</option>
                                     <option value="pharmacist">Pharmacist</option>
@@ -561,9 +582,10 @@ const UserManagement = () => {
                             <div className="flex gap-2">
                                 <button
                                     type="submit"
-                                    className="flex-1 bg-blue-600 text-white py-2 rounded hover:bg-blue-700"
+                                    disabled={submitting}
+                                    className={`flex-1 text-white py-2 rounded transition-all ${submitting ? 'bg-blue-400 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-700'}`}
                                 >
-                                    Update User
+                                    {submitting ? 'Updating...' : 'Update User'}
                                 </button>
                                 <button
                                     type="button"
@@ -607,9 +629,10 @@ const UserManagement = () => {
                             <div className="flex gap-2">
                                 <button
                                     type="submit"
-                                    className="flex-1 bg-orange-600 text-white py-2 rounded hover:bg-orange-700"
+                                    disabled={submitting}
+                                    className={`flex-1 text-white py-2 rounded transition-all ${submitting ? 'bg-orange-400 cursor-not-allowed' : 'bg-orange-600 hover:bg-orange-700'}`}
                                 >
-                                    Reset Password
+                                    {submitting ? 'Resetting...' : 'Reset Password'}
                                 </button>
                                 <button
                                     type="button"
