@@ -1,5 +1,5 @@
 import React from 'react';
-import { QRCodeSVG } from 'qrcode.react';
+import QRCode from 'react-qr-code';
 
 /**
  * PatientIDCard Component
@@ -228,7 +228,12 @@ const PatientIDCard = ({ patient, settings, side = 'front' }) => {
                     marginBottom: '8px',
                     border: '1px solid #eee'
                 }}>
-                    <QRCodeSVG value={`https://maps.google.com/?q=${settings?.address || 'ALJOUD HOSPITAL'}`} size={64} level="M" />
+                    <QRCode
+                        value="https://maps.app.goo.gl/J71jZXvhUdQANWtbA"
+                        size={64}
+                        level="M"
+                        style={{ height: "auto", maxWidth: "100%", width: "100%" }}
+                    />
                 </div>
 
                 <div style={{ fontSize: '7px', color: '#999', fontStyle: 'italic', letterSpacing: '0.5px' }}>
