@@ -10,31 +10,27 @@ const PatientIDCard = ({ patient, settings, side = 'front' }) => {
     const cardWidth = '85.6mm';
     const cardHeight = '53.98mm';
 
-    const primaryGreen = '#1b4332';
-    const secondaryGreen = '#2d6a4f';
+    const goldAccent = '#ffd700';
+    const deepNavy = '#001e3c';
+    const mainBlue = '#2563eb';
+    const premiumGradient = 'linear-gradient(180deg, #2563eb 0%, #7c3aed 100%)';
 
     const cardBaseStyle = {
         width: cardWidth,
         height: cardHeight,
-        borderRadius: '12px',
+        borderRadius: '14px',
         position: 'relative',
         overflow: 'hidden',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
-        fontFamily: "'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
+        boxShadow: '0 12px 40px rgba(0,0,0,0.25)',
+        fontFamily: "'Inter', sans-serif",
         boxSizing: 'border-box',
-        backgroundColor: '#ffffff',
-        color: '#333333',
+        backgroundColor: '#2563eb',
+        color: '#ffffff',
         margin: '10px auto',
         display: 'flex',
         flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        textAlign: 'center',
-        // Reliable accents using borders for both layout and print
-        borderTop: `5px solid ${primaryGreen}`,
-        borderBottom: `5px solid ${primaryGreen}`,
-        borderLeft: '1px solid rgba(0,0,0,0.1)',
-        borderRight: '1px solid rgba(0,0,0,0.1)',
+        // Reliable accents
+        borderTop: `4px solid ${goldAccent}`,
         // Ensure colors show in print
         printColorAdjust: 'exact',
         WebkitPrintColorAdjust: 'exact'
@@ -53,191 +49,171 @@ const PatientIDCard = ({ patient, settings, side = 'front' }) => {
         return `${baseUrl}/uploads/${settings.hospitalLogo}`;
     };
 
-    // Helper to calculate age
-    const calculateAge = (dob) => {
-        if (!dob) return 'N/A';
-        const birthDate = new Date(dob);
-        const today = new Date();
-        let age = today.getFullYear() - birthDate.getFullYear();
-        const m = today.getMonth() - birthDate.getMonth();
-        if (m < 0 || (m === 0 && today.getDate() < birthDate.getDate())) {
-            age--;
-        }
-        return age;
-    };
-
     const logoUrl = getLogoUrl();
 
     // --- FRONT SIDE RENDER ---
     if (side === 'front') {
         return (
             <div style={cardBaseStyle} id={`patient-card-front-${patient?._id}`}>
-                {/* Subtle Background Texture */}
+                {/* Premium Gradient Background */}
                 <div style={{
                     position: 'absolute',
                     top: 0,
                     left: 0,
                     right: 0,
                     bottom: 0,
-                    backgroundColor: '#ffffff',
-                    backgroundImage: 'radial-gradient(#e5e7eb 0.5px, transparent 0.5px)',
-                    backgroundSize: '10px 10px',
+                    background: premiumGradient,
                     zIndex: 0
                 }} />
 
-                {/* Logo Watermark */}
-                {logoUrl && (
-                    <div style={{
-                        position: 'absolute',
-                        top: '55%',
-                        left: '50%',
-                        transform: 'translate(-50%, -50%)',
-                        opacity: 0.04,
-                        width: '220px',
-                        height: '220px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        zIndex: 1,
-                        pointerEvents: 'none'
-                    }}>
-                        <img src={logoUrl} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-                    </div>
-                )}
+                {/* Subtle Geometric Pattern Overlay */}
+                <div style={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundImage: 'radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px)',
+                    backgroundSize: '15px 15px',
+                    zIndex: 1
+                }} />
 
                 {/* Content Container */}
-                <div style={{ position: 'relative', zIndex: 2, padding: '20px 16px', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between' }}>
+                <div style={{ position: 'relative', zIndex: 2, padding: '16px 20px', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
 
-                    {/* Header: Logo and Hospital Name */}
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                    {/* Header */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <div style={{
-                            width: '55px',
-                            height: '55px',
+                            width: '48px',
+                            height: '48px',
                             backgroundColor: 'white',
-                            borderRadius: '50%',
-                            padding: '2px',
+                            borderRadius: '10px',
+                            padding: '4px',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                            border: `1.5px solid ${primaryGreen}`
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
                         }}>
                             {logoUrl ? (
-                                <img
-                                    src={logoUrl}
-                                    alt="Logo"
-                                    style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
-                                />
+                                <img src={logoUrl} alt="Logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                             ) : (
-                                <span style={{ color: primaryGreen, fontWeight: '900', fontSize: '10px' }}>ALJOUD</span>
+                                <div style={{ fontSize: '10px', fontWeight: '900', color: deepNavy }}>ALJOUD</div>
                             )}
                         </div>
-                        <div style={{ fontSize: '12px', fontWeight: '800', color: primaryGreen, textTransform: 'uppercase', letterSpacing: '1.2px', marginTop: '1px' }}>
-                            {settings?.reportHeader || 'ALJOUD HOSPITAL'}
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: '15px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '1px', color: '#ffffff', lineHeight: 1.1 }}>
+                                {settings?.reportHeader || 'ALJOUD HOSPITAL'}
+                            </div>
+                            <div style={{ fontSize: '8px', fontWeight: '800', color: goldAccent, textTransform: 'uppercase', letterSpacing: '2px', marginTop: '2px' }}>
+                                Clinical Excellence
+                            </div>
                         </div>
                     </div>
 
-                    {/* Patient Name and Info Block */}
-                    <div style={{ width: '100%', margin: '2px 0' }}>
+                    {/* Patient Identity */}
+                    <div style={{ textAlign: 'left', marginTop: '8px', padding: '0 20px' }}>
+                        <div style={{ fontSize: '7px', fontWeight: '800', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '2px' }}>
+                            Patient Name
+                        </div>
                         <h2 style={{
-                            fontSize: (patient?.name?.length > 20) ? '17px' : '19px',
+                            fontSize: (patient?.name?.length > 20) ? '18px' : '20px',
                             fontWeight: '900',
-                            lineHeight: '1.1',
-                            margin: '2px 0 6px 0',
-                            color: '#1a1a1a'
+                            margin: 0,
+                            color: '#ffffff',
+                            lineHeight: 1
                         }}>
-                            {patient?.name || 'PATIENT NAME'}
+                            {patient?.name?.toUpperCase() || 'PATIENT NAME'}
                         </h2>
+                    </div>
 
-                        <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'center', gap: 'x-8 y-4', rowGap: '6px', columnGap: '12px', fontSize: '9px', fontWeight: '700', color: '#444' }}>
-                            <div style={{ display: 'flex', gap: '4px' }}>
-                                <span style={{ color: secondaryGreen }}>MRN:</span>
-                                <span>{patient?.mrn || 'N/A'}</span>
+                    <div style={{ padding: '0 15px', width: '100%', boxSizing: 'border-box', display: 'flex', justifyContent: 'center' }}>
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'minmax(60px, 1.2fr) 0.8fr 0.7fr minmax(70px, 1.3fr)',
+                            gap: '4px',
+                            background: 'rgba(0,0,0,0.15)',
+                            padding: '6px 14px',
+                            borderRadius: '8px',
+                            border: '1px solid rgba(255,255,255,0.1)',
+                            width: '100%',
+                            maxWidth: ' calc(100% - 10px)',
+                            margin: '0 auto',
+                            boxSizing: 'border-box'
+                        }}>
+                            <div style={{ overflow: 'hidden' }}>
+                                <div style={{ fontSize: '5.5px', fontWeight: '800', color: goldAccent, textTransform: 'uppercase', marginBottom: '1px' }}>MRN</div>
+                                <div style={{ fontSize: '7.5px', fontWeight: '900', whiteSpace: 'nowrap' }}>{patient?.mrn || 'N/A'}</div>
                             </div>
-                            <div style={{ display: 'flex', gap: '4px' }}>
-                                <span style={{ color: secondaryGreen }}>GENDER:</span>
-                                <span style={{ textTransform: 'capitalize' }}>{patient?.gender || 'N/A'}</span>
+                            <div>
+                                <div style={{ fontSize: '5.5px', fontWeight: '800', color: goldAccent, textTransform: 'uppercase', marginBottom: '1px' }}>Gender</div>
+                                <div style={{ fontSize: '7.5px', fontWeight: '900', textTransform: 'capitalize' }}>{patient?.gender || 'N/A'}</div>
                             </div>
-                            <div style={{ display: 'flex', gap: '4px' }}>
-                                <span style={{ color: secondaryGreen }}>AGE:</span>
-                                <span>{patient?.age || calculateAge(patient?.dateOfBirth)} Yrs</span>
+                            <div>
+                                <div style={{ fontSize: '5.5px', fontWeight: '800', color: goldAccent, textTransform: 'uppercase', marginBottom: '1px' }}>Age</div>
+                                <div style={{ fontSize: '7.5px', fontWeight: '900' }}>{patient?.age || 'N/A'} Yrs</div>
                             </div>
-                            <div style={{ display: 'flex', gap: '4px' }}>
-                                <span style={{ color: secondaryGreen }}>PHONE:</span>
-                                <span>{patient?.contact || 'N/A'}</span>
+                            <div style={{ overflow: 'hidden', textAlign: 'right' }}>
+                                <div style={{ fontSize: '5.5px', fontWeight: '800', color: goldAccent, textTransform: 'uppercase', marginBottom: '1px' }}>Category</div>
+                                <div style={{ fontSize: '7.5px', fontWeight: '900', whiteSpace: 'nowrap' }}>{patient?.provider || 'Standard'}</div>
                             </div>
                         </div>
                     </div>
 
-                    {/* Footer */}
-                    <div style={{ fontSize: '8px', fontWeight: '800', color: primaryGreen, letterSpacing: '2px', textTransform: 'uppercase' }}>
-                        PATIENT ID CARD
-                    </div>
-
-                    <div style={{ fontSize: '6px', opacity: 0.3, letterSpacing: '0.5px' }}>
-                        Powered by: Apex IT Technovations.
+                    {/* Footer Accent */}
+                    <div style={{ padding: '0 20px 14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
+                        <div style={{ fontSize: '9px', fontWeight: '900', color: goldAccent, letterSpacing: '2px' }}>
+                            PATIENT ID CARD
+                        </div>
+                        <div style={{ fontSize: '6px', opacity: 0.4 }}>
+                            Ref: {new Date().getFullYear()}
+                        </div>
                     </div>
                 </div>
+
+                {/* Watermark Logo */}
+                {logoUrl && (
+                    <div style={{
+                        position: 'absolute',
+                        top: '40%',
+                        right: '-5%',
+                        transform: 'rotate(-15deg)',
+                        opacity: 0.08,
+                        width: '180px',
+                        height: '180px',
+                        zIndex: 1,
+                        pointerEvents: 'none'
+                    }}>
+                        <img src={logoUrl} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
+                    </div>
+                )}
             </div>
         );
     }
 
     // --- BACK SIDE RENDER ---
     return (
-        <div style={cardBaseStyle} id={`patient-card-back-${patient?._id}`}>
-            {/* Subtle Texture Background */}
-            <div style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                backgroundColor: '#ffffff',
-                backgroundImage: 'radial-gradient(#e5e7eb 0.5px, transparent 0.5px)',
-                backgroundSize: '10px 10px',
-                zIndex: 0
-            }} />
+        <div style={{ ...cardBaseStyle, backgroundColor: '#ffffff', borderTop: `5px solid ${mainBlue}`, borderBottom: `5px solid ${mainBlue}`, color: '#2b2b2b' }} id={`patient-card-back-${patient?._id}`}>
+            <div style={{ position: 'relative', zIndex: 1, padding: '16px 20px', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between' }}>
 
-            {/* Content Container */}
-            <div style={{ position: 'relative', zIndex: 2, padding: '12px 16px', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-
-                <div style={{ fontSize: '9px', fontWeight: '500', color: '#888', marginBottom: '2px' }}>
-                    This identification card is the property of
-                </div>
-                <div style={{ fontSize: '14px', fontWeight: '900', color: '#1b4332', textTransform: 'uppercase', marginBottom: '6px' }}>
-                    {settings?.reportHeader || 'ALJOUD HOSPITAL'}
+                <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: '10px', fontWeight: '700', color: '#666', marginBottom: '2px' }}>Identification Property of</div>
+                    <div style={{ fontSize: '16px', fontWeight: '900', color: mainBlue }}>{settings?.reportHeader || 'ALJOUD HOSPITAL'}</div>
                 </div>
 
-                <div style={{ fontSize: '8px', color: '#555', fontWeight: '600', lineHeight: '1.4', marginBottom: '8px' }}>
-                    {settings?.address || 'No. 51 Bawo Road, Kano'}<br />
-                    GSM: <span style={{ color: '#1b4332' }}>{settings?.phone || '07035400899'}</span>
+                <div style={{ textAlign: 'center', fontSize: '9px', color: '#444', fontWeight: '600' }}>
+                    {settings?.address || 'Kano, Nigeria'}<br />
+                    T: {settings?.phone || '07000000000'} | E: info@aljoud.com
                 </div>
 
-                <div style={{ width: '60%', height: '1.5px', background: 'linear-gradient(to right, transparent, #1b4332, transparent)', marginBottom: '8px' }} />
-
-                <div style={{ fontSize: '8px', color: '#333', fontWeight: '700', lineHeight: '1.4', maxWidth: '240px', marginBottom: '8px' }}>
-                    If found, kindly call or scan the QR code for verification and our location assistance.
+                <div style={{ width: '100%', padding: '10px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                    <div style={{ fontSize: '8px', fontWeight: '800', color: mainBlue, marginBottom: '6px', textTransform: 'uppercase' }}>Scan for Verification</div>
+                    <div style={{ padding: '6px', border: `1px solid ${mainBlue}`, borderRadius: '8px' }}>
+                        <QRCode value="https://maps.app.goo.gl/J71jZXvhUdQANWtbA" size={64} level="M" />
+                    </div>
                 </div>
 
-                {/* QR Code Container */}
-                <div style={{
-                    backgroundColor: 'white',
-                    padding: '5px',
-                    borderRadius: '8px',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
-                    marginBottom: '8px',
-                    border: '1px solid #eee'
-                }}>
-                    <QRCode
-                        value="https://maps.app.goo.gl/J71jZXvhUdQANWtbA"
-                        size={64}
-                        level="M"
-                        style={{ height: "auto", maxWidth: "100%", width: "100%" }}
-                    />
-                </div>
-
-                <div style={{ fontSize: '7px', color: '#999', fontStyle: 'italic', letterSpacing: '0.5px' }}>
-                    for return assistance.
+                <div style={{ fontSize: '8px', color: '#888', fontStyle: 'italic', textAlign: 'center', padding: '0 10px' }}>
+                    This card is non-transferable. If found, please return to any Aljoud Hospital branch.
                 </div>
             </div>
         </div>

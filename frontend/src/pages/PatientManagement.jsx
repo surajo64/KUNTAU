@@ -86,8 +86,8 @@ const PatientManagement = () => {
                                 margin-bottom: 20px !important; 
                                 box-shadow: none !important; 
                                 break-inside: avoid; 
-                                border-top: 5px solid #1b4332 !important; 
-                                border-bottom: 5px solid #1b4332 !important;
+                                border-top: 5px solid #2563eb !important; 
+                                border-bottom: 5px solid #2563eb !important;
                                 -webkit-print-color-adjust: exact !important;
                                 print-color-adjust: exact !important;
                             }

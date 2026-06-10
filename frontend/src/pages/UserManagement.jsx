@@ -3,8 +3,10 @@ import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
-import { FaUsers, FaPlus, FaEdit, FaTrash, FaKey, FaSearch, FaTimes, FaCheckCircle } from 'react-icons/fa';
+import { FaUsers, FaPlus, FaEdit, FaTrash, FaKey, FaSearch, FaTimes, FaCheckCircle, FaIdCard } from 'react-icons/fa';
 import { toast } from 'react-toastify';
+import StaffIDCard from '../components/StaffIDCard';
+import useHospitalSettings from '../hooks/useHospitalSettings';
 
 const UserManagement = () => {
     const [users, setUsers] = useState([]);
@@ -28,6 +30,11 @@ const UserManagement = () => {
     const [pharmacies, setPharmacies] = useState([]);
     const { user } = useContext(AuthContext);
     const { backendUrl } = useContext(AppContext);
+    const { settings: hospitalSettings } = useHospitalSettings();
+
+    // Card Modal State
+    const [showCardModal, setShowCardModal] = useState(false);
+    const [cardStaff, setCardStaff] = useState(null);
 
     useEffect(() => {
         if (user && (user.role === 'admin' || user.role === 'super_admin' || user.role === 'readonly_admin')) {
@@ -143,26 +150,59 @@ const UserManagement = () => {
         }
     };
 
-    const handleResetPassword = async (e) => {
-        e.preventDefault();
-        try {
-            setSubmitting(true);
-            const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.post(`${backendUrl}/api/users/${selectedUser._id}/reset-password`,
-                { newPassword },
-                config
-            );
-            toast.success('Password reset successfully!');
-            setShowResetModal(false);
-            setSelectedUser(null);
-            setNewPassword('');
-            fetchUsers();
-        } catch (error) {
-            console.error(error);
-            toast.error(error.response?.data?.message || 'Error resetting password');
-        } finally {
-            setSubmitting(false);
-        }
+    const handlePrintCard = () => {
+        if (!cardStaff) return;
+        const frontContent = document.getElementById(`staff-card-front-${cardStaff._id}`);
+        const backContent = document.getElementById(`staff-card-back-${cardStaff._id}`);
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>Staff ID Card - ${cardStaff.name}</title>
+                    <link rel="preconnect" href="https://fonts.googleapis.com">
+                    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+                    <style>
+                        body { 
+                            margin: 0; 
+                            padding: 20px; 
+                            font-family: 'Inter', sans-serif; 
+                            display: flex; 
+                            flex-direction: column; 
+                            align-items: center; 
+                            gap: 20px; 
+                        }
+                        @media print {
+                            @page { size: auto; margin: 0; }
+                            body { margin: 20px; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                            .no-print { display: none; }
+                            div[id^="staff-card"] { 
+                                margin-bottom: 20px !important; 
+                                box-shadow: none !important; 
+                                break-inside: avoid;
+                                -webkit-print-color-adjust: exact !important;
+                                print-color-adjust: exact !important;
+                            }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div style="margin-bottom: 20px;">
+                        ${frontContent.outerHTML}
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                        ${backContent.outerHTML}
+                    </div>
+                    <script>
+                        window.onload = () => {
+                            window.print();
+                            window.onafterprint = () => window.close();
+                        };
+                    </script>
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
     };
 
     if (user?.role !== 'admin' && user?.role !== 'super_admin' && user?.role !== 'readonly_admin') {
@@ -293,25 +333,33 @@ const UserManagement = () => {
                                                 >
                                                     <FaKey />
                                                 </button>
-                                                {u._id !== user._id && (
-                                                    u.isActive ? (
-                                                        <button
-                                                            onClick={() => handleDeleteUser(u._id)}
-                                                            className="text-red-600 hover:text-red-800"
-                                                            title="Deactivate"
-                                                        >
-                                                            <FaTrash />
-                                                        </button>
-                                                    ) : (
-                                                        <button
-                                                            onClick={() => handleActivateUser(u._id)}
-                                                            className="text-green-600 hover:text-green-800"
-                                                            title="Activate"
-                                                        >
-                                                            <FaCheckCircle />
-                                                        </button>
-                                                    )
+                                                {u.isActive ? (
+                                                    <button
+                                                        onClick={() => handleDeleteUser(u._id)}
+                                                        className="text-red-600 hover:text-red-800"
+                                                        title="Deactivate"
+                                                    >
+                                                        <FaTrash />
+                                                    </button>
+                                                ) : (
+                                                    <button
+                                                        onClick={() => handleActivateUser(u._id)}
+                                                        className="text-green-600 hover:text-green-800"
+                                                        title="Activate"
+                                                    >
+                                                        <FaCheckCircle />
+                                                    </button>
                                                 )}
+                                                <button
+                                                    onClick={() => {
+                                                        setCardStaff(u);
+                                                        setShowCardModal(true);
+                                                    }}
+                                                    className="text-orange-600 hover:text-orange-800"
+                                                    title="Generate Staff ID"
+                                                >
+                                                    <FaIdCard />
+                                                </button>
                                             </div>
                                         ) : (
                                             <span className="text-gray-400 text-xs italic">View Only</span>
@@ -643,6 +691,54 @@ const UserManagement = () => {
                                 </button>
                             </div>
                         </form>
+                    </div>
+                </div>
+            )}
+            {/* Staff ID Card Modal */}
+            {showCardModal && cardStaff && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-bold">Staff ID Card Preview</h3>
+                            <button
+                                onClick={() => {
+                                    setShowCardModal(false);
+                                    setCardStaff(null);
+                                }}
+                                className="text-gray-500 hover:text-gray-700 text-2xl"
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        <div className="flex flex-col md:flex-row gap-8 justify-center items-center mb-8">
+                            <div>
+                                <p className="text-sm text-gray-500 mb-2 font-semibold">Front Side</p>
+                                <StaffIDCard staff={cardStaff} settings={hospitalSettings} side="front" />
+                            </div>
+                            <div>
+                                <p className="text-sm text-gray-500 mb-2 font-semibold">Back Side</p>
+                                <StaffIDCard staff={cardStaff} settings={hospitalSettings} side="back" />
+                            </div>
+                        </div>
+
+                        <div className="border-t pt-6 flex justify-end gap-3">
+                            <button
+                                onClick={() => {
+                                    setShowCardModal(false);
+                                    setCardStaff(null);
+                                }}
+                                className="px-6 py-2 border rounded-lg hover:bg-gray-50"
+                            >
+                                Close
+                            </button>
+                            <button
+                                onClick={handlePrintCard}
+                                className="px-6 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 flex items-center gap-2"
+                            >
+                                <FaIdCard /> Print ID Card
+                            </button>
+                        </div>
                     </div>
                 </div>
             )}
