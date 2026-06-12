@@ -101,7 +101,15 @@ const PatientIDCard = ({ patient, settings, side = 'front' }) => {
                             )}
                         </div>
                         <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: '15px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '1px', color: '#ffffff', lineHeight: 1.1 }}>
+                            <div style={{
+                                fontSize: (settings?.reportHeader?.length > 20) ? '13px' : '15px',
+                                fontWeight: '900',
+                                textTransform: 'uppercase',
+                                letterSpacing: '1px',
+                                color: '#ffffff',
+                                lineHeight: 1.1,
+                                whiteSpace: 'nowrap'
+                            }}>
                                 {settings?.reportHeader || 'ALJOUD HOSPITAL'}
                             </div>
                             <div style={{ fontSize: '8px', fontWeight: '800', color: goldAccent, textTransform: 'uppercase', letterSpacing: '2px', marginTop: '2px' }}>
@@ -112,15 +120,18 @@ const PatientIDCard = ({ patient, settings, side = 'front' }) => {
 
                     {/* Patient Identity */}
                     <div style={{ textAlign: 'left', marginTop: '8px', padding: '0 20px' }}>
-                        <div style={{ fontSize: '7px', fontWeight: '800', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '2px' }}>
+                        <div style={{ fontSize: '7px', fontWeight: '500', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '2px' }}>
                             Patient Name
                         </div>
                         <h2 style={{
-                            fontSize: (patient?.name?.length > 20) ? '18px' : '20px',
+                            fontSize: (patient?.name?.length > 25) ? '14px' : (patient?.name?.length > 18) ? '16px' : '18px',
                             fontWeight: '900',
                             margin: 0,
                             color: '#ffffff',
-                            lineHeight: 1
+                            lineHeight: 1,
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
                         }}>
                             {patient?.name?.toUpperCase() || 'PATIENT NAME'}
                         </h2>
