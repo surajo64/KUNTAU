@@ -595,12 +595,30 @@ const reverseReceipt = async (req, res) => {
                 const { chargeId, quantity: returnQty } = detail;
                 const charge = validChargesToProcess.find(c => c._id.toString() === chargeId);
 
-                if (charge && charge.itemType === 'Pharmacy' && returnQty > 0) {
+                // Track pharmacy types flexibly
+                const isPharmacyItem = charge && (
+                    charge.itemType?.toLowerCase() === 'pharmacy' ||
+                    charge.itemType?.toLowerCase() === 'drugs' ||
+                    charge.itemType?.toLowerCase() === 'drug' ||
+                    charge.charge?.type?.toLowerCase() === 'pharmacy' ||
+                    charge.charge?.type?.toLowerCase() === 'drugs' ||
+                    charge.charge?.type?.toLowerCase() === 'drug'
+                );
+
+                if (isPharmacyItem && returnQty > 0) {
                     const returnQtyNum = Number(returnQty);
 
                     // a. Restore to Inventory
+                    // Fallback to charge.name if itemName is missing (common for internal prescriptions)
+                    const drugName = charge.itemName || (charge.charge && charge.charge.name);
+
+                    if (!drugName) {
+                        console.warn(`Could not determine drug name for charge ${chargeId}`);
+                        continue;
+                    }
+
                     const inventoryItem = await Inventory.findOne({
-                        name: { $regex: new RegExp(`^${charge.itemName}$`, 'i') },
+                        name: { $regex: new RegExp(`^${drugName}$`, 'i') },
                         expiryDate: { $gte: new Date() }
                     }).sort({ expiryDate: -1 });
 

@@ -1394,7 +1394,14 @@ const BillingDashboard = () => {
                                                         <div className="text-[10px] text-gray-500 italic uppercase">{item.itemType || item.charge?.type || 'Other'}</div>
                                                     </td>
                                                     <td className="p-3 border-b text-sm text-center">
-                                                        {item.itemType === 'Pharmacy' ? (
+                                                        {(
+                                                            item.itemType?.toLowerCase() === 'pharmacy' ||
+                                                            item.itemType?.toLowerCase() === 'drugs' ||
+                                                            item.itemType?.toLowerCase() === 'drug' ||
+                                                            item.charge?.type?.toLowerCase() === 'pharmacy' ||
+                                                            item.charge?.type?.toLowerCase() === 'drugs' ||
+                                                            item.charge?.type?.toLowerCase() === 'drug'
+                                                        ) ? (
                                                             <input
                                                                 type="number"
                                                                 min="0"
@@ -1440,7 +1447,15 @@ const BillingDashboard = () => {
                                         <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Amount to Reverse</p>
                                         <p className="text-2xl font-black text-red-600">
                                             ₦{reversingReceipt.charges?.filter(c => selectedChargesToReverse.includes(c._id)).reduce((sum, c) => {
-                                                if (c.itemType === 'Pharmacy' && (c.returnQty || 0) > 0) {
+                                                const isPharm = (
+                                                    c.itemType?.toLowerCase() === 'pharmacy' ||
+                                                    c.itemType?.toLowerCase() === 'drugs' ||
+                                                    c.itemType?.toLowerCase() === 'drug' ||
+                                                    c.charge?.type?.toLowerCase() === 'pharmacy' ||
+                                                    c.charge?.type?.toLowerCase() === 'drugs' ||
+                                                    c.charge?.type?.toLowerCase() === 'drug'
+                                                );
+                                                if (isPharm && (c.returnQty || 0) > 0) {
                                                     const unitPrice = c.unitPrice || (c.totalAmount / (c.quantity || 1));
                                                     return sum + (c.returnQty * unitPrice);
                                                 }

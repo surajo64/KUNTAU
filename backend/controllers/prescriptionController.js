@@ -220,6 +220,9 @@ const generatePrescriptionCharge = async (req, res) => {
             patientPortion,
             hmoPortion,
             addedBy: req.user._id, // Pharmacist
+            itemType: 'drugs',
+            itemName: medicine.name,
+            department: 'Pharmacy',
             notes: `${medicine.name} - Qty: ${finalQuantity} (Verified by Pharmacy)`
         });
 
