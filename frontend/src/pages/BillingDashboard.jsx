@@ -747,11 +747,19 @@ const BillingDashboard = () => {
             return;
         }
 
+        const returnDetails = reversingReceipt.charges
+            .filter(c => selectedChargesToReverse.includes(c._id) && c.returnQty > 0)
+            .map(c => ({
+                chargeId: c._id,
+                quantity: c.returnQty
+            }));
+
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             await axios.post(`${backendUrl}/api/receipts/${reversingReceipt._id}/reverse`, {
-                chargeIds: selectedChargesToReverse
+                chargeIds: selectedChargesToReverse,
+                returnDetails
             }, config);
 
             toast.success(isFullReversal ? 'Payment reversed successfully!' : 'Selected items reversed successfully!');
@@ -1335,7 +1343,7 @@ const BillingDashboard = () => {
 
                                 <div className="bg-blue-50 p-3 rounded mb-4 text-sm text-blue-700 flex items-center gap-2">
                                     <FaExclamationTriangle />
-                                    <span>Select the items you want to reverse. Restored amounts will be returned to the patient's deposit if paid via deposit.</span>
+                                    <span>Select the items you want to reverse. For pharmacy items, you can also select the quantity to return to inventory.</span>
                                 </div>
 
                                 <div className="flex-1 overflow-y-auto mb-4 border rounded">
@@ -1357,6 +1365,7 @@ const BillingDashboard = () => {
                                                     />
                                                 </th>
                                                 <th className="p-3 border-b text-sm font-bold uppercase">Item / Service</th>
+                                                <th className="p-3 border-b text-sm font-bold uppercase text-center">Return Qty</th>
                                                 <th className="p-3 border-b text-sm font-bold uppercase text-right">Amount</th>
                                             </tr>
                                         </thead>
@@ -1378,8 +1387,37 @@ const BillingDashboard = () => {
                                                         />
                                                     </td>
                                                     <td className="p-3 border-b text-sm">
-                                                        <div className="font-semibold">{item.itemName || item.charge?.name || 'Service'}</div>
+                                                        <div className="font-semibold">
+                                                            {item.itemName || item.charge?.name || 'Service'}
+                                                            {item.quantity > 0 && <span className="text-gray-500 text-xs ml-1 font-normal">(Sold: {item.quantity})</span>}
+                                                        </div>
                                                         <div className="text-[10px] text-gray-500 italic uppercase">{item.itemType || item.charge?.type || 'Other'}</div>
+                                                    </td>
+                                                    <td className="p-3 border-b text-sm text-center">
+                                                        {item.itemType === 'Pharmacy' ? (
+                                                            <input
+                                                                type="number"
+                                                                min="0"
+                                                                max={item.quantity}
+                                                                className="w-16 border rounded p-1 text-center"
+                                                                value={item.returnQty || 0}
+                                                                onChange={(e) => {
+                                                                    const val = Math.min(item.quantity, Math.max(0, parseInt(e.target.value) || 0));
+                                                                    setReversingReceipt({
+                                                                        ...reversingReceipt,
+                                                                        charges: reversingReceipt.charges.map(c =>
+                                                                            c._id === item._id ? { ...c, returnQty: val } : c
+                                                                        )
+                                                                    });
+                                                                    // Auto-select the item if quantity is > 0
+                                                                    if (val > 0 && !selectedChargesToReverse.includes(item._id)) {
+                                                                        setSelectedChargesToReverse([...selectedChargesToReverse, item._id]);
+                                                                    }
+                                                                }}
+                                                            />
+                                                        ) : (
+                                                            <span className="text-gray-400">-</span>
+                                                        )}
                                                     </td>
                                                     <td className="p-3 border-b text-sm text-right font-mono font-bold">
                                                         ₦{item.totalAmount.toLocaleString()}
@@ -1388,7 +1426,7 @@ const BillingDashboard = () => {
                                             ))}
                                             {(!reversingReceipt.charges || reversingReceipt.charges.length === 0) && (
                                                 <tr>
-                                                    <td colSpan="3" className="p-4 text-center text-gray-500">
+                                                    <td colSpan="4" className="p-4 text-center text-gray-500">
                                                         No individual items found on this receipt. Reversing will process the full amount.
                                                     </td>
                                                 </tr>
@@ -1401,7 +1439,13 @@ const BillingDashboard = () => {
                                     <div>
                                         <p className="text-xs text-gray-500 uppercase font-bold tracking-wider">Amount to Reverse</p>
                                         <p className="text-2xl font-black text-red-600">
-                                            ₦{reversingReceipt.charges?.filter(c => selectedChargesToReverse.includes(c._id)).reduce((sum, c) => sum + c.totalAmount, 0).toLocaleString() || '0'}
+                                            ₦{reversingReceipt.charges?.filter(c => selectedChargesToReverse.includes(c._id)).reduce((sum, c) => {
+                                                if (c.itemType === 'Pharmacy' && (c.returnQty || 0) > 0) {
+                                                    const unitPrice = c.unitPrice || (c.totalAmount / (c.quantity || 1));
+                                                    return sum + (c.returnQty * unitPrice);
+                                                }
+                                                return sum + c.totalAmount;
+                                            }, 0).toLocaleString() || '0'}
                                         </p>
                                     </div>
                                     <div className="flex gap-3">
@@ -1485,7 +1529,7 @@ const BillingDashboard = () => {
                                                     {receipt.patient?.name || receipt.familyFile?.familyName || 'N/A'}
                                                 </td>
                                                 <td className="p-3 border-b text-sm">
-                                                    {receipt.familyFile ? 'Family Registration' : (receipt.charges?.map(c => c.charge?.name || 'Service').join(', ') || 'N/A')}
+                                                    {receipt.familyFile ? 'Family Registration' : (receipt.charges?.map(c => c.itemName || c.charge?.name || 'Service').join(', ') || 'N/A')}
                                                 </td>
                                                 <td className="p-3 border-b text-green-600 font-bold">₦{receipt.amountPaid.toFixed(2)}</td>
                                                 <td className="p-3 border-b capitalize">

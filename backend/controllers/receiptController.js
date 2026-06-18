@@ -581,31 +581,111 @@ const reverseReceipt = async (req, res) => {
             }
         }
 
-        // 2. Reset charge statuses to 'pending'
-        const processedChargeIds = chargesToProcess.map(c => c._id);
-        await EncounterCharge.updateMany(
-            { _id: { $in: processedChargeIds } },
-            { status: 'pending', $unset: { receipt: "" } }
+        // 2. Handle Inventory Return and Partial Quantity Logic
+        const { returnDetails } = req.body;
+        // Filter out any invalid charges before processing to prevent crashes
+        const validChargesToProcess = (chargesToProcess || []).filter(c => c && c._id);
+        const processedChargeIds = validChargesToProcess.map(c => c._id.toString());
+        let totalRefunded = 0;
+
+        if (returnDetails && Array.isArray(returnDetails) && returnDetails.length > 0) {
+            const Inventory = require('../models/inventoryModel');
+
+            for (const detail of returnDetails) {
+                const { chargeId, quantity: returnQty } = detail;
+                const charge = validChargesToProcess.find(c => c._id.toString() === chargeId);
+
+                if (charge && charge.itemType === 'Pharmacy' && returnQty > 0) {
+                    const returnQtyNum = Number(returnQty);
+
+                    // a. Restore to Inventory
+                    const inventoryItem = await Inventory.findOne({
+                        name: { $regex: new RegExp(`^${charge.itemName}$`, 'i') },
+                        expiryDate: { $gte: new Date() }
+                    }).sort({ expiryDate: -1 });
+
+                    if (inventoryItem) {
+                        inventoryItem.quantity += returnQtyNum;
+                        await inventoryItem.save();
+                    }
+
+                    // b. Handle Partial Quantity vs Full Reversal
+                    if (returnQtyNum < charge.quantity) {
+                        // PARTIAL quantity reversal
+                        const originalQty = charge.quantity;
+                        const factor = (originalQty - returnQtyNum) / originalQty;
+                        const reverseFactor = returnQtyNum / originalQty;
+
+                        const refundAmountForCharge = (charge.totalAmount || 0) * reverseFactor;
+                        totalRefunded += refundAmountForCharge;
+
+                        // Update EncounterCharge
+                        charge.quantity -= returnQtyNum;
+                        charge.totalAmount -= refundAmountForCharge;
+                        charge.patientPortion *= factor;
+                        charge.hmoPortion *= factor;
+                        await charge.save();
+
+                        // This charge stays on the receipt, remove from "fully reversed" list
+                        const index = processedChargeIds.indexOf(charge._id.toString());
+                        if (index > -1) {
+                            processedChargeIds.splice(index, 1);
+                        }
+                    } else {
+                        // FULL quantity reversal for this charge
+                        totalRefunded += (charge.totalAmount || 0);
+                    }
+                } else if (charge) {
+                    // Item selected for full reversal
+                    totalRefunded += (charge.totalAmount || 0);
+                }
+            }
+        } else {
+            // Standard path: all selected charges are fully reversed
+            totalRefunded = amountToReverse;
+        }
+
+        // 3. Restore patient deposit if applicable
+        if (receipt.paymentMethod === 'deposit') {
+            const patient = await Patient.findById(receipt.patient?._id || receipt.patient);
+            if (patient) {
+                patient.depositBalance += totalRefunded;
+                await patient.save();
+            }
+        }
+
+        // 4. Reset charge statuses to 'pending' for those FULLY reversed
+        if (processedChargeIds.length > 0) {
+            await EncounterCharge.updateMany(
+                { _id: { $in: processedChargeIds } },
+                { status: 'pending', $unset: { receipt: "" } }
+            );
+        }
+
+        // 5. Update or Delete the receipt
+        // Filter out any potential nulls or deleted charges
+        const remainingChargesOnReceipt = (receipt.charges || []).filter(c =>
+            c && c._id && !processedChargeIds.includes(c._id.toString())
         );
 
-        // 3. Update or Delete the receipt
-        if (!chargeIds || chargeIds.length === receipt.charges.length) {
-            // All charges reversed or no specific charges provided -> Delete receipt
+        if (remainingChargesOnReceipt.length === 0) {
+            // All charges reversed -> Delete receipt
             await Receipt.findByIdAndDelete(req.params.id);
             res.json({
                 message: 'Receipt reversed and deleted successfully',
-                amountReversed: amountToReverse,
+                amountReversed: totalRefunded,
                 fullReversal: true
             });
         } else {
             // Partial reversal -> Update receipt
-            receipt.amountPaid -= amountToReverse;
-            receipt.charges = receipt.charges.filter(c => !chargeIds.includes(c._id.toString()));
+            receipt.amountPaid = Math.max(0, (receipt.amountPaid || 0) - totalRefunded);
+            // Ensure we only save IDs back to the charges array
+            receipt.charges = remainingChargesOnReceipt.map(c => c._id);
             await receipt.save();
 
             res.json({
                 message: 'Partial reversal successful',
-                amountReversed: amountToReverse,
+                amountReversed: totalRefunded,
                 remainingAmount: receipt.amountPaid,
                 fullReversal: false
             });
