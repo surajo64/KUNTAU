@@ -85,9 +85,8 @@ const PatientManagement = () => {
                             div[id^="patient-card"] { 
                                 margin-bottom: 20px !important; 
                                 box-shadow: none !important; 
-                                break-inside: avoid; 
-                                border-top: 5px solid #2563eb !important; 
-                                border-bottom: 5px solid #2563eb !important;
+                                break-inside: avoid;
+                                border: none !important;
                                 -webkit-print-color-adjust: exact !important;
                                 print-color-adjust: exact !important;
                             }

@@ -10,10 +10,8 @@ const PatientIDCard = ({ patient, settings, side = 'front' }) => {
     const cardWidth = '85.6mm';
     const cardHeight = '53.98mm';
 
-    const goldAccent = '#ffd700';
     const deepNavy = '#001e3c';
     const mainBlue = '#2563eb';
-    const premiumGradient = 'linear-gradient(180deg, #2563eb 0%, #7c3aed 100%)';
 
     const cardBaseStyle = {
         width: cardWidth,
@@ -21,17 +19,16 @@ const PatientIDCard = ({ patient, settings, side = 'front' }) => {
         borderRadius: '14px',
         position: 'relative',
         overflow: 'hidden',
-        boxShadow: '0 12px 40px rgba(0,0,0,0.25)',
+        boxShadow: 'none',
         fontFamily: "'Inter', sans-serif",
         boxSizing: 'border-box',
-        backgroundColor: '#2563eb',
-        color: '#ffffff',
+        backgroundColor: '#ffffff',
+        color: '#000000',
         margin: '10px auto',
         display: 'flex',
         flexDirection: 'column',
-        // Reliable accents
-        borderTop: `4px solid ${goldAccent}`,
-        // Ensure colors show in print
+        border: 'none',
+        // Ensure white background shows in print
         printColorAdjust: 'exact',
         WebkitPrintColorAdjust: 'exact'
     };
@@ -55,44 +52,59 @@ const PatientIDCard = ({ patient, settings, side = 'front' }) => {
     if (side === 'front') {
         return (
             <div style={cardBaseStyle} id={`patient-card-front-${patient?._id}`}>
-                {/* Premium Gradient Background */}
-                <div style={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    background: premiumGradient,
-                    zIndex: 0
-                }} />
 
-                {/* Subtle Geometric Pattern Overlay */}
+                {/* "PATIENT ID" Text Watermark */}
                 <div style={{
                     position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    backgroundImage: 'radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px)',
-                    backgroundSize: '15px 15px',
-                    zIndex: 1
-                }} />
+                    top: '50%',
+                    left: '50%',
+                    transform: 'translate(-50%, -50%) rotate(-30deg)',
+                    fontSize: '38px',
+                    fontWeight: '600',
+                    color: 'rgba(37, 99, 235, 0.07)',
+                    whiteSpace: 'nowrap',
+                    letterSpacing: '6px',
+                    zIndex: 1,
+                    pointerEvents: 'none',
+                    userSelect: 'none',
+                    printColorAdjust: 'exact',
+                    WebkitPrintColorAdjust: 'exact'
+                }}>
+                    PATIENT ID
+                </div>
+
+                {/* Logo Watermark */}
+                {logoUrl && (
+                    <div style={{
+                        position: 'absolute',
+                        top: '35%',
+                        right: '-8%',
+                        transform: 'rotate(-15deg)',
+                        opacity: 0.06,
+                        width: '160px',
+                        height: '160px',
+                        zIndex: 1,
+                        pointerEvents: 'none'
+                    }}>
+                        <img src={logoUrl} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', filter: 'grayscale(1)' }} />
+                    </div>
+                )}
 
                 {/* Content Container */}
-                <div style={{ position: 'relative', zIndex: 2, padding: '16px 20px', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <div style={{ position: 'relative', zIndex: 2, padding: '14px 18px', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between', boxSizing: 'border-box' }}>
 
                     {/* Header */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <div style={{
-                            width: '48px',
-                            height: '48px',
+                            width: '44px',
+                            height: '44px',
                             backgroundColor: 'white',
                             borderRadius: '10px',
                             padding: '4px',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.2)'
+                            border: '1px solid #e2e8f0'
                         }}>
                             {logoUrl ? (
                                 <img src={logoUrl} alt="Logo" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
@@ -101,109 +113,106 @@ const PatientIDCard = ({ patient, settings, side = 'front' }) => {
                             )}
                         </div>
                         <div style={{ flex: 1 }}>
-                            <div style={{
-                                fontSize: (settings?.reportHeader?.length > 20) ? '13px' : '15px',
-                                fontWeight: '900',
-                                textTransform: 'uppercase',
-                                letterSpacing: '1px',
-                                color: '#ffffff',
-                                lineHeight: 1.1,
-                                whiteSpace: 'nowrap'
-                            }}>
+                            <div style={{ fontSize: '15px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '1px', color: mainBlue, lineHeight: 1.1 }}>
                                 {settings?.reportHeader || 'ALJOUD HOSPITAL'}
                             </div>
-                            <div style={{ fontSize: '8px', fontWeight: '800', color: goldAccent, textTransform: 'uppercase', letterSpacing: '2px', marginTop: '2px' }}>
+                            <div style={{ fontSize: '7.5px', fontWeight: '600', color: '#555', textTransform: 'uppercase', letterSpacing: '2px', marginTop: '2px' }}>
                                 Clinical Excellence
                             </div>
                         </div>
                     </div>
 
                     {/* Patient Identity */}
-                    <div style={{ textAlign: 'left', marginTop: '8px', padding: '0 20px' }}>
-                        <div style={{ fontSize: '7px', fontWeight: '500', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '2px' }}>
+                    <div style={{ textAlign: 'left', padding: '0 2px' }}>
+                        <div style={{ fontSize: '7px', fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '2px' }}>
                             Patient Name
                         </div>
                         <h2 style={{
-                            fontSize: (patient?.name?.length > 25) ? '14px' : (patient?.name?.length > 18) ? '16px' : '18px',
-                            fontWeight: '900',
+                            fontSize: (patient?.name?.length > 22) ? '14px' : (patient?.name?.length > 16) ? '16px' : '18px',
+                            fontWeight: '600',
                             margin: 0,
-                            color: '#ffffff',
-                            lineHeight: 1,
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
+                            color: mainBlue,
+                            lineHeight: 1.1
                         }}>
                             {patient?.name?.toUpperCase() || 'PATIENT NAME'}
                         </h2>
                     </div>
 
-                    <div style={{ padding: '0 15px', width: '100%', boxSizing: 'border-box', display: 'flex', justifyContent: 'center' }}>
+                    {/* Metadata Grid */}
+                    <div style={{ width: '100%', boxSizing: 'border-box' }}>
                         <div style={{
                             display: 'grid',
-                            gridTemplateColumns: 'minmax(60px, 1.2fr) 0.8fr 0.7fr minmax(70px, 1.3fr)',
-                            gap: '4px',
-                            background: 'rgba(0,0,0,0.15)',
-                            padding: '6px 14px',
+                            gridTemplateColumns: '1fr 0.7fr 0.6fr 1.1fr',
+                            gap: '8px',
+                            background: '#f8fafc',
+                            padding: '8px 12px',
                             borderRadius: '8px',
-                            border: '1px solid rgba(255,255,255,0.1)',
+                            border: '1px solid #e2e8f0',
                             width: '100%',
-                            maxWidth: ' calc(100% - 10px)',
-                            margin: '0 auto',
                             boxSizing: 'border-box'
                         }}>
                             <div style={{ overflow: 'hidden' }}>
-                                <div style={{ fontSize: '5.5px', fontWeight: '800', color: goldAccent, textTransform: 'uppercase', marginBottom: '1px' }}>MRN</div>
-                                <div style={{ fontSize: '7.5px', fontWeight: '900', whiteSpace: 'nowrap' }}>{patient?.mrn || 'N/A'}</div>
+                                <div style={{ fontSize: '6.5px', fontWeight: '700', color: mainBlue, textTransform: 'uppercase', marginBottom: '2px' }}>MRN</div>
+                                <div style={{ fontSize: '8.5px', fontWeight: '800', color: '#000', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{patient?.mrn || 'N/A'}</div>
                             </div>
                             <div>
-                                <div style={{ fontSize: '5.5px', fontWeight: '800', color: goldAccent, textTransform: 'uppercase', marginBottom: '1px' }}>Gender</div>
-                                <div style={{ fontSize: '7.5px', fontWeight: '900', textTransform: 'capitalize' }}>{patient?.gender || 'N/A'}</div>
+                                <div style={{ fontSize: '6.5px', fontWeight: '700', color: mainBlue, textTransform: 'uppercase', marginBottom: '2px' }}>Gender</div>
+                                <div style={{ fontSize: '8.5px', fontWeight: '800', color: '#000', textTransform: 'capitalize' }}>{patient?.gender || 'N/A'}</div>
                             </div>
                             <div>
-                                <div style={{ fontSize: '5.5px', fontWeight: '800', color: goldAccent, textTransform: 'uppercase', marginBottom: '1px' }}>Age</div>
-                                <div style={{ fontSize: '7.5px', fontWeight: '900' }}>{patient?.age || 'N/A'} Yrs</div>
+                                <div style={{ fontSize: '6.5px', fontWeight: '700', color: mainBlue, textTransform: 'uppercase', marginBottom: '2px' }}>Age</div>
+                                <div style={{ fontSize: '8.5px', fontWeight: '800', color: '#000' }}>{patient?.age || 'N/A'} Yrs</div>
                             </div>
                             <div style={{ overflow: 'hidden', textAlign: 'right' }}>
-                                <div style={{ fontSize: '5.5px', fontWeight: '800', color: goldAccent, textTransform: 'uppercase', marginBottom: '1px' }}>Category</div>
-                                <div style={{ fontSize: '7.5px', fontWeight: '900', whiteSpace: 'nowrap' }}>{patient?.provider || 'Standard'}</div>
+                                <div style={{ fontSize: '6.5px', fontWeight: '700', color: mainBlue, textTransform: 'uppercase', marginBottom: '2px' }}>Category</div>
+                                <div style={{ fontSize: '8.5px', fontWeight: '800', color: '#000', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                    {patient?.provider || 'Standard'}
+                                </div>
                             </div>
                         </div>
+
+                        {/* Specific Entity Info */}
+                        {(patient?.hmo || patient?.familyFile) && (
+                            <div style={{
+                                width: '100%',
+                                textAlign: 'right',
+                                paddingRight: '4px',
+                                marginTop: '4px',
+                                boxSizing: 'border-box'
+                            }}>
+                                <div style={{
+                                    fontSize: '8px',
+                                    fontWeight: '850',
+                                    color: mainBlue,
+                                    textTransform: 'uppercase',
+                                    letterSpacing: '0.2px',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis'
+                                }}>
+                                    {patient?.hmo || (typeof patient?.familyFile === 'object' ? patient.familyFile.familyName : 'Family Member')}
+                                </div>
+                            </div>
+                        )}
                     </div>
 
-                    {/* Footer Accent */}
-                    <div style={{ padding: '0 20px 14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
-                        <div style={{ fontSize: '9px', fontWeight: '900', color: goldAccent, letterSpacing: '2px' }}>
-                            PATIENT ID CARD
+                    {/* Footer — MRN highlighted + label */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', paddingBottom: '4px' }}>
+                        <div style={{ fontSize: '8px', fontWeight: '700', color: '#aaa', letterSpacing: '2px', textTransform: 'uppercase' }}>
+                            Patient Card
                         </div>
-                        <div style={{ fontSize: '6px', opacity: 0.4 }}>
+                        <div style={{ fontSize: '7px', fontWeight: '600', color: '#888' }}>
                             Ref: {new Date().getFullYear()}
                         </div>
                     </div>
                 </div>
-
-                {/* Watermark Logo */}
-                {logoUrl && (
-                    <div style={{
-                        position: 'absolute',
-                        top: '40%',
-                        right: '-5%',
-                        transform: 'rotate(-15deg)',
-                        opacity: 0.08,
-                        width: '180px',
-                        height: '180px',
-                        zIndex: 1,
-                        pointerEvents: 'none'
-                    }}>
-                        <img src={logoUrl} alt="" style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', filter: 'brightness(0) invert(1)' }} />
-                    </div>
-                )}
             </div>
         );
     }
 
     // --- BACK SIDE RENDER ---
     return (
-        <div style={{ ...cardBaseStyle, backgroundColor: '#ffffff', borderTop: `5px solid ${mainBlue}`, borderBottom: `5px solid ${mainBlue}`, color: '#2b2b2b' }} id={`patient-card-back-${patient?._id}`}>
+        <div style={{ ...cardBaseStyle, backgroundColor: '#ffffff', border: 'none', boxShadow: 'none', color: '#2b2b2b' }} id={`patient-card-back-${patient?._id}`}>
             <div style={{ position: 'relative', zIndex: 1, padding: '16px 20px', width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'space-between' }}>
 
                 <div style={{ textAlign: 'center' }}>
@@ -218,8 +227,8 @@ const PatientIDCard = ({ patient, settings, side = 'front' }) => {
 
                 <div style={{ width: '100%', padding: '10px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <div style={{ fontSize: '8px', fontWeight: '800', color: mainBlue, marginBottom: '6px', textTransform: 'uppercase' }}>Scan for Verification</div>
-                    <div style={{ padding: '6px', border: `1px solid ${mainBlue}`, borderRadius: '8px' }}>
-                        <QRCode value="https://maps.app.goo.gl/J71jZXvhUdQANWtbA" size={64} level="M" />
+                    <div style={{ padding: '6px', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+                        <QRCode value={`https://aljoud.com/verify/${patient?.mrn}`} size={64} level="M" />
                     </div>
                 </div>
 
