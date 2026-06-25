@@ -261,9 +261,9 @@ const FrontDeskChargeManagement = () => {
                     </h2>
                     <p className="text-gray-600 text-sm">Manage charges available for encounter creation at the front desk</p>
                 </div>
-                {(user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'readonly_admin') && (
+                {(user?.role === 'admin' || user?.role === 'super_admin' || user?.role === 'readonly_admin' || user?.role === 'receptionist') && (
                     <div className="flex gap-2 flex-wrap">
-                        {user?.role !== 'readonly_admin' && (
+                        {user?.role !== 'readonly_admin' && user?.role !== 'receptionist' && (
                             <>
                                 <button onClick={handleDownloadTemplate} className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 flex items-center gap-2 text-sm">
                                     <FaDownload /> Template
@@ -277,10 +277,17 @@ const FrontDeskChargeManagement = () => {
                         <button onClick={handleExportToExcel} className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 flex items-center gap-2 text-sm">
                             <FaDownload /> Export
                         </button>
-                        {user?.role !== 'readonly_admin' && (
+                        {user?.role !== 'readonly_admin' && user?.role !== 'receptionist' && (
                             <button onClick={() => setShowForm(!showForm)} className="bg-green-600 text-white px-6 py-2 rounded hover:bg-green-700 flex items-center gap-2">
                                 {showForm ? <><FaTimes /> Cancel</> : <><FaPlus /> Add New Charge</>}
                             </button>
+                        )}
+                        {(user?.role === 'readonly_admin' || user?.role === 'receptionist') && (
+                            <div className="flex gap-2">
+                                <span className="text-gray-500 bg-gray-100 px-3 py-1 rounded text-sm font-medium border border-gray-200">
+                                    Read Only Access
+                                </span>
+                            </div>
                         )}
                     </div>
                 )}

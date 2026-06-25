@@ -132,6 +132,9 @@ const Sidebar = () => {
                         <Link to="/appointments" className={`flex items-center gap-3 p-3 rounded hover:bg-green-700 transition ${isActive('/appointments')}`}>
                             <FaCalendarAlt /> Appointments
                         </Link>
+                        <Link to="/nurse/wards" className={`flex items-center gap-3 p-3 rounded hover:bg-green-700 transition ${isActive('/nurse/wards')}`}>
+                            <FaHospital /> Ward Availability
+                        </Link>
                     </>
                 )}
 
@@ -262,8 +265,12 @@ const Sidebar = () => {
                                 </Link>
                             )}
                         </SidebarDropdown>
+                    </>
+                )}
 
-                        <SidebarDropdown title="Service Management" icon={<FaHeart />} name="services">
+                {(user.role === 'admin' || user.role === 'super_admin' || user.role === 'readonly_admin' || user.role === 'receptionist') && (
+                    <>
+                        <SidebarDropdown title={user.role === 'receptionist' ? "Services Price List" : "Service Management"} icon={<FaHeart />} name="services">
                             <Link to="/nurse/services" className={`flex items-center gap-3 p-2 rounded hover:bg-green-600 transition ${isActive('/nurse/services')}`}>
                                 <FaHeart size={14} /> Nurse Services
                             </Link>
@@ -277,7 +284,11 @@ const Sidebar = () => {
                                 <FaDollarSign size={14} /> Front Desk Charges
                             </Link>
                         </SidebarDropdown>
+                    </>
+                )}
 
+                {(user.role === 'admin' || user.role === 'super_admin' || user.role === 'readonly_admin') && (
+                    <>
                         <SidebarDropdown title="Manage Pharmacy" icon={<FaPills />} name="pharmacy">
                             <Link to="/pharmacy/inventory" className={`flex items-center gap-3 p-2 rounded hover:bg-green-600 transition ${isActive('/pharmacy/inventory')}`}>
                                 <FaPills size={14} /> Inventory

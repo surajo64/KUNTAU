@@ -25,6 +25,37 @@ const PatientDetails = () => {
     const [inventoryDrugs, setInventoryDrugs] = useState([]);
     const [expandedDays, setExpandedDays] = useState({});
 
+    // Parse text-based template or saved result into table format
+    const parseTextTemplate = (template) => {
+        if (!template) return [];
+
+        const lines = template.split('\n');
+        const params = [];
+
+        for (const line of lines) {
+            // Match patterns like "- WBC: _____ x10^3/μL (Normal: 4.0-11.0)"
+            // OR "- Malaria: ++ Positive/Negative"
+            const match = line.match(/^\s*-\s*([^:]+):\s*(.*?)(?:\s*\(?(?:Normal:\s*)?([^)]*)\)?)?$/);
+            if (match) {
+                const name = match[1].trim();
+                let fullValue = match[2].trim();
+                const normalRange = (match[3] || '').trim();
+
+                // Extract value from underscores if present (e.g., "__yes__")
+                const valueMatch = fullValue.match(/^_*([^_]*)_*$/);
+                const value = valueMatch ? valueMatch[1].trim() : fullValue;
+
+                params.push({
+                    name,
+                    value: value === '_____' ? '' : value,
+                    unit: '', // Text templates usually don't have separate unit column
+                    normalRange
+                });
+            }
+        }
+        return params;
+    };
+
     const handleUniversalPrint = (order) => {
         try {
             const printWindow = window.open("", "_blank");
@@ -39,129 +70,195 @@ const PatientDetails = () => {
                         <title>Laboratory Report - ${order.testName}</title>
                         <style>
                             body { font-family: Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto; color: #1a202c; }
-                            .header { text-align: center; margin-bottom: 30px; border-bottom: 3px solid #4a5568; padding-bottom: 20px; }
-                            .header h1 { font-size: 28px; margin: 0; color: #2d3748; text-transform: uppercase; letter-spacing: 1px; }
-                            .hospital-name { font-size: 22px; font-weight: bold; margin-bottom: 5px; color: #2c5282; }
-                            .report-type { font-size: 14px; font-weight: bold; color: #718096; margin-top: 5px; }
-                            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; margin-bottom: 35px; background: #f7fafc; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; }
-                            .info-grid p { margin: 8px 0; font-size: 14px; }
-                            .label { font-weight: bold; color: #4a5568; width: 120px; display: inline-block; }
-                            .results-table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
-                            .results-table th { background: #edf2f7; text-align: left; padding: 12px; font-size: 13px; font-weight: bold; border-bottom: 2px solid #cbd5e0; }
-                            .results-table td { padding: 12px; border-bottom: 1px solid #e2e8f0; font-size: 14px; }
-                            .text-result { background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #e2e8f0; min-height: 200px; white-space: pre-wrap; font-family: 'Courier New', Courier, monospace; }
-                            .signature-container { margin-top: 50px; display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 30px; }
-                            .sig-box { border-top: 1px solid #a0aec0; padding-top: 10px; text-align: center; }
-                            .sig-name { font-weight: bold; font-size: 14px; }
-                            .sig-label { font-size: 10px; text-transform: uppercase; color: #718096; font-weight: bold; margin-bottom: 4px; }
-                            .sig-date { font-size: 11px; color: #a0aec0; }
-                            @media print { .no-print { display: none; } }
+                            .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+                            .header h1 { font-size: 28px; margin: 0; }
+                            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; font-size: 14px; }
+                            .info-grid p { margin: 8px 0; }
+                            .results-section { border-top: 1px solid #333; border-bottom: 1px solid #333; padding: 20px 0; margin-bottom: 30px; }
+                            .results-section h3 { font-size: 18px; margin-bottom: 15px; }
+                            .results-content { background: #f9f9f9; padding: 15px; white-space: pre-wrap; font-family: monospace; font-size: 13px; }
+                            .signature-section { margin-top: 40px; padding-top: 20px; border-top: 1px solid #333; }
+                            .signature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; }
+                            .signature-grid p { margin: 5px 0; font-size: 13px; }
+                            .footer { margin-top: 30px; text-align: center; font-size: 11px; color: #666; }
+                            @media print {
+                                body { padding: 0; }
+                                .results-content { background: none; }
+                            }
                         </style>
                     </head>
                     <body>
                         <div class="header">
-                            <div class="hospital-name">ALJOUD CLINIC & LABORATORY</div>
-                            <h1>Laboratory Report</h1>
-                            <div class="report-type">${order.testName}</div>
+                            ${systemSettings?.hospitalLogo ? `<img src="${systemSettings.hospitalLogo}" style="height: 150px; max-width: 250px; object-fit: contain; margin-bottom: 0;" />` : ''}
+                            <h1 style="margin: 0 0 5px 0;">${systemSettings?.reportHeader || 'LABORATORY REPORT'}</h1>
+                            <p style="margin: 5px 0; font-size: 14px;">${systemSettings?.address || ''}</p>
+                            <p style="margin: 2px 0; font-size: 12px;">
+                                ${systemSettings?.phone ? `Phone: ${systemSettings.phone}` : ''}
+                                ${systemSettings?.phone && systemSettings?.email ? ' | ' : ''}
+                                ${systemSettings?.email ? `Email: ${systemSettings.email}` : ''}
+                            </p>
+                            <h2 style="font-size: 20px; border-top: 1px solid #eee; padding-top: 10px; margin-top: 10px;">Laboratory Report</h2>
                         </div>
 
                         <div class="info-grid">
                             <div>
-                                <p><span class="label">Patient:</span> ${patient?.name}</p>
-                                <p><span class="label">MRN:</span> ${patient?.mrn}</p>
-                                <p><span class="label">Age/Sex:</span> ${formatAge(patient?.dateOfBirth)} / ${patient?.gender}</p>
+                                <p><strong>Patient Name:</strong> ${patient?.name}</p>
+                                <p><strong>MRN:</strong> ${patient?.mrn}</p>
+                                <p><strong>Age/Sex:</strong> ${formatAge(patient?.dateOfBirth)} / ${patient?.gender}</p>
                             </div>
                             <div>
-                                <p><span class="label">Ref. Doctor:</span> ${order.doctor?.name || 'Self'}</p>
-                                <p><span class="label">Ordered:</span> ${new Date(order.createdAt).toLocaleString()}</p>
-                                <p><span class="label">Reported:</span> ${new Date().toLocaleString()}</p>
+                                <p><strong>Test Name:</strong> ${order.testName}</p>
+                                <p><strong>Date Ordered:</strong> ${new Date(order.createdAt).toLocaleDateString()}</p>
+                                <p><strong>Ref. Doctor:</strong> ${order.doctor?.name || 'Self'}</p>
                             </div>
                         </div>
 
+                        ${order.clinicalDetails ? `
+                        <div style="margin-bottom: 20px; padding: 10px; background: #f9fafb; border-left: 4px solid #9ca3af; font-style: italic;">
+                            <p style="margin: 0; font-weight: bold; font-style: normal; color: #374151; font-size: 14px;">Clinical Detail:</p>
+                            <p style="margin: 5px 0 0 0; font-size: 13px; color: #4b5563;">${order.clinicalDetails}</p>
+                        </div>
+                        ` : ''}
+
                         <div class="results-section">
+                            <h3>Test Results:</h3>
                             ${(() => {
                     try {
                         const parsed = JSON.parse(order.result);
-                        if (parsed.format === 'table') {
+                        if (parsed.format === 'table' && Array.isArray(parsed.parameters)) {
                             return `
-                                        <table class="results-table">
-                                            <thead>
-                                                <tr>
-                                                    <th>Parameter</th>
-                                                    <th>Result</th>
-                                                    <th>Unit</th>
-                                                    <th>Reference Range</th>
-                                                    <th>Status</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                ${parsed.parameters.map(p => {
+                                            <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                                                <thead>
+                                                    <tr style="background: #f3f4f6;">
+                                                        <th style="text-align: left; padding: 12px; border: 1px solid #d1d5db; font-weight: 600;">Parameter</th>
+                                                        <th style="text-align: left; padding: 12px; border: 1px solid #d1d5db; font-weight: 600; width: 120px;">Value</th>
+                                                        <th style="text-align: left; padding: 12px; border: 1px solid #d1d5db; font-weight: 600; width: 100px;">Unit</th>
+                                                        <th style="text-align: left; padding: 12px; border: 1px solid #d1d5db; font-weight: 600; width: 150px;">Normal Range</th>
+                                                        <th style="text-align: center; padding: 12px; border: 1px solid #d1d5db; font-weight: 600; width: 80px;">Status</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                                    ${parsed.parameters.map(p => {
                                 const rangeS = checkRange(p.value, p.normalRange);
+                                let bgColor = '#f9fafb';
+                                let statusText = '';
+                                let statusColor = '';
+
+                                if (p.value) {
+                                    if (rangeS === 'low') {
+                                        bgColor = '#fed7aa';
+                                        statusText = '↓ LOW';
+                                        statusColor = '#9a3412';
+                                    } else if (rangeS === 'high') {
+                                        bgColor = '#fecaca';
+                                        statusText = '↑ HIGH';
+                                        statusColor = '#991b1b';
+                                    } else {
+                                        bgColor = '#d1fae5';
+                                        statusText = '✓ Normal';
+                                        statusColor = '#065f46';
+                                    }
+                                }
+
                                 return `
-                                                        <tr>
-                                                            <td>${p.name}</td>
-                                                            <td style="font-weight: bold;">${p.value}</td>
-                                                            <td>${p.unit}</td>
-                                                            <td style="color: #666;">${p.normalRange}</td>
-                                                            <td style="font-weight: bold; color: ${rangeS === 'low' ? '#dd6b20' : rangeS === 'high' ? '#e53e3e' : '#38a169'}">
-                                                                ${rangeS === 'low' ? 'LOW' : rangeS === 'high' ? 'HIGH' : 'NORMAL'}
-                                                            </td>
-                                                        </tr>
-                                                    `;
+                                                            <tr style="background: ${bgColor};">
+                                                                <td style="padding: 10px; border: 1px solid #d1d5db; font-weight: 500;">${p.name}</td>
+                                                                <td style="padding: 10px; border: 1px solid #d1d5db; font-weight: 600;">${p.value || '-'}</td>
+                                                                <td style="padding: 10px; border: 1px solid #d1d5db; color: #6b7280;">${p.unit || ''}</td>
+                                                                <td style="padding: 10px; border: 1px solid #d1d5db; color: #6b7280;">${p.normalRange || ''}</td>
+                                                                <td style="padding: 10px; border: 1px solid #d1d5db; text-align: center;">
+                                                                    ${(p.value && !p.name.toLowerCase().trim().includes('blood group') && !p.name.toLowerCase().trim().includes('genotype')) ? `<span style="color: ${statusColor}; font-weight: 600; font-size: 11px;">${statusText}</span>` : ''}
+                                                                </td>
+                                                            </tr>
+                                                        `;
                             }).join('')}
-                                            </tbody>
-                                        </table>
-                                    `;
+                                                </tbody>
+                                            </table>
+                                        `;
                         }
-                    } catch (e) { }
+                    } catch (e) {
+                        // Not JSON - try to parse as text-to-table
+                        const parsedParams = parseTextTemplate(order.result);
+                        if (parsedParams.length > 0) {
+                            return `
+                                <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+                                    <thead>
+                                        <tr style="background: #f3f4f6;">
+                                            <th style="text-align: left; padding: 12px; border: 1px solid #d1d5db; font-weight: 600;">Parameter</th>
+                                            <th style="text-align: left; padding: 12px; border: 1px solid #d1d5db; font-weight: 600; width: 250px;">Result</th>
+                                            <th style="text-align: left; padding: 12px; border: 1px solid #d1d5db; font-weight: 600; width: 200px;">Normal Range</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${parsedParams.map(param => `
+                                            <tr>
+                                                <td style="padding: 10px; border: 1px solid #d1d5db; font-weight: 500;">${param.name}</td>
+                                                <td style="padding: 10px; border: 1px solid #d1d5db; font-weight: 600;">${param.value || '-'}</td>
+                                                <td style="padding: 10px; border: 1px solid #d1d5db; color: #6b7280;">${param.normalRange || ''}</td>
+                                            </tr>
+                                        `).join('')}
+                                    </tbody>
+                                </table>
+                            `;
+                        }
+                    }
                     return `<div class="text-result">${order.result}</div>`;
                 })()}
-                    </div>
+                        </div>
 
-                    <div class="signature-container">
-                        ${order.signedBy ? `
-                            <div class="sig-box">
-                                <div class="sig-label">Performed By</div>
-                                <div class="sig-name">${order.signedBy.name}</div>
-                                <div class="sig-date">${new Date(order.signedAt).toLocaleString()}</div>
+                        <div class="signature-section" style="margin-top: 30px; padding-top: 15px; border-top: 2px solid #333;">
+                            <h4 style="margin: 0 0 15px 0; text-transform: uppercase; font-size: 12px; letter-spacing: 1px; color: #374151;">Audit Trail & Signatures</h4>
+                            <div class="signature-grid" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+                                ${order.signedBy ? `
+                                    <div style="padding: 10px; border: 1px solid #e5e7eb; border-radius: 6px;">
+                                        <p style="margin: 0; font-size: 10px; font-weight: bold; color: #6b7280; text-transform: uppercase;">Performed By</p>
+                                        <p style="margin: 5px 0 0 0; font-size: 13px; font-weight: 600;">${order.signedBy.name}</p>
+                                        <p style="margin: 2px 0 0 0; font-size: 11px; color: #9ca3af;">${new Date(order.signedAt).toLocaleString()}</p>
+                                    </div>
+                                ` : ''}
+
+                                ${order.rejectedBy ? `
+                                    <div style="padding: 10px; border: 1px solid #fee2e2; border-radius: 6px; background-color: #fef2f2;">
+                                        <p style="margin: 0; font-size: 10px; font-weight: bold; color: #b91c1c; text-transform: uppercase;">Rejected By</p>
+                                        <p style="margin: 5px 0 0 0; font-size: 13px; font-weight: 600;">${order.rejectedBy.name || 'Lab Scientist'}</p>
+                                        <p style="margin: 2px 0 0 0; font-size: 11px; color: #f87171;">${order.rejectionReason ? `Reason: ${order.rejectionReason}` : ''}</p>
+                                        <p style="margin: 2px 0 0 0; font-size: 11px; color: #f87171;">${new Date(order.rejectedAt).toLocaleString()}</p>
+                                    </div>
+                                ` : ''}
+
+                                ${order.lastModifiedBy ? `
+                                    <div style="padding: 10px; border: 1px solid #fef3c7; border-radius: 6px; background-color: #fffbeb;">
+                                        <p style="margin: 0; font-size: 10px; font-weight: bold; color: #92400e; text-transform: uppercase;">Last Edited By</p>
+                                        <p style="margin: 5px 0 0 0; font-size: 13px; font-weight: 600;">${order.lastModifiedBy.name}</p>
+                                        <p style="margin: 2px 0 0 0; font-size: 11px; color: #d97706;">${new Date(order.lastModifiedAt).toLocaleString()}</p>
+                                    </div>
+                                ` : ''}
+
+                                ${order.approvedBy ? `
+                                    <div style="padding: 10px; border: 1px solid #dcfce7; border-radius: 6px; background-color: #f0fdf4;">
+                                        <p style="margin: 0; font-size: 10px; font-weight: bold; color: #166534; text-transform: uppercase;">Verified & Approved By</p>
+                                        <p style="margin: 5px 0 0 0; font-size: 13px; font-weight: 600;">${order.approvedBy.name}</p>
+                                        <p style="margin: 2px 0 0 0; font-size: 11px; color: #22c55e;">${new Date(order.approvedAt).toLocaleString()}</p>
+                                    </div>
+                                ` : ''}
                             </div>
-                        ` : ''}
-                        
-                        ${order.rejectedBy ? `
-                            <div class="sig-box">
-                                <div class="sig-label">Rejected By</div>
-                                <div class="sig-name">${order.rejectedBy.name || 'Lab Scientist'}</div>
-                                <div class="sig-date">${new Date(order.rejectedAt).toLocaleString()}</div>
-                            </div>
-                        ` : ''}
+                        </div>
 
-                        ${order.lastModifiedBy ? `
-                            <div class="sig-box">
-                                <div class="sig-label">Edited By</div>
-                                <div class="sig-name">${order.lastModifiedBy.name}</div>
-                                <div class="sig-date">${new Date(order.lastModifiedAt).toLocaleString()}</div>
-                            </div>
-                        ` : ''}
-
-                        ${order.approvedBy ? `
-                            <div class="sig-box" style="border-color: #38a169;">
-                                <div class="sig-label" style="color: #38a169;">Verified & Approved By</div>
-                                <div class="sig-name">${order.approvedBy.name}</div>
-                                <div class="sig-date">${new Date(order.approvedAt).toLocaleString()}</div>
-                            </div>
-                        ` : ''}
-                    </div>
-
-                    <div style="margin-top: 60px; text-align: center; border-top: 1px solid #e2e8f0; padding-top: 10px; font-size: 10px; color: #a0aec0;">
-                        This is an electronically verified report. No physical signature is required.
-                    </div>
-
-                    <script>
-                        window.onload = function() { window.print(); window.close(); }
-                    </script>
-                </body>
-            </html>
-        `;
+                        <div class="footer" style="margin-top: 30px; text-align: center; font-size: 11px; color: #666;">
+                            <p>This is an electronically signed document. No handwritten signature is required.</p>
+                        </div>
+                        <script>
+                            window.onload = function() { 
+                                window.focus();
+                                setTimeout(() => {
+                                    window.print();
+                                    window.close();
+                                }, 250);
+                            }
+                        </script>
+                    </body>
+                </html>
+            `;
 
             printWindow.document.write(printContent);
             printWindow.document.close();

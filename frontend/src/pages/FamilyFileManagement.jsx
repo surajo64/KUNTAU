@@ -3,7 +3,9 @@ import axios from 'axios';
 import { AppContext } from '../context/AppContext';
 import AuthContext from '../context/AuthContext';
 import Layout from '../components/Layout';
-import { FaUserFriends, FaPlus, FaEdit, FaTrash, FaSearch, FaEye } from 'react-icons/fa';
+import { FaUserFriends, FaPlus, FaEdit, FaTrash, FaSearch, FaEye, FaIdCard, FaDownload } from 'react-icons/fa';
+import EntityIDCard from '../components/EntityIDCard';
+import useHospitalSettings from '../hooks/useHospitalSettings';
 import { toast } from 'react-toastify';
 import LoadingOverlay from '../components/loadingOverlay';
 
@@ -25,6 +27,11 @@ const FamilyFileManagement = () => {
         familyCharge: '',
         description: ''
     });
+
+    // Card Modal State
+    const [showCardModal, setShowCardModal] = useState(false);
+    const [cardEntity, setCardEntity] = useState(null);
+    const { settings: hospitalSettings } = useHospitalSettings();
     const { user } = useContext(AuthContext);
     const { backendUrl } = useContext(AppContext);
 
@@ -56,6 +63,61 @@ const FamilyFileManagement = () => {
         }
     }, [currentFile.type, editMode]);
     */
+
+    const handlePrintCard = () => {
+        const frontContent = document.getElementById(`entity-card-front-${cardEntity._id}`);
+        const backContent = document.getElementById(`entity-card-back-${cardEntity._id}`);
+        const printWindow = window.open('', '_blank');
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>Family File Card - ${cardEntity.familyName}</title>
+                    <link rel="preconnect" href="https://fonts.googleapis.com">
+                    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+                    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+                    <style>
+                        body { 
+                            margin: 0; 
+                            padding: 20px; 
+                            font-family: 'Inter', sans-serif; 
+                            display: flex; 
+                            flex-direction: column; 
+                            align-items: center; 
+                            gap: 20px; 
+                        }
+                        @media print {
+                            @page { size: auto; margin: 0; }
+                            body { margin: 20px; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+                            .no-print { display: none; }
+                            div[id^="entity-card"] { 
+                                margin-bottom: 20px !important; 
+                                box-shadow: none !important; 
+                                break-inside: avoid;
+                                border: none !important;
+                                -webkit-print-color-adjust: exact !important;
+                                print-color-adjust: exact !important;
+                            }
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div style="margin-bottom: 20px;">
+                        ${frontContent.outerHTML}
+                    </div>
+                    <div style="margin-bottom: 20px;">
+                        ${backContent.outerHTML}
+                    </div>
+                    <script>
+                        window.onload = () => {
+                            window.print();
+                            window.onafterprint = () => window.close();
+                        };
+                    </script>
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+    };
 
     const fetchFamilyCharges = async () => {
         try {
@@ -301,6 +363,16 @@ const FamilyFileManagement = () => {
                                                     >
                                                         <FaEye />
                                                     </button>
+                                                    <button
+                                                        onClick={() => {
+                                                            setCardEntity(file);
+                                                            setShowCardModal(true);
+                                                        }}
+                                                        className="text-orange-600 hover:text-orange-900 border border-orange-200 p-1.5 rounded bg-orange-50"
+                                                        title="Print Card"
+                                                    >
+                                                        <FaIdCard />
+                                                    </button>
                                                     {user.role !== 'readonly_admin' && (
                                                         <>
                                                             <button
@@ -497,6 +569,51 @@ const FamilyFileManagement = () => {
                             <button
                                 onClick={() => setShowViewModal(false)}
                                 className="bg-gray-800 text-white px-6 py-2 rounded hover:bg-gray-900 transition-colors"
+                            >
+                                Close
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ID Card Modal */}
+            {showCardModal && cardEntity && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-xl shadow-2xl">
+                        <div className="flex justify-between items-center mb-6">
+                            <h3 className="text-xl font-bold flex items-center gap-2">
+                                <FaIdCard className="text-orange-600" /> Family File Card Preview
+                            </h3>
+                            <button
+                                onClick={() => {
+                                    setShowCardModal(false);
+                                    setCardEntity(null);
+                                }}
+                                className="text-gray-500 hover:text-gray-700 text-3xl"
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        <div className="p-4 bg-gray-100 rounded-xl mb-6 flex flex-col items-center gap-4 overflow-y-auto max-h-[60vh]">
+                            <EntityIDCard entity={cardEntity} settings={hospitalSettings} side="front" />
+                            <EntityIDCard entity={cardEntity} settings={hospitalSettings} side="back" />
+                        </div>
+
+                        <div className="flex gap-3">
+                            <button
+                                onClick={handlePrintCard}
+                                className="flex-1 bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-bold flex items-center justify-center gap-2"
+                            >
+                                <FaDownload /> Print Card
+                            </button>
+                            <button
+                                onClick={() => {
+                                    setShowCardModal(false);
+                                    setCardEntity(null);
+                                }}
+                                className="flex-1 bg-gray-200 text-gray-800 py-3 rounded-lg hover:bg-gray-300 font-bold"
                             >
                                 Close
                             </button>

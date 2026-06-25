@@ -3,10 +3,11 @@ import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
-import { FaDollarSign, FaReceipt, FaPrint, FaSearch, FaCheckCircle, FaTrashAlt, FaUserFriends, FaHospital } from 'react-icons/fa';
+import { FaDollarSign, FaReceipt, FaPrint, FaSearch, FaCheckCircle, FaTrashAlt, FaUserFriends, FaHospital, FaHistory, FaClock, FaChartBar } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import LoadingOverlay from '../components/loadingOverlay';
 import { formatAge } from '../utils/patientUtils';
+import { formatCompactNumber, formatCurrency } from '../utils/formatters';
 
 const CashierDashboard = () => {
     const [loading, setLoading] = useState(false);
@@ -50,6 +51,12 @@ const CashierDashboard = () => {
 
     const { user } = useContext(AuthContext);
     const { backendUrl } = useContext(AppContext);
+    const [userStats, setUserStats] = useState({
+        collectedToday: 0,
+        receiptsToday: 0,
+        lifetimeRevenue: 0,
+        totalReceipts: 0
+    });
 
     useEffect(() => {
         const fetchSystemSettings = async () => {
@@ -63,7 +70,18 @@ const CashierDashboard = () => {
         fetchSystemSettings();
         fetchReceipts();
         fetchSummary();
+        fetchUserStats();
     }, []);
+
+    const fetchUserStats = async () => {
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const { data } = await axios.get(`${backendUrl}/api/reports/user-stats`, config);
+            setUserStats(data);
+        } catch (error) {
+            console.error('Error fetching user stats:', error);
+        }
+    };
 
     // --- Patient Billing Functions ---
 
@@ -132,7 +150,7 @@ const CashierDashboard = () => {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
             const { data } = await axios.get(`${backendUrl}/api/visits`, config);
-            const patientEncounters = data.filter(v => v.patient._id === patient._id || v.patient === patient._id);
+            const patientEncounters = data.filter(v => v.patient && (v.patient._id === patient._id || v.patient === patient._id));
             // Sort encounters by creation date - latest first
             patientEncounters.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
             setEncounters(patientEncounters);
@@ -471,11 +489,6 @@ const CashierDashboard = () => {
         <Layout>
             {loading && <LoadingOverlay />}
 
-            <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-bold text-gray-800 flex items-center gap-2">
-                    <FaDollarSign className="text-green-600" /> Cashier Dashboard
-                </h2>
-            </div>
 
 
             {/* Tabs */}

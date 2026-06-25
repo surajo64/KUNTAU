@@ -49,8 +49,21 @@ const EntityIDCard = ({ entity, settings, side = 'front' }) => {
     const logoUrl = getLogoUrl();
 
     // Use entity category to determine theme color
-    const themeColor = entity?.category === 'Retainership' ? accentPurple : mainBlue;
-    const cardTypeLabel = entity?.category === 'Retainership' ? 'RETAINERSHIP CARD' : 'HMO PROVIDER CARD';
+    let themeColor = mainBlue;
+    let cardTypeLabel = 'HMO PROVIDER CARD';
+    let entityNameLabel = 'HMO PROVIDER NAME';
+    let categoryWatermark = entity?.category?.toUpperCase() || 'EXTERNAL ENTITY';
+
+    if (entity?.category === 'Retainership') {
+        themeColor = accentPurple;
+        cardTypeLabel = 'RETAINERSHIP CARD';
+        entityNameLabel = 'RETAINERSHIP NAME';
+    } else if (entity?.category === 'Family File' || entity?.familyName) {
+        themeColor = '#059669'; // Emerald 600
+        cardTypeLabel = 'FAMILY FILE CARD';
+        entityNameLabel = 'FAMILY FILE NAME';
+        categoryWatermark = 'FAMILY FILE';
+    }
 
     // --- FRONT SIDE RENDER ---
     if (side === 'front') {
@@ -72,7 +85,7 @@ const EntityIDCard = ({ entity, settings, side = 'front' }) => {
                     pointerEvents: 'none',
                     userSelect: 'none',
                 }}>
-                    {entity?.category?.toUpperCase() || 'EXTERNAL ENTITY'}
+                    {categoryWatermark}
                 </div>
 
                 {/* Content Container */}
@@ -110,7 +123,7 @@ const EntityIDCard = ({ entity, settings, side = 'front' }) => {
                     {/* Entity Identity */}
                     <div style={{ textAlign: 'left', padding: '4px 2px' }}>
                         <div style={{ fontSize: '7px', fontWeight: '700', color: '#888', textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '3px' }}>
-                            {entity?.category === 'Retainership' ? 'RETAINERSHIP NAME' : 'HMO PROVIDER NAME'}
+                            {entityNameLabel}
                         </div>
                         <h2 style={{
                             fontSize: (entity?.name?.length > 22) ? '14px' : (entity?.name?.length > 16) ? '16px' : '18px',
@@ -120,7 +133,7 @@ const EntityIDCard = ({ entity, settings, side = 'front' }) => {
                             lineHeight: 1.1,
                             textTransform: 'uppercase'
                         }}>
-                            {entity?.name || 'ENTITY NAME'}
+                            {entity?.name || entity?.familyName || 'ENTITY NAME'}
                         </h2>
                     </div>
 
@@ -139,12 +152,12 @@ const EntityIDCard = ({ entity, settings, side = 'front' }) => {
                         }}>
                             <div>
                                 <div style={{ fontSize: '6.5px', fontWeight: '700', color: themeColor, textTransform: 'uppercase', marginBottom: '2px' }}>Reference Code</div>
-                                <div style={{ fontSize: '9px', fontWeight: '800', color: '#000', fontMono: 'true' }}>{entity?.code || 'N/A'}</div>
+                                <div style={{ fontSize: '9px', fontWeight: '800', color: '#000', fontMono: 'true' }}>{entity?.code || entity?.fileNumber || 'N/A'}</div>
                             </div>
                             <div style={{ textAlign: 'right' }}>
                                 <div style={{ fontSize: '6.5px', fontWeight: '700', color: themeColor, textTransform: 'uppercase', marginBottom: '2px' }}>Type/Category</div>
                                 <div style={{ fontSize: '9px', fontWeight: '800', color: '#000' }}>
-                                    {entity?.retainershipType ? `${entity.category} (${entity.retainershipType})` : entity?.category}
+                                    {entity?.retainershipType ? `${entity.category} (${entity.retainershipType})` : (entity?.type || entity?.category || 'Family File')}
                                 </div>
                             </div>
                         </div>
@@ -156,7 +169,7 @@ const EntityIDCard = ({ entity, settings, side = 'front' }) => {
                             {cardTypeLabel}
                         </div>
                         <div style={{ fontSize: '7px', fontWeight: '600', color: '#888' }}>
-                            Issued: {new Date().toLocaleDateString()}
+                            Issued: {entity?.createdAt ? new Date(entity.createdAt).toLocaleDateString() : new Date().toLocaleDateString()}
                         </div>
                     </div>
                 </div>
@@ -182,7 +195,7 @@ const EntityIDCard = ({ entity, settings, side = 'front' }) => {
                 <div style={{ width: '100%', padding: '8px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                     <div style={{ fontSize: '7.5px', fontWeight: '800', color: themeColor, marginBottom: '5px', textTransform: 'uppercase' }}>Scan for Entity Verification</div>
                     <div style={{ padding: '5px', border: '1px solid #e2e8f0', borderRadius: '8px', background: 'white' }}>
-                        <QRCode value={`https://aljoud.com/verify/entity/${entity?.code}`} size={60} level="M" />
+                        <QRCode value={`https://aljoud.com/verify/entity/${entity?.code || entity?.fileNumber}`} size={60} level="M" />
                     </div>
                 </div>
 

@@ -176,7 +176,7 @@ const WardManagement = () => {
     const wardTypes = ['All', 'General', 'Private', 'ICU', 'Emergency', 'Maternity', 'Pediatric', 'Surgical'];
 
     // Access Check
-    if (user?.role !== 'admin' && user?.role !== 'super_admin' && user?.role !== 'nurse' && user?.role !== 'doctor' && user?.role !== 'readonly_admin') {
+    if (user?.role !== 'admin' && user?.role !== 'super_admin' && user?.role !== 'nurse' && user?.role !== 'doctor' && user?.role !== 'readonly_admin' && user?.role !== 'receptionist') {
         return (
             <Layout>
                 <div className="bg-red-50 border border-red-200 p-6 rounded">
@@ -283,17 +283,24 @@ const WardManagement = () => {
                             <div className="p-6 border-b border-gray-50 flex flex-col md:flex-row md:items-center justify-between gap-4">
                                 <div className="flex items-center gap-4">
                                     <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-xl shadow-inner ${percent > 90 ? 'bg-red-50 text-red-600' :
-                                            percent > 70 ? 'bg-orange-50 text-orange-600' :
-                                                'bg-green-50 text-green-600'
+                                        percent > 70 ? 'bg-orange-50 text-orange-600' :
+                                            'bg-green-50 text-green-600'
                                         }`}>
                                         <FaHospital />
                                     </div>
                                     <div>
                                         <h3 className="text-xl font-bold text-gray-800">{ward.name}</h3>
-                                        <div className="flex items-center gap-2 mt-1">
+                                        <div className="flex items-center gap-2 mt-1 flex-wrap">
                                             <span className="px-2 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-bold uppercase tracking-tighter">{ward.type}</span>
                                             <span className="text-gray-400 text-xs">•</span>
                                             <span className="text-gray-500 text-xs">{ward.description || 'No description'}</span>
+                                            <span className="text-gray-400 text-xs">•</span>
+                                            <div className="flex gap-2 text-[10px] font-bold">
+                                                <span className="bg-blue-100 text-blue-700 px-2 py-0.5 rounded">Standard: ₦{ward.rates?.Standard?.toLocaleString() || ward.dailyRate?.toLocaleString() || 0}</span>
+                                                <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded">NHIA: ₦{ward.rates?.NHIA?.toLocaleString() || 0}</span>
+                                                <span className="bg-purple-100 text-purple-700 px-2 py-0.5 rounded">Retainership: ₦{ward.rates?.Retainership?.toLocaleString() || 0}</span>
+                                                <span className="bg-orange-100 text-orange-700 px-2 py-0.5 rounded">State Ins: ₦{ward.rates?.KSCHMA?.toLocaleString() || 0}</span>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -367,12 +374,15 @@ const WardManagement = () => {
                                         <div
                                             key={idx}
                                             className={`relative group p-3 rounded-xl border-2 transition-all duration-300 flex flex-col items-center justify-center gap-1 ${bed.isOccupied
-                                                    ? 'bg-red-50 border-red-100 text-red-600'
-                                                    : 'bg-white border-white hover:border-green-400 text-green-600 hover:shadow-md cursor-help shadow-sm'
+                                                ? 'bg-red-50 border-red-100 text-red-600'
+                                                : 'bg-white border-white hover:border-green-400 text-green-600 hover:shadow-md cursor-help shadow-sm'
                                                 }`}
                                         >
                                             <FaBed className={`text-xl ${bed.isOccupied ? 'animate-pulse opacity-40' : ''}`} />
                                             <span className="text-[10px] font-bold uppercase">{bed.number}</span>
+                                            {!bed.isOccupied && (
+                                                <span className="text-[8px] font-bold text-blue-600">₦{ward.dailyRate?.toLocaleString()}</span>
+                                            )}
 
                                             {/* Tooltip on Hover */}
                                             <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-gray-900 text-white p-3 rounded-lg text-xs opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 shadow-2xl">
@@ -382,17 +392,20 @@ const WardManagement = () => {
                                                         {bed.isOccupied ? 'Occupied' : 'Available'}
                                                     </span>
                                                 </div>
-                                                {bed.isOccupied ? (
-                                                    <div className="space-y-1 mt-2">
-                                                        <div className="flex items-center gap-2">
-                                                            <FaUser className="text-red-400" />
-                                                            <span className="font-bold text-red-100">{bed.occupiedBy?.name || 'Unknown Patient'}</span>
-                                                        </div>
-                                                        <p className="text-gray-400 text-[10px]">MRN: {bed.occupiedBy?.mrn || 'N/A'}</p>
-                                                    </div>
-                                                ) : (
-                                                    <p className="text-green-300 font-medium">Ready for admission</p>
-                                                )}
+                                                <div className="mt-2 space-y-1">
+                                                    <p className="text-blue-300 font-bold">Standard Rate: ₦{ward.dailyRate?.toLocaleString() || 0}</p>
+                                                    {bed.isOccupied ? (
+                                                        <>
+                                                            <div className="flex items-center gap-2">
+                                                                <FaUser className="text-red-400" />
+                                                                <span className="font-bold text-red-100">{bed.occupiedBy?.name || 'Unknown Patient'}</span>
+                                                            </div>
+                                                            <p className="text-gray-400 text-[10px]">MRN: {bed.occupiedBy?.mrn || 'N/A'}</p>
+                                                        </>
+                                                    ) : (
+                                                        <p className="text-green-300 font-medium">Ready for admission</p>
+                                                    )}
+                                                </div>
                                                 <div className="absolute top-full left-1/2 -translate-x-1/2 border-8 border-transparent border-t-gray-900"></div>
                                             </div>
                                         </div>
@@ -401,10 +414,17 @@ const WardManagement = () => {
                                         <p className="col-span-full text-center text-gray-400 text-sm italic py-4">No beds configured for this ward.</p>
                                     )}
                                 </div>
-                                <div className="mt-4 flex gap-4 text-[10px] text-gray-500 font-bold uppercase tracking-wider">
-                                    <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-green-500"></div> Available</span>
-                                    <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500"></div> Occupied</span>
-                                    <span className="ml-auto text-gray-400">Standard Rate: ₦{ward.dailyRate?.toLocaleString() || 0} / day</span>
+                                <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2 text-[10px] text-gray-500 font-bold uppercase tracking-wider">
+                                    <div className="flex items-center gap-4">
+                                        <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-green-500"></div> Available</span>
+                                        <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-500"></div> Occupied</span>
+                                    </div>
+                                    <div className="ml-auto flex gap-4 text-gray-400">
+                                        <span>Standard: ₦{ward.rates?.Standard?.toLocaleString() || ward.dailyRate?.toLocaleString() || 0}</span>
+                                        <span>NHIA: ₦{ward.rates?.NHIA?.toLocaleString() || 0}</span>
+                                        <span>Retainership: ₦{ward.rates?.Retainership?.toLocaleString() || 0}</span>
+                                        <span>State Ins: ₦{ward.rates?.KSCHMA?.toLocaleString() || 0}</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>

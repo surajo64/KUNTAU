@@ -346,7 +346,7 @@ const ClinicalReports = () => {
                                                                                                                 <td className="px-2 py-1 font-bold">{param.value || '-'} <span className="text-[8px] font-normal opacity-70">{param.unit}</span></td>
                                                                                                                 <td className="px-2 py-1 opacity-80">{param.normalRange}</td>
                                                                                                                 <td className="px-2 py-1 text-center">
-                                                                                                                    {param.value && (
+                                                                                                                    {param.value && !param.name.toLowerCase().trim().includes('blood group') && !param.name.toLowerCase().trim().includes('genotype') && (
                                                                                                                         <span className="font-black text-[8px]">
                                                                                                                             {status === 'low' ? 'L' : status === 'high' ? 'H' : ''}
                                                                                                                         </span>
