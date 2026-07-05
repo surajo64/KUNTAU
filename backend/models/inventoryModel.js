@@ -19,7 +19,7 @@ const inventorySchema = mongoose.Schema({
     form: { type: String },
     dosage: { type: String },
     frequency: { type: String },
-    drugUnit: { type: String, enum: ['unit', 'sachet', 'packet'], default: 'unit' },
+    drugUnit: { type: String, enum: ['unit', 'sachet', 'packet', 'card'], default: 'unit' },
     pharmacy: {
         type: mongoose.Schema.Types.ObjectId,
         ref: 'Pharmacy',

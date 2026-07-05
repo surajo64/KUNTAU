@@ -946,6 +946,7 @@ const Inventory = () => {
                                     <option value="unit">Unit</option>
                                     <option value="sachet">Sachet</option>
                                     <option value="packet">Packet</option>
+                                    <option value="card">Card</option>
                                 </select>
                             </div>
 
