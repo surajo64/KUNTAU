@@ -133,6 +133,13 @@ const createVisit = async (req, res) => {
 
         if (dailyFee > 0) {
             const EncounterCharge = require('../models/encounterChargeModel');
+            let patientPortion = dailyFee;
+            let hmoPortion = 0;
+            if (patient && ['Retainership', 'Corporate Retainership', 'Family Retainership', 'NHIA', 'KSCHMA'].includes(patient.provider)) {
+                patientPortion = 0;
+                hmoPortion = dailyFee;
+            }
+
             await EncounterCharge.create({
                 encounter: visit._id,
                 patient: patientId,
@@ -141,6 +148,8 @@ const createVisit = async (req, res) => {
                 cost: dailyFee,
                 quantity: 1,
                 totalAmount: dailyFee,
+                patientPortion,
+                hmoPortion,
                 status: 'pending',
                 addedBy: req.user._id
             });
@@ -608,6 +617,13 @@ const convertToInpatient = async (req, res) => {
 
         if (dailyFee > 0) {
             const EncounterCharge = require('../models/encounterChargeModel');
+            let patientPortion = dailyFee;
+            let hmoPortion = 0;
+            if (patient && ['Retainership', 'Corporate Retainership', 'Family Retainership', 'NHIA', 'KSCHMA'].includes(patient.provider)) {
+                patientPortion = 0;
+                hmoPortion = dailyFee;
+            }
+
             await EncounterCharge.create({
                 encounter: visit._id,
                 patient: visit.patient,
@@ -616,6 +632,8 @@ const convertToInpatient = async (req, res) => {
                 cost: dailyFee,
                 quantity: 1,
                 totalAmount: dailyFee,
+                patientPortion,
+                hmoPortion,
                 status: 'pending',
                 addedBy: req.user._id
             });
@@ -733,6 +751,13 @@ const changeEncounterType = async (req, res) => {
 
             if (dailyFee > 0) {
                 const EncounterCharge = require('../models/encounterChargeModel');
+                let patientPortion = dailyFee;
+                let hmoPortion = 0;
+                if (patient && ['Retainership', 'Corporate Retainership', 'Family Retainership', 'NHIA', 'KSCHMA'].includes(patient.provider)) {
+                    patientPortion = 0;
+                    hmoPortion = dailyFee;
+                }
+
                 await EncounterCharge.create({
                     encounter: visit._id,
                     patient: visit.patient,
@@ -741,6 +766,8 @@ const changeEncounterType = async (req, res) => {
                     cost: dailyFee,
                     quantity: 1,
                     totalAmount: dailyFee,
+                    patientPortion,
+                    hmoPortion,
                     status: 'pending',
                     addedBy: req.user._id
                 });
@@ -771,6 +798,7 @@ const changeEncounterType = async (req, res) => {
 
             for (const ec of encounterCharges) {
                 if (ec.charge && ec.charge.type === 'consultation') {
+                    if (ec.status === 'paid') continue; // Skip if already paid
                     if (waiveConsultationFee) {
                         ec.unitPrice = 0;
                         ec.totalAmount = 0;
