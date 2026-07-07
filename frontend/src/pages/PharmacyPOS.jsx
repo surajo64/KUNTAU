@@ -28,6 +28,7 @@ const PharmacyPOS = () => {
     const [discount, setDiscount] = useState(0);
     const [taxPct, setTaxPct] = useState(0);
     const [paymentMethod, setPaymentMethod] = useState('cash');
+    const [isManualPaymentMethod, setIsManualPaymentMethod] = useState(false);
     const [prescriptionFile, setPrescriptionFile] = useState(null);
     const [prescriptionPreview, setPrescriptionPreview] = useState(null);
 
@@ -37,6 +38,7 @@ const PharmacyPOS = () => {
     const [patientSearch, setPatientSearch] = useState('');
     const [patientSearchResults, setPatientSearchResults] = useState([]);
     const [showPatientDropdown, setShowPatientDropdown] = useState(false);
+    const [searchingPatients, setSearchingPatients] = useState(false);
 
     // Sale state
     const [loading, setLoading] = useState(false);
@@ -235,6 +237,15 @@ const PharmacyPOS = () => {
     // Debounced search for registered patients
     useEffect(() => {
         if (!isRegisteredPatient) return;
+
+        if (patientSearch.trim().length >= 2) {
+            setSearchingPatients(true);
+        } else {
+            setSearchingPatients(false);
+            setPatientSearchResults([]);
+            setShowPatientDropdown(false);
+        }
+
         const delayDebounceFn = setTimeout(async () => {
             if (patientSearch.trim().length >= 2) {
                 try {
@@ -244,10 +255,9 @@ const PharmacyPOS = () => {
                     setShowPatientDropdown(true);
                 } catch (error) {
                     console.error('Error searching patients:', error);
+                } finally {
+                    setSearchingPatients(false);
                 }
-            } else {
-                setPatientSearchResults([]);
-                setShowPatientDropdown(false);
             }
         }, 300);
 
@@ -268,6 +278,8 @@ const PharmacyPOS = () => {
 
     // Handle automated payment detection based on patient type and wallet deposit balance
     useEffect(() => {
+        if (isManualPaymentMethod) return;
+
         if (selectedPatient) {
             const isRetainershipPatient = ['Retainership', 'Corporate Retainership', 'Family Retainership'].includes(selectedPatient.provider);
             const hasSufficientBalance = selectedPatient.depositBalance >= total;
@@ -282,7 +294,7 @@ const PharmacyPOS = () => {
         } else {
             setPaymentMethod('cash');
         }
-    }, [selectedPatient, total]);
+    }, [selectedPatient, total, isManualPaymentMethod]);
 
     const handleCompleteSale = async () => {
         if (!selectedPatient && !customerName.trim()) {
@@ -348,6 +360,7 @@ const PharmacyPOS = () => {
             setDiscount(0);
             setTaxPct(0);
             setPaymentMethod('cash');
+            setIsManualPaymentMethod(false);
             setPrescriptionFile(null);
             setPrescriptionPreview(null);
             setSelectedPatient(null);
@@ -459,6 +472,7 @@ const PharmacyPOS = () => {
         setIsRegisteredPatient(false);
         setPatientSearch('');
         setPatientSearchResults([]);
+        setIsManualPaymentMethod(false);
     };
 
     return (
@@ -615,6 +629,7 @@ const PharmacyPOS = () => {
                                     setPatientSearch('');
                                     setPatientSearchResults([]);
                                     setShowPatientDropdown(false);
+                                    setIsManualPaymentMethod(false);
                                 }}
                             />
                             <label htmlFor="isRegisteredPatient" className="text-sm font-semibold text-gray-700 cursor-pointer select-none">
@@ -632,6 +647,7 @@ const PharmacyPOS = () => {
                                             onClick={() => {
                                                 setSelectedPatient(null);
                                                 setCustomerName('');
+                                                setIsManualPaymentMethod(false);
                                             }}
                                             className="absolute top-2 right-2 text-gray-400 hover:text-red-500 transition"
                                         >
@@ -706,53 +722,70 @@ const PharmacyPOS = () => {
                                     </div>
                                 ) : (
                                     <div className="relative">
-                                        <label className="block text-sm font-semibold text-gray-700 mb-1">
-                                            Search Patient <span className="text-red-500">*</span>
-                                        </label>
-                                        <div className="relative">
-                                            <input
-                                                type="text"
-                                                placeholder="Search by MRN, phone, or name..."
-                                                className="w-full border rounded-lg p-2.5 pl-10 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 border-gray-300"
-                                                value={patientSearch}
-                                                onChange={e => setPatientSearch(e.target.value)}
-                                                onFocus={() => patientSearch.trim().length >= 2 && setShowPatientDropdown(true)}
-                                            />
-                                            <FaSearch className="absolute left-3 top-3.5 text-gray-400 text-sm" />
-                                        </div>
+                                         <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                             Search Patient <span className="text-red-500">*</span>
+                                         </label>
+                                         <div className="relative">
+                                             <input
+                                                 type="text"
+                                                 placeholder="Search by MRN, phone, or name..."
+                                                 className="w-full border rounded-lg p-2.5 pl-10 pr-10 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 border-gray-300"
+                                                 value={patientSearch}
+                                                 onChange={e => setPatientSearch(e.target.value)}
+                                                 onFocus={() => patientSearch.trim().length >= 2 && setShowPatientDropdown(true)}
+                                             />
+                                             <FaSearch className="absolute left-3 top-3.5 text-gray-400 text-sm" />
+                                             {searchingPatients && (
+                                                 <div className="absolute right-3 top-3.5">
+                                                     <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+                                                 </div>
+                                             )}
+                                         </div>
 
-                                        {showPatientDropdown && patientSearchResults.length > 0 && (
-                                            <div className="absolute z-30 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto">
-                                                {patientSearchResults.map(patient => (
-                                                    <div
-                                                        key={patient._id}
-                                                        className="p-3 hover:bg-green-50 cursor-pointer border-b last:border-b-0 text-sm"
-                                                        onClick={() => {
-                                                            setSelectedPatient(patient);
-                                                            setCustomerName(patient.name);
-                                                            setShowPatientDropdown(false);
-                                                            setPatientSearch('');
-                                                        }}
-                                                    >
-                                                        <p className="font-semibold text-gray-800">{patient.name}</p>
-                                                        <div className="flex justify-between text-xs text-gray-500 mt-1">
-                                                            <span>MRN: <span className="font-semibold text-gray-700">{patient.mrn}</span></span>
-                                                            <span>Phone: <span className="font-semibold text-gray-700">{patient.contact}</span></span>
-                                                        </div>
-                                                        <div className="flex justify-between text-xs text-gray-500 mt-0.5 font-medium">
-                                                            <span>Provider: <span className="text-purple-600">{patient.provider}</span></span>
-                                                            <span>Wallet: <span className="text-green-600">₦{(patient.depositBalance || 0).toLocaleString()}</span></span>
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        )}
-                                        {showPatientDropdown && patientSearch.trim().length >= 2 && patientSearchResults.length === 0 && (
-                                            <div className="absolute z-30 w-full bg-white border rounded-lg shadow mt-1 p-4 text-center text-gray-500 text-sm">
-                                                No matching patients found
-                                            </div>
-                                        )}
-                                    </div>
+                                         {showPatientDropdown && patientSearch.trim().length >= 2 && (
+                                             searchingPatients ? (
+                                                 <div className="absolute z-30 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 p-4 text-center text-gray-500 text-sm flex items-center justify-center gap-2">
+                                                     <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin" />
+                                                     Searching patients...
+                                                 </div>
+                                             ) : (
+                                                 <>
+                                                     {patientSearchResults.length > 0 && (
+                                                         <div className="absolute z-30 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-60 overflow-y-auto">
+                                                             {patientSearchResults.map(patient => (
+                                                                 <div
+                                                                     key={patient._id}
+                                                                     className="p-3 hover:bg-green-50 cursor-pointer border-b last:border-b-0 text-sm"
+                                                                     onClick={() => {
+                                                                         setSelectedPatient(patient);
+                                                                         setCustomerName(patient.name);
+                                                                         setShowPatientDropdown(false);
+                                                                         setPatientSearch('');
+                                                                         setIsManualPaymentMethod(false);
+                                                                     }}
+                                                                 >
+                                                                     <p className="font-semibold text-gray-800">{patient.name}</p>
+                                                                     <div className="flex justify-between text-xs text-gray-500 mt-1">
+                                                                         <span>MRN: <span className="font-semibold text-gray-700">{patient.mrn}</span></span>
+                                                                         <span>Phone: <span className="font-semibold text-gray-700">{patient.contact}</span></span>
+                                                                     </div>
+                                                                     <div className="flex justify-between text-xs text-gray-500 mt-0.5 font-medium">
+                                                                         <span>Provider: <span className="text-purple-600">{patient.provider}</span></span>
+                                                                         <span>Wallet: <span className="text-green-600">₦{(patient.depositBalance || 0).toLocaleString()}</span></span>
+                                                                     </div>
+                                                                 </div>
+                                                             ))}
+                                                         </div>
+                                                     )}
+                                                     {patientSearchResults.length === 0 && (
+                                                         <div className="absolute z-30 w-full bg-white border rounded-lg shadow mt-1 p-4 text-center text-gray-500 text-sm">
+                                                             No matching patients found
+                                                         </div>
+                                                     )}
+                                                 </>
+                                             )
+                                         )}
+                                     </div>
                                 )}
                             </div>
                         ) : (
@@ -858,14 +891,18 @@ const PharmacyPOS = () => {
                             <select
                                 className="w-full border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-green-400 disabled:bg-gray-100 disabled:text-gray-500 disabled:cursor-not-allowed"
                                 value={paymentMethod}
-                                onChange={e => setPaymentMethod(e.target.value)}
-                                disabled={!!selectedPatient && selectedPatient.depositBalance >= total}
+                                onChange={e => {
+                                    setPaymentMethod(e.target.value);
+                                    setIsManualPaymentMethod(true);
+                                }}
                             >
                                 <option value="cash">Cash</option>
                                 <option value="card">Card</option>
-                                <option value="deposit">Deposit</option>
+                                {selectedPatient && <option value="deposit">Deposit</option>}
                                 <option value="insurance">Insurance</option>
-                                <option value="retainership">Retainership Deposit</option>
+                                {selectedPatient && ['Retainership', 'Corporate Retainership', 'Family Retainership'].includes(selectedPatient.provider) && (
+                                    <option value="retainership">Retainership Deposit</option>
+                                )}
                             </select>
                         </div>
 

@@ -132,26 +132,30 @@ const processDirectSale = async (req, res) => {
                 return res.status(404).json({ message: 'Selected patient not found.' });
             }
 
-            isRetainership = ['Retainership', 'Corporate Retainership', 'Family Retainership'].includes(salePatient.provider);
+            const isRetainershipProvider = ['Retainership', 'Corporate Retainership', 'Family Retainership'].includes(salePatient.provider);
 
-            if (isRetainership) {
+            if (isRetainershipProvider && paymentMethod === 'retainership') {
                 const hmoBalance = salePatient.hmo ? await getHMOWalletBalance(salePatient.hmo) : 0;
                 if (hmoBalance >= totalAmount) {
+                    isRetainership = true;
                     finalPaymentMethod = 'retainership';
                 } else {
                     isRetainership = false; // reset to prevent HMO portions logic
                     finalPaymentMethod = 'cash';
                 }
-            } else if (salePatient.depositBalance >= totalAmount) {
-                finalPaymentMethod = 'deposit';
-                isWalletDeduction = true;
-                salePatient.depositBalance -= totalAmount;
-                await salePatient.save();
-                console.log(`Deducted ₦${totalAmount} from patient ${salePatient.name} wallet. New balance: ₦${salePatient.depositBalance}`);
-            } else {
-                if (finalPaymentMethod === 'deposit') {
+            } else if (!isRetainershipProvider && paymentMethod === 'deposit') {
+                if (salePatient.depositBalance >= totalAmount) {
+                    finalPaymentMethod = 'deposit';
+                    isWalletDeduction = true;
+                    salePatient.depositBalance -= totalAmount;
+                    await salePatient.save();
+                    console.log(`Deducted ₦${totalAmount} from patient ${salePatient.name} wallet. New balance: ₦${salePatient.depositBalance}`);
+                } else {
                     finalPaymentMethod = 'cash';
                 }
+            } else {
+                finalPaymentMethod = paymentMethod || 'cash';
+                isRetainership = false;
             }
         } else {
             // Walk-in patients don't have MRN but we create a Visit under their name
