@@ -9,6 +9,18 @@ import { toast } from 'react-toastify';
 import LoadingOverlay from '../components/loadingOverlay';
 import { formatAge } from '../utils/patientUtils';
 
+const getNurseFirstName = (fullName) => {
+    if (!fullName) return 'Unknown';
+    const parts = fullName.trim().split(/\s+/);
+    if (parts.length === 0) return 'Unknown';
+    const firstPartLower = parts[0].toLowerCase().replace(/[^a-z]/g, '');
+    const titles = ['nurse', 'matron', 'sister', 'sr', 'mr', 'mrs', 'ms', 'dr', 'doc'];
+    if (titles.includes(firstPartLower) && parts.length > 1) {
+        return parts[1];
+    }
+    return parts[0];
+};
+
 const NurseTriage = () => {
     const { patientId, encounterId } = useParams();
     const navigate = useNavigate();
@@ -80,6 +92,9 @@ const NurseTriage = () => {
     const [availableBeds, setAvailableBeds] = useState([]);
     const [retainershipDepositStatus, setRetainershipDepositStatus] = useState([]);
     const [encounterToConvert, setEncounterToConvert] = useState(null);
+    const [showDischargeModal, setShowDischargeModal] = useState(false);
+    const [dischargeNote, setDischargeNote] = useState('');
+    const [encounterToDischarge, setEncounterToDischarge] = useState(null);
 
     // Drug Administration State
     const [dispensedPrescriptions, setDispensedPrescriptions] = useState([]);
@@ -855,22 +870,32 @@ const NurseTriage = () => {
 
     const handleDischarge = async (e, encounter) => {
         e.stopPropagation();
-        if (!window.confirm('Are you sure you want to discharge this patient? This will release their bed and close the encounter.')) {
+        setEncounterToDischarge(encounter);
+        setDischargeNote('');
+        setShowDischargeModal(true);
+    };
+
+    const handleConfirmDischarge = async () => {
+        if (!encounterToDischarge) return;
+        if (!dischargeNote.trim()) {
+            toast.error('Please write a discharge note / summary before discharging.');
             return;
         }
-
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            await axios.put(`${backendUrl}/api/visits/${encounter._id}`, {
+            await axios.put(`${backendUrl}/api/visits/${encounterToDischarge._id}`, {
                 encounterStatus: 'discharged',
-                status: 'Discharged'
+                status: 'Discharged',
+                dischargeNotes: dischargeNote
             }, config);
 
             toast.success('Patient discharged successfully!');
+            setShowDischargeModal(false);
+            setDischargeNote('');
 
             // Refresh patient encounters if this patient is selected
-            if (selectedPatient && (selectedPatient._id === encounter.patient._id || selectedPatient._id === encounter.patient)) {
+            if (selectedPatient && (selectedPatient._id === encounterToDischarge.patient._id || selectedPatient._id === encounterToDischarge.patient)) {
                 handleSelectPatient(selectedPatient);
             }
         } catch (error) {
@@ -984,10 +1009,10 @@ const NurseTriage = () => {
                                                         ? 'bg-green-100 text-green-800'
                                                         : 'bg-yellow-100 text-yellow-800'
                                                     }`}>
-                                                    {encounter.waiveConsultationFee 
-                                                        ? `Waived by ${encounter.waivedBy?.name || encounter.doctor?.name || 'Staff'}` 
-                                                        : (encounter.paymentValidated || encounter.isANC) 
-                                                            ? (encounter.isANC ? 'ANC' : 'Paid') 
+                                                    {encounter.waiveConsultationFee
+                                                        ? `Waived by ${encounter.waivedBy?.name || encounter.doctor?.name || 'Staff'}`
+                                                        : (encounter.paymentValidated || encounter.isANC)
+                                                            ? (encounter.isANC ? 'ANC' : 'Paid')
                                                             : 'Pending'}
                                                 </span>
                                             </div>
@@ -1148,7 +1173,7 @@ const NurseTriage = () => {
                                 <div className="mb-8">
                                     <div className="bg-gradient-to-r from-blue-700 to-blue-600 text-white p-3 rounded-t-lg flex justify-between items-center shadow-md">
                                         <h4 className="font-bold flex items-center gap-2">
-                                            <FaTable /> Drug Observation Chart (MAR)
+                                            <FaTable /> Drug Observation Chart
                                         </h4>
                                         <div className="flex items-center gap-3">
                                             <span className="text-[10px] bg-blue-500/50 px-2 py-0.5 rounded-full uppercase tracking-widest font-bold border border-blue-400/30">Dispensed</span>
@@ -1228,72 +1253,97 @@ const NurseTriage = () => {
                                                                                 </tr>
                                                                             </thead>
                                                                             <tbody>
-                                                                                {dispensedPrescriptions.flatMap(p => p.medicines.map(m => (
-                                                                                    <tr key={`${p._id}-${m._id || m.name}`} className="hover:bg-blue-50/10 border-b last:border-0 transition-colors">
-                                                                                        <td className="p-2 border-r">
-                                                                                            <div className="font-bold text-blue-950 leading-tight flex items-center gap-2">
-                                                                                                {m.name}
-                                                                                                {m.buyOutside && (
-                                                                                                    <span className="text-[9px] bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded border border-orange-200 uppercase font-black">
-                                                                                                        Buy Outside
-                                                                                                    </span>
-                                                                                                )}
-                                                                                            </div>
-                                                                                            <div className="text-[9px] text-gray-500 flex items-center gap-1 mt-0.5">
-                                                                                                <span className="font-medium text-gray-700">{m.dosage}</span>
-                                                                                                <span>|</span>
-                                                                                                <span className="font-medium text-gray-700">{m.frequency}</span>
-                                                                                                {m.route && <><span className="text-orange-500 font-bold px-1 rounded uppercase bg-orange-50 text-[8px] border border-orange-100">{m.route}</span></>}
-                                                                                            </div>
-                                                                                        </td>
-                                                                                        {dayTimes.map(timeStr => {
-                                                                                            const admin = dayHistory.find(h =>
-                                                                                                new Date(h.administeredAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) === timeStr &&
-                                                                                                (h.medicineId === m._id || h.medicineName === m.name)
-                                                                                            );
-                                                                                            return (
-                                                                                                <td key={timeStr} className="p-2 border-r text-center">
-                                                                                                    {admin ? (
-                                                                                                        <div className="inline-flex flex-col items-center justify-center p-1 rounded-md bg-green-50 border border-green-200 shadow-sm group relative cursor-help">
-                                                                                                            <span className="font-black text-[8px] text-green-700 uppercase tracking-tighter">Given</span>
-                                                                                                            <span className="text-[7px] text-green-600 leading-none">{admin.nurse?.name?.split(' ')[0]}</span>
-                                                                                                            {admin.remarks && (
-                                                                                                                <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-40 bg-gray-900 border border-gray-700 text-white p-2 rounded-lg text-[9px] hidden group-hover:block z-50 shadow-2xl backdrop-blur-sm">
-                                                                                                                    <div className="font-bold text-blue-300 mb-1 border-b border-gray-700 pb-1">Remark:</div>
-                                                                                                                    {admin.remarks}
-                                                                                                                    <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
-                                                                                                                </div>
-                                                                                                            )}
-                                                                                                        </div>
-                                                                                                    ) : <span className="text-gray-200">-</span>}
+                                                                                {(() => {
+                                                                                    let overallRowIdx = 0;
+                                                                                    return dispensedPrescriptions.flatMap(p => p.medicines.map(m => {
+                                                                                        const isFirstRow = overallRowIdx === 0;
+                                                                                        overallRowIdx++;
+                                                                                        return (
+                                                                                            <tr key={`${p._id}-${m._id || m.name}`} className="hover:bg-blue-50/10 border-b last:border-0 transition-colors">
+                                                                                                <td className="p-2 border-r">
+                                                                                                    <div className="font-bold text-blue-950 leading-tight flex items-center gap-2">
+                                                                                                        {m.name}
+                                                                                                        {m.buyOutside && (
+                                                                                                            <span className="text-[9px] bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded border border-orange-200 uppercase font-black">
+                                                                                                                Buy Outside
+                                                                                                            </span>
+                                                                                                        )}
+                                                                                                    </div>
+                                                                                                    <div className="text-[9px] text-gray-500 flex items-center gap-1 mt-0.5">
+                                                                                                        <span className="font-medium text-gray-700">{m.dosage}</span>
+                                                                                                        <span>|</span>
+                                                                                                        <span className="font-medium text-gray-700">{m.frequency}</span>
+                                                                                                        {m.route && <><span className="text-orange-500 font-bold px-1 rounded uppercase bg-orange-50 text-[8px] border border-orange-100">{m.route}</span></>}
+                                                                                                    </div>
                                                                                                 </td>
-                                                                                            );
-                                                                                        })}
-                                                                                        <td className="p-2 text-center bg-green-50/20">
-                                                                                            {!isReadOnly && (
-                                                                                                <button
-                                                                                                    onClick={() => {
-                                                                                                        setAdminForm({
-                                                                                                            ...adminForm,
-                                                                                                            prescriptionId: p._id,
-                                                                                                            medicineId: m._id || m.name,
-                                                                                                            medicineName: m.name,
-                                                                                                            dosage: m.dosage || '',
-                                                                                                            date: new Date().toISOString().split('T')[0],
-                                                                                                            time: new Date().toTimeString().slice(0, 5),
-                                                                                                            remarks: ''
-                                                                                                        });
-                                                                                                        setShowDrugAdminModal(true);
-                                                                                                    }}
-                                                                                                    className="w-6 h-6 flex items-center justify-center mx-auto bg-green-600 text-white rounded-md hover:bg-green-700 transition hover:scale-110 shadow-sm"
-                                                                                                    title="Record Dose"
-                                                                                                >
-                                                                                                    <FaPlus size={8} />
-                                                                                                </button>
-                                                                                            )}
-                                                                                        </td>
-                                                                                    </tr>
-                                                                                )))}
+                                                                                                {dayTimes.map(timeStr => {
+                                                                                                    const admin = dayHistory.find(h =>
+                                                                                                        new Date(h.administeredAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) === timeStr &&
+                                                                                                        (h.medicineId === m._id || h.medicineName === m.name)
+                                                                                                    );
+                                                                                                    return (
+                                                                                                        <td key={timeStr} className="p-2 border-r text-center">
+                                                                                                            {admin ? (
+                                                                                                                <div className="inline-flex flex-col items-center justify-center p-1 rounded-md bg-green-50 border border-green-200 shadow-sm group relative cursor-help">
+                                                                                                                    <span className="font-black text-[8px] text-green-700 uppercase tracking-tighter">Given</span>
+                                                                                                                    <span className="text-[7px] text-green-600 leading-none">{getNurseFirstName(admin.nurse?.name)}</span>
+                                                                                                                    {isFirstRow ? (
+                                                                                                                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-gray-900 border border-gray-700 text-white p-2 rounded-lg text-[9px] hidden group-hover:block z-50 shadow-2xl backdrop-blur-sm text-left">
+                                                                                                                            <div className="text-white font-bold mb-1" style={{ color: '#ffffff' }}>
+                                                                                                                                Administered by: {admin.nurse?.name || 'Unknown'}
+                                                                                                                            </div>
+                                                                                                                            {admin.remarks && (
+                                                                                                                                <div className="text-gray-300 break-words mt-1 border-t border-gray-700 pt-1">
+                                                                                                                                    Remarks: {admin.remarks}
+                                                                                                                                </div>
+                                                                                                                            )}
+                                                                                                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-gray-900"></div>
+                                                                                                                        </div>
+                                                                                                                    ) : (
+                                                                                                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-gray-900 border border-gray-700 text-white p-2 rounded-lg text-[9px] hidden group-hover:block z-50 shadow-2xl backdrop-blur-sm text-left">
+                                                                                                                            <div className="text-white font-bold mb-1" style={{ color: '#ffffff' }}>
+                                                                                                                                Administered by: {admin.nurse?.name || 'Unknown'}
+                                                                                                                            </div>
+                                                                                                                            {admin.remarks && (
+                                                                                                                                <div className="text-gray-300 break-words mt-1 border-t border-gray-700 pt-1">
+                                                                                                                                    Remarks: {admin.remarks}
+                                                                                                                                </div>
+                                                                                                                            )}
+                                                                                                                            <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
+                                                                                                                        </div>
+                                                                                                                    )}
+                                                                                                                </div>
+                                                                                                            ) : <span className="text-gray-200">-</span>}
+                                                                                                        </td>
+                                                                                                    );
+                                                                                                })}
+                                                                                                <td className="p-2 text-center bg-green-50/20">
+                                                                                                    {!isReadOnly && (
+                                                                                                        <button
+                                                                                                            onClick={() => {
+                                                                                                                setAdminForm({
+                                                                                                                    ...adminForm,
+                                                                                                                    prescriptionId: p._id,
+                                                                                                                    medicineId: m._id || m.name,
+                                                                                                                    medicineName: m.name,
+                                                                                                                    dosage: m.dosage || '',
+                                                                                                                    date: new Date().toISOString().split('T')[0],
+                                                                                                                    time: new Date().toTimeString().slice(0, 5),
+                                                                                                                    remarks: ''
+                                                                                                                });
+                                                                                                                setShowDrugAdminModal(true);
+                                                                                                            }}
+                                                                                                            className="w-6 h-6 flex items-center justify-center mx-auto bg-green-600 text-white rounded-md hover:bg-green-700 transition hover:scale-110 shadow-sm"
+                                                                                                            title="Record Dose"
+                                                                                                        >
+                                                                                                            <FaPlus size={8} />
+                                                                                                        </button>
+                                                                                                    )}
+                                                                                                </td>
+                                                                                            </tr>
+                                                                                        );
+                                                                                    }));
+                                                                                })()}
                                                                             </tbody>
                                                                         </table>
                                                                     </div>
@@ -1479,7 +1529,7 @@ const NurseTriage = () => {
                                                         Admit Patient
                                                     </button>
                                                 )}
-                                                {selectedEncounter.type === 'Inpatient' && (
+                                                {selectedEncounter.type === 'Inpatient' && selectedEncounter.encounterStatus !== 'discharged' && (
                                                     <button
                                                         onClick={(e) => handleDischarge(e, selectedEncounter)}
                                                         className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700 flex items-center gap-2 text-sm"
@@ -1487,10 +1537,35 @@ const NurseTriage = () => {
                                                         Discharge Patient
                                                     </button>
                                                 )}
+                                                {selectedEncounter.type === 'Inpatient' && selectedEncounter.encounterStatus === 'discharged' && (
+                                                    <div className="px-4 py-2 bg-green-600 text-white rounded flex items-center gap-2 text-sm">
+                                                        ✓ Discharged
+                                                    </div>
+                                                )}
                                             </>
                                         )}
                                     </div>
                                 </div>
+
+                                {/* Discharge Summary Banner - shown when patient is discharged */}
+                                {selectedEncounter.encounterStatus === 'discharged' && (
+                                    <div className="mb-5 rounded-xl border border-green-200 overflow-hidden shadow-sm">
+                                        <div className="bg-green-600 text-white px-4 py-2 flex items-center justify-between text-sm font-semibold">
+                                            <span>✓ Discharge Record</span>
+                                            <span className="font-normal text-green-200 text-xs">
+                                                {selectedEncounter.dischargeDate ? new Date(selectedEncounter.dischargeDate).toLocaleString() : ''}
+                                                {selectedEncounter.dischargedBy?.name && ` · By ${selectedEncounter.dischargedBy.name}`}
+                                            </span>
+                                        </div>
+                                        <div className="bg-green-50 px-4 py-3">
+                                            {selectedEncounter.dischargeNotes ? (
+                                                <p className="text-sm text-gray-700 whitespace-pre-wrap">{selectedEncounter.dischargeNotes}</p>
+                                            ) : (
+                                                <p className="text-sm text-amber-700 italic">No discharge summary was recorded.</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
 
                                 {/* Charges Table - Always visible */}
                                 {encounterCharges.filter(c => c.charge?.type === 'nursing').length > 0 && (
@@ -1613,23 +1688,23 @@ const NurseTriage = () => {
                                 </div>
                             )}
 
-                             <div className="flex flex-col items-center mt-6 w-full">
-                                 <button
-                                     onClick={async () => {
-                                         if (isReadOnly || (!isReadOnly && (!existingVitals || existingVitals.length === 0))) return;
-                                         await handleFinishTriage();
-                                     }}
-                                     disabled={isReadOnly || (!isReadOnly && (!existingVitals || existingVitals.length === 0))}
-                                     className={`w-full px-6 py-3 rounded font-bold flex items-center justify-center gap-2 ${(isReadOnly || (!isReadOnly && (!existingVitals || existingVitals.length === 0))) ? 'bg-gray-300 text-gray-500 cursor-not-allowed border border-gray-200' : 'bg-green-600 hover:bg-green-700 text-white shadow-md'}`}
-                                 >
-                                     <FaCheckCircle /> {isReadOnly ? 'Encounter Completed' : 'Finish Triage & Send to Doctor'}
-                                 </button>
-                                 {!isReadOnly && (!existingVitals || existingVitals.length === 0) && (
-                                     <p className="text-red-600 text-xs font-semibold text-center mt-2 flex items-center gap-1.5 bg-red-50 p-2 rounded border border-red-100 w-full justify-center">
-                                         ⚠️ You must record at least one vital sign before sending the patient to the doctor.
-                                     </p>
-                                 )}
-                             </div>
+                            <div className="flex flex-col items-center mt-6 w-full">
+                                <button
+                                    onClick={async () => {
+                                        if (isReadOnly || (!isReadOnly && (!existingVitals || existingVitals.length === 0))) return;
+                                        await handleFinishTriage();
+                                    }}
+                                    disabled={isReadOnly || (!isReadOnly && (!existingVitals || existingVitals.length === 0))}
+                                    className={`w-full px-6 py-3 rounded font-bold flex items-center justify-center gap-2 ${(isReadOnly || (!isReadOnly && (!existingVitals || existingVitals.length === 0))) ? 'bg-gray-300 text-gray-500 cursor-not-allowed border border-gray-200' : 'bg-green-600 hover:bg-green-700 text-white shadow-md'}`}
+                                >
+                                    <FaCheckCircle /> {isReadOnly ? 'Encounter Completed' : 'Finish Triage & Send to Doctor'}
+                                </button>
+                                {!isReadOnly && (!existingVitals || existingVitals.length === 0) && (
+                                    <p className="text-red-600 text-xs font-semibold text-center mt-2 flex items-center gap-1.5 bg-red-50 p-2 rounded border border-red-100 w-full justify-center">
+                                        ⚠️ You must record at least one vital sign before sending the patient to the doctor.
+                                    </p>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>
@@ -1741,6 +1816,69 @@ const NurseTriage = () => {
                 )
             }
 
+            {/* Discharge Note Modal */}
+            {showDischargeModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden">
+                        {/* Header */}
+                        <div className="bg-gradient-to-r from-red-600 to-red-700 text-white px-6 py-4 flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-white bg-opacity-20 flex items-center justify-center">
+                                <FaNotesMedical className="text-lg" />
+                            </div>
+                            <div>
+                                <h3 className="text-lg font-bold">Discharge Patient</h3>
+                                <p className="text-red-200 text-sm">
+                                    {encounterToDischarge?.patient?.name || 'Patient'} — A discharge note is required
+                                </p>
+                            </div>
+                        </div>
+                        {/* Body */}
+                        <div className="p-6 space-y-4">
+                            <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 flex gap-2 text-sm text-amber-800">
+                                <span className="text-amber-500 font-bold text-base mt-0.5">⚠</span>
+                                <span>Discharging will <strong>release the bed</strong> and close the encounter. This action cannot be undone.</span>
+                            </div>
+                            {encounterToDischarge?.bed && (
+                                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm text-blue-800">
+                                    <span className="font-semibold">Bed to be released: </span>
+                                    {typeof encounterToDischarge.ward === 'object' ? encounterToDischarge.ward?.name : 'Ward'} — {encounterToDischarge.bed}
+                                </div>
+                            )}
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                                    Discharge Note / Summary <span className="text-red-500">*</span>
+                                </label>
+                                <textarea
+                                    value={dischargeNote}
+                                    onChange={e => setDischargeNote(e.target.value)}
+                                    rows={6}
+                                    placeholder="Write a discharge summary including: patient's condition at discharge, instructions given, medications on discharge, follow-up plan, etc."
+                                    className="w-full border-2 border-gray-200 focus:border-red-400 rounded-lg p-3 text-sm resize-none outline-none transition"
+                                />
+                                <p className="text-xs text-gray-400 mt-1">{dischargeNote.length} characters</p>
+                            </div>
+                        </div>
+                        {/* Footer */}
+                        <div className="px-6 pb-6 flex gap-3">
+                            <button
+                                onClick={handleConfirmDischarge}
+                                disabled={!dischargeNote.trim() || loading}
+                                className={`flex-1 py-3 rounded-lg font-semibold text-sm transition ${!dischargeNote.trim() || loading ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : 'bg-red-600 text-white hover:bg-red-700'}`}
+                            >
+                                {loading ? 'Discharging...' : 'Confirm Discharge & Release Bed'}
+                            </button>
+                            <button
+                                onClick={() => { setShowDischargeModal(false); setDischargeNote(''); setEncounterToDischarge(null); }}
+                                disabled={loading}
+                                className="flex-1 py-3 rounded-lg font-semibold text-sm bg-gray-100 text-gray-700 hover:bg-gray-200 transition"
+                            >
+                                Cancel
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Nursing Notes Modal */}
             {
                 showNurseNoteModal && (
@@ -1840,11 +1978,10 @@ const NurseTriage = () => {
                             {/* Deposit Balance status */}
                             <div className="mb-4">
                                 <label className="block text-gray-700 font-bold mb-1">Financial Deposit Balance</label>
-                                <div className={`p-3 rounded border text-sm font-semibold flex flex-col gap-1 ${
-                                    isBlocked 
-                                        ? 'bg-red-50 text-red-800 border-red-200' 
+                                <div className={`p-3 rounded border text-sm font-semibold flex flex-col gap-1 ${isBlocked
+                                        ? 'bg-red-50 text-red-800 border-red-200'
                                         : 'bg-green-50 text-green-800 border-green-200'
-                                }`}>
+                                    }`}>
                                     <div className="flex justify-between items-center">
                                         <span>Patient Deposit:</span>
                                         <span className="font-bold">₦{selectedPatient?.depositBalance?.toLocaleString() || '0'}</span>
