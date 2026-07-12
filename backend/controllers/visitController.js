@@ -1041,19 +1041,13 @@ const saveTheatreNote = async (req, res) => {
     }
 };
 
-// @desc    Save/update consent data or file upload for a specific theatre note
-// @route   POST /api/visits/:id/theatre-notes/:noteId/consent
+// @desc    Save/update consent data or file upload for a specific theatre note or visit
+// @route   POST /api/visits/:id/theatre-notes/:noteId/consent OR /api/visits/:id/consents
 // @access  Private (Doctor/User)
 const saveConsentNote = async (req, res) => {
     try {
         const visit = await Visit.findById(req.params.id);
         if (!visit) return res.status(404).json({ message: 'Visit not found' });
-
-        const { noteId } = req.params;
-        const noteIdx = visit.theatreNotes.findIndex(n => n._id.toString() === noteId);
-        if (noteIdx === -1) {
-            return res.status(404).json({ message: 'Theatre note not found' });
-        }
 
         let consentData = {};
         
@@ -1074,10 +1068,35 @@ const saveConsentNote = async (req, res) => {
         consentData.filledAt = new Date();
         consentData.filledBy = req.user.name;
 
-        visit.theatreNotes[noteIdx].consent = consentData;
+        const { noteId } = req.params;
+        if (noteId) {
+            // Legacy / nested consent
+            const noteIdx = visit.theatreNotes.findIndex(n => n._id.toString() === noteId);
+            if (noteIdx !== -1) {
+                visit.theatreNotes[noteIdx].consent = consentData;
+            }
+        } else {
+            // Detached consent
+            if (!visit.consents) {
+                visit.consents = [];
+            }
+            const consentId = consentData._id;
+            if (consentId) {
+                const idx = visit.consents.findIndex(c => c._id.toString() === consentId);
+                if (idx >= 0) {
+                    Object.assign(visit.consents[idx], consentData);
+                } else {
+                    consentData.createdAt = new Date();
+                    visit.consents.push(consentData);
+                }
+            } else {
+                consentData.createdAt = new Date();
+                visit.consents.push(consentData);
+            }
+        }
 
         await visit.save();
-        res.status(200).json(visit.theatreNotes);
+        res.status(200).json({ theatreNotes: visit.theatreNotes, consents: visit.consents || [] });
     } catch (error) {
         console.error('saveConsentNote error:', error);
         res.status(500).json({ message: error.message });
@@ -1190,6 +1209,137 @@ const saveClinicalNote = async (req, res) => {
     }
 };
 
+// @desc    Save/update an anaesthetic machine/medication & equipment checklist
+// @route   POST /api/visits/:id/checklists
+// @access  Private (Doctor/User)
+const saveChecklist = async (req, res) => {
+    try {
+        const visit = await Visit.findById(req.params.id);
+        if (!visit) return res.status(404).json({ message: 'Visit not found' });
+
+        const checklistData = {
+            ...req.body,
+            filledAt: new Date(),
+            filledBy: req.user.name
+        };
+
+        if (!visit.checklists) {
+            visit.checklists = [];
+        }
+
+        const checklistId = checklistData._id;
+        if (checklistId) {
+            const idx = visit.checklists.findIndex(c => c._id.toString() === checklistId);
+            if (idx >= 0) {
+                Object.assign(visit.checklists[idx], checklistData);
+            } else {
+                checklistData.createdAt = new Date();
+                visit.checklists.push(checklistData);
+            }
+        } else {
+            checklistData.createdAt = new Date();
+            visit.checklists.push(checklistData);
+        }
+
+        await visit.save();
+        res.status(200).json({
+            theatreNotes: visit.theatreNotes || [],
+            consents: visit.consents || [],
+            checklists: visit.checklists || [],
+            postoperativeHandoverChecklists: visit.postoperativeHandoverChecklists || []
+        });
+    } catch (error) {
+        console.error('saveChecklist error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+const savePreAnaesthesiaChecklist = async (req, res) => {
+    try {
+        const visit = await Visit.findById(req.params.id);
+        if (!visit) return res.status(404).json({ message: 'Visit not found' });
+
+        // Initialize the array if it doesn't exist on older visit documents
+        if (!visit.preAnaesthesiaChecklists) {
+            visit.preAnaesthesiaChecklists = [];
+        }
+
+        const checklistData = {
+            ...req.body,
+            filledAt: new Date(),
+        };
+
+        const checklistId = checklistData._id;
+        if (checklistId) {
+            const idx = visit.preAnaesthesiaChecklists.findIndex(c => c._id.toString() === checklistId);
+            if (idx >= 0) {
+                Object.assign(visit.preAnaesthesiaChecklists[idx], checklistData);
+            } else {
+                checklistData.createdAt = new Date();
+                visit.preAnaesthesiaChecklists.push(checklistData);
+            }
+        } else {
+            checklistData.createdAt = new Date();
+            visit.preAnaesthesiaChecklists.push(checklistData);
+        }
+
+        await visit.save();
+        res.status(200).json({
+            preAnaesthesiaChecklists: visit.preAnaesthesiaChecklists || [],
+            checklists: visit.checklists || [],
+            consents: visit.consents || [],
+            theatreNotes: visit.theatreNotes || [],
+            postoperativeHandoverChecklists: visit.postoperativeHandoverChecklists || []
+        });
+    } catch (error) {
+        console.error('savePreAnaesthesiaChecklist error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+const savePostoperativeHandoverChecklist = async (req, res) => {
+    try {
+        const visit = await Visit.findById(req.params.id);
+        if (!visit) return res.status(404).json({ message: 'Visit not found' });
+
+        // Initialize the array if it doesn't exist on older visit documents
+        if (!visit.postoperativeHandoverChecklists) {
+            visit.postoperativeHandoverChecklists = [];
+        }
+
+        const checklistData = {
+            ...req.body,
+            filledAt: new Date(),
+        };
+
+        const checklistId = checklistData._id;
+        if (checklistId) {
+            const idx = visit.postoperativeHandoverChecklists.findIndex(c => c._id.toString() === checklistId);
+            if (idx >= 0) {
+                Object.assign(visit.postoperativeHandoverChecklists[idx], checklistData);
+            } else {
+                checklistData.createdAt = new Date();
+                visit.postoperativeHandoverChecklists.push(checklistData);
+            }
+        } else {
+            checklistData.createdAt = new Date();
+            visit.postoperativeHandoverChecklists.push(checklistData);
+        }
+
+        await visit.save();
+        res.status(200).json({
+            preAnaesthesiaChecklists: visit.preAnaesthesiaChecklists || [],
+            checklists: visit.checklists || [],
+            consents: visit.consents || [],
+            theatreNotes: visit.theatreNotes || [],
+            postoperativeHandoverChecklists: visit.postoperativeHandoverChecklists || []
+        });
+    } catch (error) {
+        console.error('savePostoperativeHandoverChecklist error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     createVisit,
     getVisits,
@@ -1201,9 +1351,13 @@ module.exports = {
     addWardRoundNote,
     saveTheatreNote,
     saveConsentNote,
+    saveChecklist,
+    savePreAnaesthesiaChecklist,
+    savePostoperativeHandoverChecklist,
     convertToInpatient,
     changeEncounterType,
     saveClinicalNote
 };
+
 
 
