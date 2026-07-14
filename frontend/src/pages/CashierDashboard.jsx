@@ -33,8 +33,12 @@ const CashierDashboard = () => {
         totalReceiptsToday: 0
     });
 
-    const getPatientPortion = (charge) => {
+    const getPatientPortion = (charge, overrideMethod = null) => {
         if (!charge) return 0;
+        const currentMethod = overrideMethod || paymentMethod;
+        if (currentMethod === 'retainership') {
+            return charge.hmoPortion || 0;
+        }
         if (charge.patientPortion > 0) return charge.patientPortion;
         const provider = charge.patient?.provider || selectedPatient?.provider || 'Standard';
         const isInsurance = ['Retainership', 'Corporate Retainership', 'Family Retainership', 'NHIA', 'KSCHMA'].includes(provider);
@@ -128,13 +132,8 @@ const CashierDashboard = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get(`${backendUrl}/api/patients`, config);
-            const filtered = data.filter(p =>
-                p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                (p.mrn && p.mrn.toLowerCase().includes(searchTerm.toLowerCase())) ||
-                (p.contact && p.contact.includes(searchTerm))
-            );
-            setPatients(filtered);
+            const { data } = await axios.get(`${backendUrl}/api/patients?search=${searchTerm}`, config);
+            setPatients(data);
         } catch (error) {
             console.error(error);
             toast.error('Error searching patients');
@@ -150,28 +149,28 @@ const CashierDashboard = () => {
         setSelectedCharges([]);
 
         // Set default payment method based on provider first, then deposit balance
+        let initialPaymentMethod = 'cash';
         if (['Retainership', 'Corporate Retainership', 'Family Retainership'].includes(patient.provider)) {
-            setPaymentMethod('retainership');
+            initialPaymentMethod = 'retainership';
         } else if (['NHIA', 'KSCHMA', 'State Scheme'].includes(patient.provider)) {
-            setPaymentMethod('insurance');
+            initialPaymentMethod = 'insurance';
         } else if (patient.depositBalance > 0) {
-            setPaymentMethod('deposit');
-        } else {
-            setPaymentMethod('cash');
+            initialPaymentMethod = 'deposit';
         }
+        setPaymentMethod(initialPaymentMethod);
 
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const { data } = await axios.get(`${backendUrl}/api/visits`, config);
-            const patientEncounters = data.filter(v => v.patient && (v.patient._id === patient._id || v.patient === patient._id));
+            const { data } = await axios.get(`${backendUrl}/api/visits?patient=${patient._id}`, config);
+            const patientEncounters = data;
             // Sort encounters by creation date - latest first
             patientEncounters.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
             setEncounters(patientEncounters);
 
-            // Fetch pending charges for each encounter
+            // Fetch pending charges for each encounter in parallel
             const pendingChargesMap = {};
-            for (const encounter of patientEncounters) {
+            await Promise.all(patientEncounters.map(async (encounter) => {
                 try {
                     const chargesResponse = await axios.get(
                         `${backendUrl}/api/encounter-charges/encounter/${encounter._id}`,
@@ -179,7 +178,7 @@ const CashierDashboard = () => {
                     );
                     const pending = chargesResponse.data.filter(c => c.status === 'pending');
                     if (pending.length > 0) {
-                        const totalPending = pending.reduce((sum, c) => sum + getPatientPortion(c), 0);
+                        const totalPending = pending.reduce((sum, c) => sum + getPatientPortion(c, initialPaymentMethod), 0);
                         pendingChargesMap[encounter._id] = {
                             count: pending.length,
                             total: totalPending
@@ -188,7 +187,7 @@ const CashierDashboard = () => {
                 } catch (err) {
                     console.error(`Error fetching charges for encounter ${encounter._id}:`, err);
                 }
-            }
+            }));
             setEncounterPendingCharges(pendingChargesMap);
         } catch (error) {
             console.error(error);
