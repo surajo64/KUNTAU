@@ -4,7 +4,7 @@ import axios from 'axios';
 import AuthContext from '../context/AuthContext';
 import { AppContext } from '../context/AppContext';
 import Layout from '../components/Layout';
-import { FaUserMd, FaSearch, FaCheckCircle, FaNotesMedical, FaHeartbeat, FaMoneyBillWave, FaTrash, FaEdit, FaPlus, FaTable, FaClock, FaChevronDown, FaChevronRight, FaHistory } from 'react-icons/fa';
+import { FaUserMd, FaSearch, FaCheckCircle, FaNotesMedical, FaHeartbeat, FaMoneyBillWave, FaTrash, FaEdit, FaPlus, FaTimes, FaTable, FaClock, FaChevronDown, FaChevronRight, FaHistory, FaClipboardList, FaCheck, FaCommentAlt } from 'react-icons/fa';
 import { toast } from 'react-toastify';
 import LoadingOverlay from '../components/loadingOverlay';
 import { formatAge } from '../utils/patientUtils';
@@ -83,6 +83,48 @@ const NurseTriage = () => {
     const [editingChargeId, setEditingChargeId] = useState(null);
     const [showChargesModal, setShowChargesModal] = useState(false);
     const [showNurseNoteModal, setShowNurseNoteModal] = useState(false);
+    const [showAncModal, setShowAncModal] = useState(false);
+
+    const blankAncNote = {
+        noteType: 'anc',
+        ancVisitNumber: '',
+        gravida: '',
+        para: '',
+        lmp: '',
+        edd: '',
+        gestation: '',
+        ancComplaints: '',
+        ancRiskFactors: '',
+        maternalWeight: '',
+        maternalBP: '',
+        maternalPulse: '',
+        maternalTemp: '',
+        maternalHb: '',
+        urinalysis: '',
+        fundalHeight: '',
+        fetalLie: '',
+        fetalPresentation: '',
+        fetalPosition: '',
+        fetalHeartRate: '',
+        engagement: '',
+        liquor: '',
+        uterineContractions: '',
+        amnioticFluidIndex: '',
+        placentalLocation: '',
+        malariaProphylaxis: '',
+        tetanusToxoid: '',
+        ironFolate: '',
+        hivStatus: '',
+        syphilisStatus: '',
+        bloodGroupGenotype: '',
+        assessment: '',
+        plan: '',
+        ancCounselling: '',
+        ancReferral: '',
+        nextAppointment: '',
+        diagnosis: []
+    };
+    const [ancNote, setAncNote] = useState(blankAncNote);
 
     // Inpatient Conversion State (Nurse)
     const [showConvertModal, setShowConvertModal] = useState(false);
@@ -110,6 +152,75 @@ const NurseTriage = () => {
         remarks: ''
     });
     const [expandedDays, setExpandedDays] = useState({});
+    // Stop / Discontinue Drug Modal States
+    const [showStopDrugModal, setShowStopDrugModal] = useState(false);
+    const [stopDrugTarget, setStopDrugTarget] = useState(null);
+    const [stopDrugReason, setStopDrugReason] = useState('');
+
+    const handleConfirmStopDrug = async () => {
+        if (!stopDrugTarget) return;
+        if (!stopDrugReason.trim()) {
+            toast.error('Please enter a reason for stopping this medication');
+            return;
+        }
+
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            await axios.put(
+                `${backendUrl}/api/prescriptions/${stopDrugTarget.prescriptionId}/medicines/${stopDrugTarget.medIndex}/discontinue`,
+                { reason: stopDrugReason.trim() },
+                config
+            );
+            toast.success('Medication stopped! Reason logged for nurses.');
+            setShowStopDrugModal(false);
+            setStopDrugTarget(null);
+            setStopDrugReason('');
+            fetchDrugAdministrationData(selectedEncounter._id);
+            if (selectedPatient) {
+                fetchPatientEncounters(selectedPatient._id);
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error('Error stopping medication');
+        }
+    };
+
+    const handleToggleReactivateDrug = async (prescriptionId, medIndex) => {
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            await axios.put(
+                `${backendUrl}/api/prescriptions/${prescriptionId}/medicines/${medIndex}/discontinue`,
+                {},
+                config
+            );
+            toast.success('Medication reactivated!');
+            fetchDrugAdministrationData(selectedEncounter._id);
+            if (selectedPatient) {
+                fetchPatientEncounters(selectedPatient._id);
+            }
+        } catch (err) {
+            console.error(err);
+            toast.error('Error reactivating medication');
+        }
+    };
+
+    const handleUpdateOrderTaskStatus = async (taskId, newStatus = 'Completed') => {
+        if (!selectedEncounter) return;
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const response = await axios.put(
+                `${backendUrl}/api/visits/${selectedEncounter._id}/order-tasks/${taskId}/status`,
+                { status: newStatus },
+                config
+            );
+            toast.success(`Order task marked as ${newStatus.toLowerCase()}`);
+            setSelectedEncounter(response.data);
+        } catch (err) {
+            console.error('Error updating order task status:', err);
+            toast.error(err.response?.data?.message || 'Failed to update order task status');
+        }
+    };
+
     const { user } = useContext(AuthContext);
     const { backendUrl } = useContext(AppContext);
 
@@ -373,6 +484,39 @@ const NurseTriage = () => {
         }
     };
 
+    const handleSaveAncNote = async () => {
+        if (!selectedEncounter) {
+            toast.error('No active encounter selected');
+            return;
+        }
+
+        try {
+            setLoading(true);
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const payload = {
+                ...ancNote,
+                noteType: 'anc'
+            };
+            const { data: updatedVisit } = await axios.post(
+                `${backendUrl}/api/visits/${selectedEncounter._id}/clinical-notes`,
+                payload,
+                config
+            );
+            toast.success('ANC Note saved!');
+            setShowAncModal(false);
+            setAncNote(blankAncNote);
+            if (updatedVisit) {
+                setSelectedEncounter(updatedVisit);
+            }
+            await fetchPatientEncounters(selectedPatient._id);
+        } catch (error) {
+            console.error(error);
+            toast.error(error.response?.data?.message || 'Error saving ANC note');
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleValidateReceipt = async () => {
         if (!receiptNumber.trim()) {
             toast.error('Please enter receipt number');
@@ -592,6 +736,15 @@ const NurseTriage = () => {
     const handleRecordDrugAdmin = async () => {
         if (!adminForm.date || !adminForm.time) {
             toast.error('Please select date and time');
+            return;
+        }
+
+        // Check if target medicine was stopped/discontinued by doctor
+        const targetPrescription = dispensedPrescriptions.find(p => p._id === adminForm.prescriptionId);
+        const targetMed = targetPrescription?.medicines?.find(m => (m._id && m._id === adminForm.medicineId) || m.name === adminForm.medicineName);
+        if (targetMed?.isDiscontinued) {
+            toast.error('Cannot administer this medication. It has been stopped by the doctor!');
+            setShowDrugAdminModal(false);
             return;
         }
 
@@ -1053,10 +1206,10 @@ const NurseTriage = () => {
                     <div className="bg-blue-50 p-4 rounded mb-6 flex justify-between items-center">
                         <div>
                             <p className="font-bold flex items-center gap-2">
-                                {selectedPatient.name} - {selectedEncounter.type} Visit
+                                {selectedPatient.name} - {selectedEncounter.type?.endsWith('Visit') ? selectedEncounter.type : `${selectedEncounter.type} Visit`}
                                 {selectedEncounter.isANC && (
                                     <span className="bg-pink-100 text-pink-700 text-xs px-2 py-1 rounded-full font-bold">
-                                        ðŸ¤° ANC Visit (Payment Bypassed)
+                                        🤰 ANC Visit (Payment Bypassed)
                                     </span>
                                 )}
                             </p>
@@ -1275,60 +1428,115 @@ const NurseTriage = () => {
                                                                                 </tr>
                                                                             </thead>
                                                                             <tbody>
-                                                                                {(() => {
-                                                                                    let overallRowIdx = 0;
-                                                                                    return dispensedPrescriptions.flatMap(p => p.medicines.map(m => {
-                                                                                        const isFirstRow = overallRowIdx === 0;
-                                                                                        overallRowIdx++;
-                                                                                        return (
-                                                                                            <tr key={`${p._id}-${m._id || m.name}`} className="hover:bg-blue-50/10 border-b last:border-0 transition-colors">
-                                                                                                <td className="p-2 border-r">
-                                                                                                    <div className="font-bold text-blue-950 leading-tight flex items-center gap-2">
-                                                                                                        {m.name}
-                                                                                                        {m.buyOutside && (
-                                                                                                            <span className="text-[9px] bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded border border-orange-200 uppercase font-black">
-                                                                                                                Buy Outside
-                                                                                                            </span>
-                                                                                                        )}
-                                                                                                    </div>
-                                                                                                    <div className="text-[9px] text-gray-500 flex items-center gap-1 mt-0.5">
-                                                                                                        <span className="font-medium text-gray-700">{m.dosage}</span>
+                                                                                 {(() => {
+                                                                                     let overallRowIdx = 0;
+                                                                                     return dispensedPrescriptions.flatMap(p => p.medicines.map(m => {
+                                                                                         const isFirstRow = overallRowIdx === 0;
+                                                                                         overallRowIdx++;
+                                                                                         const stoppedByName = (typeof m.discontinuedBy === 'object' && m.discontinuedBy?.name) 
+                                                                                             ? m.discontinuedBy.name 
+                                                                                             : (m.discontinuedBy && user && (m.discontinuedBy === user._id || m.discontinuedBy.toString() === user._id.toString())
+                                                                                                 ? user.name
+                                                                                                 : (user?.role === 'doctor' ? user.name : 'Doctor'));
+                                                                                         return (
+                                                                                             <tr key={`${p._id}-${m._id || m.name}`} className={`border-b last:border-0 transition-colors ${m.isDiscontinued ? 'bg-red-50/40 border-l-4 border-l-red-500' : 'hover:bg-blue-50/10'}`}>
+                                                                                                 <td className="p-2 border-r">
+                                                                                                     <div className="font-bold text-blue-950 leading-tight flex items-center justify-between gap-2">
+                                                                                                         <div className="flex items-center gap-2 flex-wrap">
+                                                                                                             <span className={m.isDiscontinued ? 'line-through text-red-700 font-bold' : ''}>{m.name}</span>
+                                                                                                             {m.buyOutside && (
+                                                                                                                 <span className="text-[9px] bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded border border-orange-200 uppercase font-black">
+                                                                                                                     Buy Outside
+                                                                                                                 </span>
+                                                                                                             )}
+                                                                                                             {m.isDiscontinued && (
+                                                                                                                 <span className="text-[9px] bg-red-100 text-red-800 px-2 py-0.5 rounded border border-red-300 font-bold uppercase tracking-wide flex items-center gap-1">
+                                                                                                                     🛑 STOPPED BY {stoppedByName.toUpperCase().startsWith('DR') ? stoppedByName.toUpperCase() : `DR. ${stoppedByName.toUpperCase()}`}
+                                                                                                                 </span>
+                                                                                                             )}
+                                                                                                         </div>
+
+                                                                                                         {/* Doctor Stop / Discontinue Checkbox */}
+                                                                                                         {user.role === 'doctor' && (
+                                                                                                             <label className="flex items-center gap-1.5 text-[10px] font-bold text-red-700 hover:text-red-800 bg-red-50 hover:bg-red-100 px-2 py-1 rounded border border-red-200 cursor-pointer transition shadow-2xs ml-auto whitespace-nowrap">
+                                                                                                                 <input
+                                                                                                                     type="checkbox"
+                                                                                                                     checked={!!m.isDiscontinued}
+                                                                                                                     onChange={() => {
+                                                                                                                         const medIdx = p.medicines.findIndex(item => (item._id && item._id === m._id) || item.name === m.name);
+                                                                                                                         if (!m.isDiscontinued) {
+                                                                                                                             setStopDrugTarget({
+                                                                                                                                 prescriptionId: p._id,
+                                                                                                                                 medIndex: medIdx >= 0 ? medIdx : 0,
+                                                                                                                                 medName: m.name
+                                                                                                                             });
+                                                                                                                             setStopDrugReason('');
+                                                                                                                             setShowStopDrugModal(true);
+                                                                                                                         } else {
+                                                                                                                             handleToggleReactivateDrug(p._id, medIdx >= 0 ? medIdx : 0);
+                                                                                                                         }
+                                                                                                                     }}
+                                                                                                                     className="accent-red-600 w-3.5 h-3.5 cursor-pointer"
+                                                                                                                 />
+                                                                                                                 <span>{m.isDiscontinued ? 'Stopped' : 'Stop Drug'}</span>
+                                                                                                             </label>
+                                                                                                         )}
+                                                                                                     </div>
+                                                                                                    <div className="text-[9px] text-gray-500 flex flex-wrap items-center gap-1 mt-0.5">
+                                                                                                        <span className="font-medium text-gray-700">Strength: {m.dosage}</span>
                                                                                                         <span>|</span>
                                                                                                         <span className="font-medium text-gray-700">{m.frequency}</span>
                                                                                                         {m.route && <><span className="text-orange-500 font-bold px-1 rounded uppercase bg-orange-50 text-[8px] border border-orange-100">{m.route}</span></>}
+                                                                                                        <span className="text-purple-700 font-semibold text-[8px] bg-purple-50 px-1 rounded border border-purple-100">Dosage: {m.dosageText || 'As directed'}</span>
+                                                                                                        <span className="text-blue-600 italic text-[8px]">Note: {m.note || 'None'}</span>
                                                                                                     </div>
+                                                                                                    {m.isDiscontinued && (
+                                                                                                        <div className="mt-1 bg-red-50 border-l-2 border-red-500 text-red-800 px-2 py-1 rounded-r text-[10px] flex items-center gap-1.5 font-medium shadow-2xs">
+                                                                                                            <span className="font-bold text-red-700">Reason:</span>
+                                                                                                            <span className="italic font-normal">{m.discontinueReason || 'No reason specified'}</span>
+                                                                                                        </div>
+                                                                                                    )}
                                                                                                 </td>
                                                                                                 {dayTimes.map(timeStr => {
                                                                                                     const admin = dayHistory.find(h =>
                                                                                                         new Date(h.administeredAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) === timeStr &&
-                                                                                                        (h.medicineId === m._id || h.medicineName === m.name)
+                                                                                                        ((h.medicineId && m._id && h.medicineId === m._id) || h.medicineName === m.name)
                                                                                                     );
                                                                                                     return (
                                                                                                         <td key={timeStr} className="p-2 border-r text-center">
                                                                                                             {admin ? (
                                                                                                                 <div className="inline-flex flex-col items-center justify-center p-1 rounded-md bg-green-50 border border-green-200 shadow-sm group relative cursor-help">
-                                                                                                                    <span className="font-black text-[8px] text-green-700 uppercase tracking-tighter">Given</span>
+                                                                                                                    <div className="flex items-center gap-0.5">
+                                                                                                                        <span className="font-black text-[8px] text-green-700 uppercase tracking-tighter">Given</span>
+                                                                                                                        {admin.remarks && <FaCommentAlt size={7} className="text-green-600 ml-0.5" title="Comment recorded" />}
+                                                                                                                    </div>
                                                                                                                     <span className="text-[7px] text-green-600 leading-none">{getNurseFirstName(admin.nurse?.name)}</span>
                                                                                                                     {isFirstRow ? (
-                                                                                                                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-gray-900 border border-gray-700 text-white p-2 rounded-lg text-[9px] hidden group-hover:block z-50 shadow-2xl backdrop-blur-sm text-left">
+                                                                                                                        <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-52 bg-gray-900 border border-gray-700 text-white p-2.5 rounded-lg text-[9px] hidden group-hover:block z-50 shadow-2xl backdrop-blur-sm text-left">
                                                                                                                             <div className="text-white font-bold mb-1" style={{ color: '#ffffff' }}>
                                                                                                                                 Administered by: {admin.nurse?.name || 'Unknown'}
                                                                                                                             </div>
+                                                                                                                            <div className="text-gray-300 text-[8.5px]">
+                                                                                                                                Time: {new Date(admin.administeredAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                                                                                                                            </div>
                                                                                                                             {admin.remarks && (
-                                                                                                                                <div className="text-gray-300 break-words mt-1 border-t border-gray-700 pt-1">
-                                                                                                                                    Remarks: {admin.remarks}
+                                                                                                                                <div className="text-gray-200 break-words mt-1 border-t border-gray-700 pt-1 font-medium">
+                                                                                                                                    Comment: {admin.remarks}
                                                                                                                                 </div>
                                                                                                                             )}
                                                                                                                             <div className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-gray-900"></div>
                                                                                                                         </div>
                                                                                                                     ) : (
-                                                                                                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-gray-900 border border-gray-700 text-white p-2 rounded-lg text-[9px] hidden group-hover:block z-50 shadow-2xl backdrop-blur-sm text-left">
+                                                                                                                        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 bg-gray-900 border border-gray-700 text-white p-2.5 rounded-lg text-[9px] hidden group-hover:block z-50 shadow-2xl backdrop-blur-sm text-left">
                                                                                                                             <div className="text-white font-bold mb-1" style={{ color: '#ffffff' }}>
                                                                                                                                 Administered by: {admin.nurse?.name || 'Unknown'}
                                                                                                                             </div>
+                                                                                                                            <div className="text-gray-300 text-[8.5px]">
+                                                                                                                                Time: {new Date(admin.administeredAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                                                                                                                            </div>
                                                                                                                             {admin.remarks && (
-                                                                                                                                <div className="text-gray-300 break-words mt-1 border-t border-gray-700 pt-1">
-                                                                                                                                    Remarks: {admin.remarks}
+                                                                                                                                <div className="text-gray-200 break-words mt-1 border-t border-gray-700 pt-1 font-medium">
+                                                                                                                                    Comment: {admin.remarks}
                                                                                                                                 </div>
                                                                                                                             )}
                                                                                                                             <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
@@ -1339,29 +1547,65 @@ const NurseTriage = () => {
                                                                                                         </td>
                                                                                                     );
                                                                                                 })}
-                                                                                                <td className="p-2 text-center bg-green-50/20">
-                                                                                                    {!isReadOnly && (
-                                                                                                        <button
-                                                                                                            onClick={() => {
-                                                                                                                setAdminForm({
-                                                                                                                    ...adminForm,
-                                                                                                                    prescriptionId: p._id,
-                                                                                                                    medicineId: m._id || m.name,
-                                                                                                                    medicineName: m.name,
-                                                                                                                    dosage: m.dosage || '',
-                                                                                                                    date: new Date().toISOString().split('T')[0],
-                                                                                                                    time: new Date().toTimeString().slice(0, 5),
-                                                                                                                    remarks: ''
-                                                                                                                });
-                                                                                                                setShowDrugAdminModal(true);
-                                                                                                            }}
-                                                                                                            className="w-6 h-6 flex items-center justify-center mx-auto bg-green-600 text-white rounded-md hover:bg-green-700 transition hover:scale-110 shadow-sm"
-                                                                                                            title="Record Dose"
-                                                                                                        >
-                                                                                                            <FaPlus size={8} />
-                                                                                                        </button>
-                                                                                                    )}
-                                                                                                </td>
+                                                                                                {(() => {
+                                                                                                    const medAdminOnDate = dayHistory.filter(h => (h.medicineId && m._id && h.medicineId === m._id) || h.medicineName === m.name);
+                                                                                                    const isServedOnDate = medAdminOnDate.length > 0;
+                                                                                                    const isPastDate = dateTimestamp < today.getTime();
+
+                                                                                                    return (
+                                                                                                        <td className={`p-2 text-center ${m.isDiscontinued ? 'bg-red-50/40' : (isServedOnDate ? 'bg-gray-50/60' : 'bg-green-50/20')}`}>
+                                                                                                            {m.isDiscontinued ? (
+                                                                                                                <div className="flex flex-col items-center justify-center">
+                                                                                                                    <button
+                                                                                                                        disabled
+                                                                                                                        className="w-6 h-6 flex items-center justify-center mx-auto bg-red-200 text-red-700 rounded-md cursor-not-allowed shadow-sm border border-red-300"
+                                                                                                                        title="Medication stopped by doctor. Cannot administer."
+                                                                                                                    >
+                                                                                                                        <FaTimes size={10} />
+                                                                                                                    </button>
+                                                                                                                    <span className="text-[7px] font-black text-red-600 uppercase mt-0.5">STOPPED</span>
+                                                                                                                </div>
+                                                                                                            ) : (isServedOnDate || isPastDate) ? (
+                                                                                                                <div className="flex flex-col items-center justify-center">
+                                                                                                                    <button
+                                                                                                                        disabled
+                                                                                                                        className="w-6 h-6 flex items-center justify-center mx-auto bg-gray-200 text-gray-400 rounded-md cursor-not-allowed border border-gray-300 shadow-2xs"
+                                                                                                                        title={isServedOnDate ? "Medication already served for this date" : "Past date. Serving disabled."}
+                                                                                                                    >
+                                                                                                                        <FaCheck size={10} className="text-gray-500" />
+                                                                                                                    </button>
+                                                                                                                    <span className="text-[7px] font-bold text-gray-500 uppercase mt-0.5">
+                                                                                                                        {isServedOnDate ? 'SERVED' : 'PASSED'}
+                                                                                                                    </span>
+                                                                                                                </div>
+                                                                                                            ) : (
+                                                                                                                !isReadOnly && (
+                                                                                                                    <button
+                                                                                                                        onClick={() => {
+                                                                                                                            const d = new Date(dateTimestamp);
+                                                                                                                            const dateStr = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+                                                                                                                            setAdminForm({
+                                                                                                                                ...adminForm,
+                                                                                                                                prescriptionId: p._id,
+                                                                                                                                medicineId: m._id || m.name,
+                                                                                                                                medicineName: m.name,
+                                                                                                                                dosage: m.dosage || '',
+                                                                                                                                date: dateStr,
+                                                                                                                                time: new Date().toTimeString().slice(0, 5),
+                                                                                                                                remarks: ''
+                                                                                                                            });
+                                                                                                                            setShowDrugAdminModal(true);
+                                                                                                                        }}
+                                                                                                                        className="w-6 h-6 flex items-center justify-center mx-auto bg-green-600 text-white rounded-md hover:bg-green-700 transition hover:scale-110 shadow-sm"
+                                                                                                                        title="Record Dose / Serve Medication"
+                                                                                                                    >
+                                                                                                                        <FaPlus size={8} />
+                                                                                                                    </button>
+                                                                                                                )
+                                                                                                            )}
+                                                                                                        </td>
+                                                                                                    );
+                                                                                                })()}
                                                                                             </tr>
                                                                                         );
                                                                                     }));
@@ -1380,6 +1624,104 @@ const NurseTriage = () => {
                                             <FaClock className="text-blue-400" /> Compact observation chart. Prescribed and dispensed medications are displayed.
                                         </div>
                                     </div>
+                                </div>
+                            )}
+
+                            {/* Doctor Order Tasks for Nursing Action */}
+                            {selectedEncounter && (
+                                <div className="mb-6 bg-indigo-50/70 p-4 rounded-lg border border-indigo-200 shadow-sm">
+                                    <div className="flex justify-between items-center mb-3">
+                                        <h4 className="text-sm font-bold text-indigo-900 flex items-center gap-2">
+                                            <FaClipboardList className="text-indigo-600" /> Doctor Order Tasks & Instructions
+                                        </h4>
+                                        {selectedEncounter.orderTasks && selectedEncounter.orderTasks.length > 0 && (
+                                            <span className="text-xs font-semibold px-2.5 py-0.5 bg-indigo-200 text-indigo-800 rounded-full">
+                                                {selectedEncounter.orderTasks.filter(t => t.status === 'Pending').length} Pending
+                                            </span>
+                                        )}
+                                    </div>
+
+                                    {(!selectedEncounter.orderTasks || selectedEncounter.orderTasks.length === 0) ? (
+                                        <p className="text-xs text-gray-500 italic bg-white p-3 rounded border border-indigo-100">
+                                            No order tasks recorded by doctor for this encounter yet.
+                                        </p>
+                                    ) : (
+                                        <div className="space-y-3">
+                                            {selectedEncounter.orderTasks.map((task, idx) => {
+                                                const isCompleted = task.status === 'Completed';
+                                                return (
+                                                    <div key={task._id || idx} className={`p-3.5 rounded-lg border bg-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3 ${isCompleted ? 'border-green-300 bg-green-50/30' : 'border-indigo-200'}`}>
+                                                        <div className="space-y-1.5 flex-1">
+                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                <span className={`text-xs font-bold px-2.5 py-0.5 rounded ${isCompleted ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-amber-100 text-amber-800 border border-amber-300'}`}>
+                                                                    {task.orderType}
+                                                                </span>
+                                                                {task.orderType === 'Others' && task.customOrderTask && (
+                                                                    <span className="text-xs font-bold text-gray-800 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
+                                                                        Task: {task.customOrderTask}
+                                                                    </span>
+                                                                )}
+                                                                {task.expectedDischargeDate && (
+                                                                    <span className="text-xs font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                                                        Expected Discharge: {new Date(task.expectedDischargeDate).toLocaleDateString()}
+                                                                    </span>
+                                                                )}
+                                                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${isCompleted ? 'bg-green-600 text-white' : 'bg-amber-500 text-white'}`}>
+                                                                    {task.status || 'Pending'}
+                                                                </span>
+                                                            </div>
+
+                                                            <p className="text-xs text-gray-800 font-medium whitespace-pre-line bg-gray-50 p-2.5 rounded border border-gray-200 mt-1">
+                                                                {task.instructions}
+                                                            </p>
+
+                                                            <div className="flex items-center gap-3 text-[11px] text-gray-500 pt-1 flex-wrap">
+                                                                <span>Doctor: <strong className="text-gray-700">{task.doctorName || task.doctor?.name || 'Doctor'}</strong></span>
+                                                                <span>Ordered: {new Date(task.createdAt).toLocaleString()}</span>
+                                                                {task.expectedDischargeDate && (
+                                                                    <span className="text-blue-700 font-bold bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                                                        • Exp. Discharge: {new Date(task.expectedDischargeDate).toLocaleDateString()}
+                                                                    </span>
+                                                                )}
+                                                                {task.updatedByName && (
+                                                                    <span className="text-amber-800 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                                                        • Modified by Dr. <strong>{task.updatedByName.replace(/^Dr\.\s*/i, '')}</strong> at {new Date(task.updatedAt).toLocaleString()}
+                                                                    </span>
+                                                                )}
+                                                                {isCompleted && (
+                                                                    <span className="text-green-700 font-medium bg-green-100/80 px-2 py-0.5 rounded border border-green-200">
+                                                                        • Completed by Nurse <strong>{task.completedByName || task.completedBy?.name || 'Nurse'}</strong> at {new Date(task.completedAt).toLocaleString()}
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+
+                                                        {user && ['nurse', 'matron'].includes(user.role) && (
+                                                            <div className="flex items-center gap-2 self-start md:self-center">
+                                                                {!isCompleted ? (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleUpdateOrderTaskStatus(task._id, 'Completed')}
+                                                                        className="px-3.5 py-2 text-xs bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition flex items-center gap-1.5 shadow-sm active:scale-95"
+                                                                    >
+                                                                        <FaCheckCircle /> Mark as Completed
+                                                                    </button>
+                                                                ) : (
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => handleUpdateOrderTaskStatus(task._id, 'Pending')}
+                                                                        className="px-2.5 py-1 text-[11px] bg-gray-200 text-gray-700 font-semibold rounded hover:bg-gray-300 transition"
+                                                                    >
+                                                                        Re-open Task
+                                                                    </button>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
@@ -1525,6 +1867,14 @@ const NurseTriage = () => {
                                                 >
                                                     <FaHistory /> View Clinical History
                                                 </button>
+                                                {(selectedEncounter.type === 'ANC Visit' || selectedEncounter.encounterType === 'ANC Visit') && (
+                                                    <button
+                                                        onClick={() => setShowAncModal(true)}
+                                                        className="bg-pink-600 text-white px-4 py-2 rounded hover:bg-pink-700 flex items-center gap-2 text-sm shadow-sm transition-all font-semibold"
+                                                    >
+                                                        🤰 Add ANC Note
+                                                    </button>
+                                                )}
                                                 <button
                                                     onClick={() => setShowChargesModal(true)}
                                                     className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 flex items-center gap-2 text-sm"
@@ -1706,6 +2056,65 @@ const NurseTriage = () => {
                                                 ))}
                                             </tbody>
                                         </table>
+                                    </div>
+                                </div>
+                            )}
+                            {/* Recorded ANC Notes List in Nurse Triage */}
+                            {selectedEncounter.clinicalNotes && selectedEncounter.clinicalNotes.length > 0 && (
+                                <div className="mb-6 border rounded-xl p-4 bg-pink-50 border-pink-200 shadow-sm">
+                                    <h4 className="font-bold text-pink-800 mb-3 flex items-center gap-2 text-base">
+                                        <span>🤰</span> Recorded ANC Notes
+                                    </h4>
+                                    <div className="space-y-3">
+                                        {selectedEncounter.clinicalNotes.map((note, idx) => (
+                                            <div key={note._id || idx} className="bg-white p-4 rounded-lg border border-pink-200 shadow-sm space-y-2">
+                                                <div className="flex justify-between items-center text-xs border-b pb-2">
+                                                    <span className="font-bold text-pink-700 text-sm flex items-center gap-1.5">
+                                                        <span>🤰</span> {note.noteType === 'anc' ? 'ANC Note' : 'Clinical Note'} #{idx + 1}
+                                                        {note.ancVisitNumber ? <span className="bg-pink-100 px-2 py-0.5 rounded text-pink-800 text-xs font-semibold">{note.ancVisitNumber} Visit</span> : ''}
+                                                    </span>
+                                                    <span className="text-gray-500">
+                                                        Recorded by <strong className="text-gray-700">{typeof note.doctor === 'object' ? note.doctor?.name : 'Staff'}</strong> on {note.createdAt ? new Date(note.createdAt).toLocaleString() : 'N/A'}
+                                                    </span>
+                                                </div>
+
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+                                                    {note.lmp && <div className="bg-pink-50 p-2 rounded border border-pink-100"><p className="text-gray-500 font-semibold text-[10px]">LMP</p><p className="font-bold text-gray-800">{note.lmp}</p></div>}
+                                                    {note.edd && <div className="bg-pink-50 p-2 rounded border border-pink-100"><p className="text-gray-500 font-semibold text-[10px]">EDD</p><p className="font-bold text-gray-800">{note.edd}</p></div>}
+                                                    {note.gestation && <div className="bg-pink-50 p-2 rounded border border-pink-100"><p className="text-gray-500 font-semibold text-[10px]">Gestation</p><p className="font-bold text-gray-800">{note.gestation}</p></div>}
+                                                    {note.gravida && <div className="bg-pink-50 p-2 rounded border border-pink-100"><p className="text-gray-500 font-semibold text-[10px]">Gravida / Para</p><p className="font-bold text-gray-800">{note.gravida} {note.para || ''}</p></div>}
+                                                    {note.fundalHeight && <div className="bg-green-50 p-2 rounded border border-green-100"><p className="text-green-700 font-semibold text-[10px]">Fundal Height</p><p className="font-bold text-gray-800">{note.fundalHeight}</p></div>}
+                                                    {note.fetalHeartRate && <div className="bg-green-50 p-2 rounded border border-green-100"><p className="text-green-700 font-semibold text-[10px]">Fetal Heart Rate</p><p className="font-bold text-gray-800">{note.fetalHeartRate} bpm</p></div>}
+                                                    {note.maternalBP && <div className="bg-blue-50 p-2 rounded border border-blue-100"><p className="text-blue-700 font-semibold text-[10px]">Blood Pressure</p><p className="font-bold text-gray-800">{note.maternalBP}</p></div>}
+                                                    {note.maternalWeight && <div className="bg-blue-50 p-2 rounded border border-blue-100"><p className="text-blue-700 font-semibold text-[10px]">Weight</p><p className="font-bold text-gray-800">{note.maternalWeight} kg</p></div>}
+                                                </div>
+
+                                                {note.ancComplaints && (
+                                                    <div className="text-xs text-gray-800 bg-gray-50 p-2 rounded border-l-4 border-pink-400">
+                                                        <span className="font-bold text-gray-600 block text-[10px]">Chief Complaints:</span>
+                                                        <p className="whitespace-pre-wrap mt-0.5">{note.ancComplaints}</p>
+                                                    </div>
+                                                )}
+                                                {note.ancRiskFactors && (
+                                                    <div className="text-xs text-red-800 bg-red-50 p-2 rounded border-l-4 border-red-400">
+                                                        <span className="font-bold text-red-700 block text-[10px]">⚠️ Risk Factors:</span>
+                                                        <p className="whitespace-pre-wrap mt-0.5">{note.ancRiskFactors}</p>
+                                                    </div>
+                                                )}
+                                                {note.assessment && (
+                                                    <div className="text-xs text-gray-800 bg-yellow-50 p-2 rounded border-l-4 border-yellow-400">
+                                                        <span className="font-bold text-yellow-800 block text-[10px]">Assessment / Observations:</span>
+                                                        <p className="whitespace-pre-wrap mt-0.5">{note.assessment}</p>
+                                                    </div>
+                                                )}
+                                                {note.plan && (
+                                                    <div className="text-xs text-gray-800 bg-yellow-50 p-2 rounded border-l-4 border-orange-400">
+                                                        <span className="font-bold text-orange-800 block text-[10px]">Plan:</span>
+                                                        <p className="whitespace-pre-wrap mt-0.5">{note.plan}</p>
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ))}
                                     </div>
                                 </div>
                             )}
@@ -2280,6 +2689,267 @@ const NurseTriage = () => {
                                 className="px-5 py-2 bg-green-600 text-white rounded font-bold hover:bg-green-700 shadow-md flex items-center gap-2 transition"
                             >
                                 <FaPlus /> Save Record
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+            {/* ANC Note Modal for Nurse Triage */}
+            {showAncModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto shadow-2xl">
+                        <div className="flex justify-between items-center mb-4 border-b pb-3">
+                            <h3 className="text-xl font-bold flex items-center gap-2 text-pink-700">
+                                <span>🤰</span> Add ANC Note (Nurse Triage)
+                            </h3>
+                            <button onClick={() => setShowAncModal(false)} className="text-gray-400 hover:text-gray-600 text-2xl font-bold">&times;</button>
+                        </div>
+                        <div className="space-y-5">
+                            {/* Banner */}
+                            <div className="bg-pink-50 border border-pink-200 rounded-lg p-3 flex items-center gap-2 text-sm text-pink-800">
+                                <span className="text-lg">🤰</span>
+                                <span><strong>Antenatal Care Triage Note</strong> — Record initial booking history, vitals, and obstetric findings</span>
+                            </div>
+
+                            {/* Section 1: Booking / Obstetric History */}
+                            <div className="bg-gray-50 rounded-lg p-4 border">
+                                <h4 className="font-bold text-gray-700 mb-3 text-sm uppercase tracking-wide">📋 A. Booking / Obstetric History</h4>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1">Visit Number</label>
+                                        <input
+                                            className="w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-pink-400"
+                                            placeholder="e.g. 1st, 2nd"
+                                            value={ancNote.ancVisitNumber}
+                                            onChange={e => setAncNote({ ...ancNote, ancVisitNumber: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1">Gravida (G)</label>
+                                        <input
+                                            className="w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-pink-400"
+                                            placeholder="e.g. G3"
+                                            value={ancNote.gravida}
+                                            onChange={e => setAncNote({ ...ancNote, gravida: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1">Para (P)</label>
+                                        <input
+                                            className="w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-pink-400"
+                                            placeholder="e.g. P2+0"
+                                            value={ancNote.para}
+                                            onChange={e => setAncNote({ ...ancNote, para: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1">LMP (Last Menstrual Period)</label>
+                                        <input
+                                            type="date"
+                                            className="w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-pink-400"
+                                            value={ancNote.lmp}
+                                            onChange={e => {
+                                                const val = e.target.value;
+                                                let updated = { ...ancNote, lmp: val };
+                                                if (val) {
+                                                    const lmpObj = new Date(val);
+                                                    if (!isNaN(lmpObj.getTime())) {
+                                                        const eddObj = new Date(lmpObj.getTime() + 280 * 24 * 60 * 60 * 1000);
+                                                        updated.edd = eddObj.toISOString().split('T')[0];
+                                                        const today = new Date();
+                                                        const diffTime = today - lmpObj;
+                                                        if (diffTime >= 0) {
+                                                            const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                                                            const weeks = Math.floor(diffDays / 7);
+                                                            const days = diffDays % 7;
+                                                            updated.gestation = `${weeks}+${days} weeks`;
+                                                        }
+                                                    }
+                                                }
+                                                setAncNote(updated);
+                                            }}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1">EDD (Expected Delivery Date)</label>
+                                        <input
+                                            type="date"
+                                            className="w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-pink-400"
+                                            value={ancNote.edd}
+                                            onChange={e => setAncNote({ ...ancNote, edd: e.target.value })}
+                                        />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1">Gestational Age</label>
+                                        <input
+                                            className="w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-pink-400"
+                                            placeholder="e.g. 28+2 weeks"
+                                            value={ancNote.gestation}
+                                            onChange={e => setAncNote({ ...ancNote, gestation: e.target.value })}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1">Chief Complaints This Visit</label>
+                                        <textarea className="w-full border rounded px-2 py-1.5 text-sm" rows="2" placeholder="e.g. leg swelling, abdominal pain..." value={ancNote.ancComplaints} onChange={e => setAncNote({ ...ancNote, ancComplaints: e.target.value })} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1">Risk Factors Identified</label>
+                                        <textarea className="w-full border rounded px-2 py-1.5 text-sm" rows="2" placeholder="e.g. elderly gravida, pre-eclampsia..." value={ancNote.ancRiskFactors} onChange={e => setAncNote({ ...ancNote, ancRiskFactors: e.target.value })} />
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Section 2: Maternal Vitals */}
+                            <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+                                <h4 className="font-bold text-blue-700 mb-3 text-sm uppercase tracking-wide">💊 B. Maternal Vitals & Investigations</h4>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                    {[
+                                        { label: 'Weight (kg)', key: 'maternalWeight', placeholder: 'e.g. 68' },
+                                        { label: 'Blood Pressure', key: 'maternalBP', placeholder: 'e.g. 120/80 mmHg' },
+                                        { label: 'Pulse (bpm)', key: 'maternalPulse', placeholder: 'e.g. 84' },
+                                        { label: 'Temperature (°C)', key: 'maternalTemp', placeholder: 'e.g. 36.8' },
+                                        { label: 'Haemoglobin (g/dL)', key: 'maternalHb', placeholder: 'e.g. 11.2' },
+                                        { label: 'Urinalysis', key: 'urinalysis', placeholder: 'Protein/Sugar/Ketones' },
+                                    ].map(({ label, key, placeholder }) => (
+                                        <div key={key}>
+                                            <label className="block text-xs font-semibold text-gray-600 mb-1">{label}</label>
+                                            <input className="w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400" placeholder={placeholder} value={ancNote[key]} onChange={e => setAncNote({ ...ancNote, [key]: e.target.value })} />
+                                        </div>
+                                    ))}
+                                </div>
+                                <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                                    {[
+                                        { label: 'Malaria Prophylaxis (SP)', key: 'malariaProphylaxis', placeholder: 'Dose no. & date given' },
+                                        { label: 'Tetanus Toxoid', key: 'tetanusToxoid', placeholder: 'TT1/TT2 & date' },
+                                        { label: 'Iron/Folic Acid', key: 'ironFolate', placeholder: 'Tabs dispensed & adherence' },
+                                        { label: 'HIV Status / PMTCT', key: 'hivStatus', placeholder: 'Positive/Negative/On ARV' },
+                                        { label: 'Syphilis (RPR/TPHA)', key: 'syphilisStatus', placeholder: 'Reactive/Non-reactive' },
+                                        { label: 'Blood Group / Genotype', key: 'bloodGroupGenotype', placeholder: 'e.g. A+ / AA' },
+                                    ].map(({ label, key, placeholder }) => (
+                                        <div key={key}>
+                                            <label className="block text-xs font-semibold text-gray-600 mb-1">{label}</label>
+                                            <input className="w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400" placeholder={placeholder} value={ancNote[key]} onChange={e => setAncNote({ ...ancNote, [key]: e.target.value })} />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Section 3: Obstetric Examination */}
+                            <div className="bg-green-50 rounded-lg p-4 border border-green-100">
+                                <h4 className="font-bold text-green-700 mb-3 text-sm uppercase tracking-wide">🩺 C. Obstetric Examination (Abdominal)</h4>
+                                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                    {[
+                                        { label: 'Fundal Height (cm)', key: 'fundalHeight', placeholder: 'e.g. 28 cm' },
+                                        { label: 'Fetal Lie', key: 'fetalLie', placeholder: 'Longitudinal/Transverse' },
+                                        { label: 'Presentation', key: 'fetalPresentation', placeholder: 'Cephalic/Breech' },
+                                        { label: 'Position', key: 'fetalPosition', placeholder: 'e.g. LOA, ROA, ROP' },
+                                        { label: 'Fetal Heart Rate (bpm)', key: 'fetalHeartRate', placeholder: 'e.g. 142' },
+                                        { label: 'Engagement', key: 'engagement', placeholder: 'Engaged / 2/5 palpable' },
+                                        { label: 'Liquor', key: 'liquor', placeholder: 'Adequate/Reduced' },
+                                        { label: 'Uterine Contractions', key: 'uterineContractions', placeholder: 'None/Mild/Mod/Strong' },
+                                        { label: 'AFI (USS)', key: 'amnioticFluidIndex', placeholder: 'Amniotic fluid index' },
+                                        { label: 'Placental Location (USS)', key: 'placentalLocation', placeholder: 'Fundal/Anterior/etc.' },
+                                    ].map(({ label, key, placeholder }) => (
+                                        <div key={key}>
+                                            <label className="block text-xs font-semibold text-gray-600 mb-1">{label}</label>
+                                            <input className="w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-400" placeholder={placeholder} value={ancNote[key]} onChange={e => setAncNote({ ...ancNote, [key]: e.target.value })} />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Section 4: Assessment & Plan */}
+                            <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-100">
+                                <h4 className="font-bold text-yellow-700 mb-3 text-sm uppercase tracking-wide">📝 D. Nurse Assessment, Plan & Counselling</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1">Nurse Assessment / Observations</label>
+                                        <textarea className="w-full border rounded px-2 py-1.5 text-sm" rows="3" placeholder="Observations and nursing findings..." value={ancNote.assessment} onChange={e => setAncNote({ ...ancNote, assessment: e.target.value })} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1">Nursing Plan</label>
+                                        <textarea className="w-full border rounded px-2 py-1.5 text-sm" rows="3" placeholder="Nursing interventions, instructions..." value={ancNote.plan} onChange={e => setAncNote({ ...ancNote, plan: e.target.value })} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1">Counselling Given</label>
+                                        <textarea className="w-full border rounded px-2 py-1.5 text-sm" rows="2" placeholder="Nutrition, danger signs, birth preparedness..." value={ancNote.ancCounselling} onChange={e => setAncNote({ ...ancNote, ancCounselling: e.target.value })} />
+                                    </div>
+                                    <div>
+                                        <label className="block text-xs font-semibold text-gray-600 mb-1">Referral (if applicable)</label>
+                                        <textarea className="w-full border rounded px-2 py-1.5 text-sm" rows="2" placeholder="Referred to..." value={ancNote.ancReferral} onChange={e => setAncNote({ ...ancNote, ancReferral: e.target.value })} />
+                                    </div>
+                                </div>
+                                <div className="mt-3">
+                                    <label className="block text-xs font-semibold text-gray-600 mb-1">Next ANC Appointment Date</label>
+                                    <input className="border rounded px-2 py-1.5 text-sm w-48 focus:outline-none focus:ring-1 focus:ring-yellow-400" type="date" value={ancNote.nextAppointment} onChange={e => setAncNote({ ...ancNote, nextAppointment: e.target.value })} />
+                                </div>
+                            </div>
+
+                            {/* ANC Save Buttons */}
+                            <div className="flex gap-2 pt-2 border-t">
+                                <button
+                                    onClick={handleSaveAncNote}
+                                    className="px-6 py-2 rounded font-semibold transition-colors bg-pink-600 text-white hover:bg-pink-700 shadow-md flex items-center gap-2"
+                                >
+                                    <span>🤰</span> Save ANC Note
+                                </button>
+                                <button onClick={() => setShowAncModal(false)} className="bg-gray-400 text-white px-6 py-2 rounded hover:bg-gray-500">
+                                    Cancel
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Stop Drug Reason Modal */}
+            {showStopDrugModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] p-4 animate-fade-in">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden border-t-4 border-red-600">
+                        <div className="bg-red-50 p-4 border-b border-red-100 flex justify-between items-center">
+                            <h3 className="font-bold text-lg text-red-800 flex items-center gap-2">
+                                🛑 Reason for Stopping Medication
+                            </h3>
+                            <button
+                                onClick={() => { setShowStopDrugModal(false); setStopDrugTarget(null); setStopDrugReason(''); }}
+                                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+                            >
+                                &times;
+                            </button>
+                        </div>
+                        <div className="p-5 space-y-4">
+                            <div className="bg-gray-50 border p-3 rounded-lg">
+                                <p className="text-xs text-gray-500 font-semibold uppercase">Target Medication</p>
+                                <p className="font-bold text-gray-800 text-base">{stopDrugTarget?.medName}</p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">
+                                    Discontinue Reason <span className="text-red-500">*</span>
+                                </label>
+                                <textarea
+                                    className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-red-400 outline-none text-sm"
+                                    rows="3"
+                                    placeholder="e.g. Patient experienced allergic rash, Adverse reaction, Treatment complete, etc."
+                                    value={stopDrugReason}
+                                    onChange={(e) => setStopDrugReason(e.target.value)}
+                                    autoFocus
+                                ></textarea>
+                            </div>
+                        </div>
+                        <div className="bg-gray-50 p-4 border-t flex justify-end gap-3">
+                            <button
+                                onClick={() => { setShowStopDrugModal(false); setStopDrugTarget(null); setStopDrugReason(''); }}
+                                className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-lg font-semibold text-sm transition"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleConfirmStopDrug}
+                                className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-sm shadow transition flex items-center gap-2"
+                            >
+                                🛑 Confirm & Stop Medication
                             </button>
                         </div>
                     </div>

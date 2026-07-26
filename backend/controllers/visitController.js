@@ -166,10 +166,10 @@ const createVisit = async (req, res) => {
         admissionDate: type === 'Inpatient' ? new Date() : undefined,
         ward: type === 'Inpatient' ? ward : undefined,
         bed: type === 'Inpatient' ? bed : undefined,
-        paymentValidated: ['External Investigation', 'External Pharmacy', 'External Lab/Radiology'].includes(type) || !!waiveConsultationFee,
+        paymentValidated: ['External Investigation', 'External Pharmacy', 'External Lab/Radiology'].includes(type) || !!waiveConsultationFee || type === 'ANC Visit',
         encounterStatus: ['External Investigation', 'External Pharmacy', 'External Lab/Radiology'].includes(type) 
             ? 'awaiting_services' 
-            : (type === 'Inpatient' ? 'admitted' : (req.body.encounterStatus || (waiveConsultationFee ? 'in_nursing' : 'registered'))),
+            : (type === 'Inpatient' ? 'admitted' : (type === 'ANC Visit' ? 'in_nursing' : (req.body.encounterStatus || (waiveConsultationFee ? 'in_nursing' : 'registered')))),
         status: type === 'Inpatient' ? 'Admitted' : 'In Progress',
         reasonForVisit,
         isANC: !!isANC,
@@ -234,6 +234,11 @@ const getVisits = async (req, res) => {
         }
     }
 
+    if (req.query.excludeInpatient === 'true') {
+        query.type = { $ne: 'Inpatient' };
+        query.encounterType = { $ne: 'Inpatient' };
+    }
+
     // Filter for doctors based on speciality or doctor restrictions
     if (req.user && req.user.role === 'doctor') {
         const doctorClinicId = req.user.assignedSpecialityClinic?._id || req.user.assignedSpecialityClinic;
@@ -269,16 +274,21 @@ const getVisits = async (req, res) => {
         };
 
         query.$and = query.$and || [];
-        // Admitted inpatients can be accessed by all doctors of any speciality.
-        // Therefore, restrictions ONLY apply if the encounter is NOT Inpatient.
-        query.$and.push({
-            $or: [
-                { type: 'Inpatient' },
-                {
-                    $and: [specialityFilter, specificDoctorFilter]
-                }
-            ]
-        });
+        if (req.query.excludeInpatient === 'true') {
+            query.$and.push(specialityFilter);
+            query.$and.push(specificDoctorFilter);
+        } else {
+            // Admitted inpatients can be accessed by all doctors of any speciality.
+            // Therefore, restrictions ONLY apply if the encounter is NOT Inpatient.
+            query.$and.push({
+                $or: [
+                    { type: 'Inpatient' },
+                    {
+                        $and: [specialityFilter, specificDoctorFilter]
+                    }
+                ]
+            });
+        }
     }
 
     const visits = await Visit.find(query)
@@ -286,6 +296,8 @@ const getVisits = async (req, res) => {
         .populate('doctor', 'name')
         .populate('consultingPhysician', 'name')
         .populate('clinicalNotes.doctor', 'name role')
+        .populate('orderTasks.doctor', 'name role')
+        .populate('orderTasks.completedBy', 'name role')
         .populate('clinic', 'name department')
         .populate('ward', 'name dailyRate')
         .populate('waivedBy', 'name')
@@ -475,6 +487,8 @@ const getVisitById = async (req, res) => {
         .populate('doctor', 'name')
         .populate('consultingPhysician', 'name')
         .populate('clinicalNotes.doctor', 'name role')
+        .populate('orderTasks.doctor', 'name role')
+        .populate('orderTasks.completedBy', 'name role')
         .populate('clinic', 'name department')
         .populate('ward', 'name dailyRate')
         .populate('waivedBy', 'name')
@@ -1126,7 +1140,17 @@ const saveClinicalNote = async (req, res) => {
             functionalCognitiveStatus, menstruationGynecologicalObstetricsHistory,
             pregnancyHistory, immunization, nutritional, developmentalMilestones,
             generalAppearance, heent, neck, cvs, resp, abd, neuro, msk, skin,
-            assessment, plan, diagnosis
+            assessment, plan, diagnosis,
+            // ANC-specific fields
+            noteType,
+            ancVisitNumber, edd, gestation, gravida, para, lmp,
+            fundalHeight, fetalLie, fetalPresentation, fetalPosition,
+            fetalHeartRate, engagement, liquor, uterineContractions,
+            amnioticFluidIndex, placentalLocation,
+            maternalWeight, maternalBP, maternalPulse, maternalTemp, maternalHb,
+            urinalysis, malariaProphylaxis, tetanusToxoid, ironFolate,
+            hivStatus, syphilisStatus, bloodGroupGenotype,
+            ancComplaints, ancRiskFactors, ancCounselling, ancReferral, nextAppointment
         } = req.body;
 
         const noteData = {
@@ -1137,6 +1161,16 @@ const saveClinicalNote = async (req, res) => {
             generalAppearance, heent, neck, cvs, resp, abd, neuro, msk, skin,
             assessment, plan,
             diagnosis: diagnosis || [],
+            // ANC-specific fields
+            noteType: noteType || 'standard',
+            ancVisitNumber, edd, gestation, gravida, para, lmp,
+            fundalHeight, fetalLie, fetalPresentation, fetalPosition,
+            fetalHeartRate, engagement, liquor, uterineContractions,
+            amnioticFluidIndex, placentalLocation,
+            maternalWeight, maternalBP, maternalPulse, maternalTemp, maternalHb,
+            urinalysis, malariaProphylaxis, tetanusToxoid, ironFolate,
+            hivStatus, syphilisStatus, bloodGroupGenotype,
+            ancComplaints, ancRiskFactors, ancCounselling, ancReferral, nextAppointment,
             updatedAt: new Date()
         };
 
@@ -1340,6 +1374,161 @@ const savePostoperativeHandoverChecklist = async (req, res) => {
     }
 };
 
+// @desc    Add an order task to a visit (e.g. Admission order, Discharge order, Others)
+// @route   POST /api/visits/:id/order-tasks
+// @access  Private (Doctor/User)
+const saveOrderTask = async (req, res) => {
+    try {
+        const visit = await Visit.findById(req.params.id);
+        if (!visit) return res.status(404).json({ message: 'Visit not found' });
+
+        const { orderType, customOrderTask, expectedDischargeDate, instructions } = req.body;
+        if (!orderType || !instructions) {
+            return res.status(400).json({ message: 'Order type and instructions are required' });
+        }
+        if (orderType === 'Others' && (!customOrderTask || !customOrderTask.trim())) {
+            return res.status(400).json({ message: 'Order task title is required when Others is selected' });
+        }
+
+        const isAdmissionOrder = (orderType || '').toLowerCase().includes('admission');
+        if (isAdmissionOrder && !expectedDischargeDate) {
+            return res.status(400).json({ message: 'Expected date of discharge is required for Admission order' });
+        }
+
+        const newTask = {
+            orderType,
+            customOrderTask: orderType === 'Others' ? customOrderTask.trim() : '',
+            expectedDischargeDate: expectedDischargeDate ? new Date(expectedDischargeDate) : undefined,
+            instructions: instructions.trim(),
+            doctor: req.user._id,
+            doctorName: req.user.name,
+            status: 'Pending',
+            createdAt: new Date()
+        };
+
+        if (!visit.orderTasks) {
+            visit.orderTasks = [];
+        }
+
+        visit.orderTasks.push(newTask);
+        await visit.save();
+
+        const updatedVisit = await Visit.findById(visit._id)
+            .populate('patient', 'name mrn age gender contact')
+            .populate('doctor', 'name')
+            .populate('consultingPhysician', 'name')
+            .populate('clinicalNotes.doctor', 'name role')
+            .populate('orderTasks.doctor', 'name role')
+            .populate('orderTasks.completedBy', 'name role');
+
+        res.status(201).json(formatVisitWithClinicalNotes(updatedVisit));
+    } catch (error) {
+        console.error('saveOrderTask error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Update order task status (e.g. Mark as Completed by Nurse)
+// @route   PUT /api/visits/:id/order-tasks/:taskId/status
+// @access  Private (Nurse/Doctor/User)
+const updateOrderTaskStatus = async (req, res) => {
+    try {
+        const visit = await Visit.findById(req.params.id);
+        if (!visit) return res.status(404).json({ message: 'Visit not found' });
+
+        const { taskId } = req.params;
+        const { status } = req.body;
+
+        if (!visit.orderTasks) {
+            return res.status(404).json({ message: 'No order tasks found for this visit' });
+        }
+
+        const task = visit.orderTasks.id(taskId) || visit.orderTasks.find(t => t._id.toString() === taskId);
+        if (!task) {
+            return res.status(404).json({ message: 'Order task not found' });
+        }
+
+        task.status = status || 'Completed';
+        if (task.status === 'Completed') {
+            task.completedBy = req.user._id;
+            task.completedByName = req.user.name;
+            task.completedAt = new Date();
+        } else if (task.status === 'Pending') {
+            task.completedBy = null;
+            task.completedByName = '';
+            task.completedAt = null;
+        }
+
+        await visit.save();
+
+        const updatedVisit = await Visit.findById(visit._id)
+            .populate('patient', 'name mrn age gender contact')
+            .populate('doctor', 'name')
+            .populate('consultingPhysician', 'name')
+            .populate('clinicalNotes.doctor', 'name role')
+            .populate('orderTasks.doctor', 'name role')
+            .populate('orderTasks.completedBy', 'name role');
+
+        res.json(formatVisitWithClinicalNotes(updatedVisit));
+    } catch (error) {
+        console.error('updateOrderTaskStatus error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
+// @desc    Update an order task content/instructions (Doctor edit)
+// @route   PUT /api/visits/:id/order-tasks/:taskId
+// @access  Private (Doctor/User)
+const updateOrderTask = async (req, res) => {
+    try {
+        const visit = await Visit.findById(req.params.id);
+        if (!visit) return res.status(404).json({ message: 'Visit not found' });
+
+        const { taskId } = req.params;
+        const { orderType, customOrderTask, expectedDischargeDate, instructions } = req.body;
+
+        if (!visit.orderTasks) {
+            return res.status(404).json({ message: 'No order tasks found for this visit' });
+        }
+
+        const task = visit.orderTasks.id(taskId) || visit.orderTasks.find(t => t._id.toString() === taskId);
+        if (!task) {
+            return res.status(404).json({ message: 'Order task not found' });
+        }
+
+        if (orderType) task.orderType = orderType;
+        task.customOrderTask = orderType === 'Others' ? (customOrderTask || '').trim() : '';
+
+        const isAdmissionOrder = (orderType || task.orderType || '').toLowerCase().includes('admission');
+        if (isAdmissionOrder && expectedDischargeDate) {
+            task.expectedDischargeDate = new Date(expectedDischargeDate);
+        } else if (!isAdmissionOrder) {
+            task.expectedDischargeDate = undefined;
+        }
+
+        if (instructions) task.instructions = instructions.trim();
+
+        task.updatedBy = req.user._id;
+        task.updatedByName = req.user.name;
+        task.updatedAt = new Date();
+
+        await visit.save();
+
+        const updatedVisit = await Visit.findById(visit._id)
+            .populate('patient', 'name mrn age gender contact')
+            .populate('doctor', 'name')
+            .populate('consultingPhysician', 'name')
+            .populate('clinicalNotes.doctor', 'name role')
+            .populate('orderTasks.doctor', 'name role')
+            .populate('orderTasks.completedBy', 'name role');
+
+        res.json(formatVisitWithClinicalNotes(updatedVisit));
+    } catch (error) {
+        console.error('updateOrderTask error:', error);
+        res.status(500).json({ message: error.message });
+    }
+};
+
 module.exports = {
     createVisit,
     getVisits,
@@ -1354,10 +1543,10 @@ module.exports = {
     saveChecklist,
     savePreAnaesthesiaChecklist,
     savePostoperativeHandoverChecklist,
+    saveClinicalNote,
     convertToInpatient,
     changeEncounterType,
-    saveClinicalNote
+    saveOrderTask,
+    updateOrderTaskStatus,
+    updateOrderTask
 };
-
-
-

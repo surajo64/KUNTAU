@@ -9,7 +9,7 @@ import { checkRange, getRangeColorClass } from '../utils/labUtils';
 import Layout from '../components/Layout';
 import LoadingOverlay from '../components/loadingOverlay';
 import AppointmentModal from '../components/AppointmentModal';
-import { FaTimes, FaFileMedical, FaPills, FaChevronDown, FaChevronUp, FaHeartbeat, FaNotesMedical, FaProcedures, FaXRay, FaVial, FaUserMd, FaCalendarPlus, FaPlus, FaTrash, FaEdit, FaSearch, FaClock, FaChevronRight, FaFileAlt, FaCheckCircle, FaInfoCircle, FaDollarSign, FaPrint, FaUpload, FaEye, FaDownload, FaStethoscope } from 'react-icons/fa';
+import { FaTimes, FaFileMedical, FaPills, FaChevronDown, FaChevronUp, FaHeartbeat, FaNotesMedical, FaProcedures, FaXRay, FaVial, FaUserMd, FaCalendarPlus, FaPlus, FaTrash, FaEdit, FaSearch, FaClock, FaChevronRight, FaFileAlt, FaCheckCircle, FaInfoCircle, FaDollarSign, FaPrint, FaUpload, FaEye, FaDownload, FaStethoscope, FaClipboardList, FaCheck, FaCommentAlt } from 'react-icons/fa';
 import icd11Data from '../data/icd11.json';
 import useHospitalSettings from '../hooks/useHospitalSettings';
 
@@ -343,6 +343,52 @@ const PatientDetails = () => {
         diagnosis: [] // Array of {code, description}
     });
 
+    // ANC Note - Nigerian Antenatal Care Documentation
+    const blankAncNote = {
+        noteType: 'anc',
+        ancVisitNumber: '',
+        gravida: '',
+        para: '',
+        lmp: '',
+        edd: '',
+        gestation: '',
+        ancComplaints: '',
+        ancRiskFactors: '',
+        // Maternal Vitals
+        maternalWeight: '',
+        maternalBP: '',
+        maternalPulse: '',
+        maternalTemp: '',
+        maternalHb: '',
+        urinalysis: '',
+        // Obstetric Examination
+        fundalHeight: '',
+        fetalLie: '',
+        fetalPresentation: '',
+        fetalPosition: '',
+        fetalHeartRate: '',
+        engagement: '',
+        liquor: '',
+        uterineContractions: '',
+        amnioticFluidIndex: '',
+        placentalLocation: '',
+        // Investigations & Prophylaxis
+        malariaProphylaxis: '',
+        tetanusToxoid: '',
+        ironFolate: '',
+        hivStatus: '',
+        syphilisStatus: '',
+        bloodGroupGenotype: '',
+        // Plan
+        assessment: '',
+        plan: '',
+        ancCounselling: '',
+        ancReferral: '',
+        nextAppointment: '',
+        diagnosis: []
+    };
+    const [ancNote, setAncNote] = useState(blankAncNote);
+
     const [diagSearchTerm, setDiagSearchTerm] = useState('');
     const [showDiagDropdown, setShowDiagDropdown] = useState(false);
     const [showSoapModal, setShowSoapModal] = useState(false);
@@ -371,11 +417,13 @@ const PatientDetails = () => {
     const [showRadDropdown, setShowRadDropdown] = useState(false);
     const [selectedDrug, setSelectedDrug] = useState('');
     const [drugQuantity, setDrugQuantity] = useState(1);
-    const [drugDosage, setDrugDosage] = useState('');
+    const [drugStrength, setDrugStrength] = useState('');
+    const [drugFormulation, setDrugFormulation] = useState('');
+    const [drugDosageText, setDrugDosageText] = useState('');
+    const [drugNote, setDrugNote] = useState('');
     const [drugFrequency, setDrugFrequency] = useState('');
     const [drugDuration, setDrugDuration] = useState('');
     const [drugRoute, setDrugRoute] = useState('');
-    const [drugForm, setDrugForm] = useState('');
 
     // Multi-Drug Prescription State
     const [drugSearchTerm, setDrugSearchTerm] = useState('');
@@ -449,6 +497,52 @@ const PatientDetails = () => {
     const [consentForm, setConsentForm] = useState({ ...emptyConsentForm });
     const [dispensedPrescriptions, setDispensedPrescriptions] = useState([]);
     const [administrationHistory, setAdministrationHistory] = useState([]);
+
+    // Stop / Discontinue Drug Modal States
+    const [showStopDrugModal, setShowStopDrugModal] = useState(false);
+    const [stopDrugTarget, setStopDrugTarget] = useState(null);
+    const [stopDrugReason, setStopDrugReason] = useState('');
+
+    const handleConfirmStopDrug = async () => {
+        if (!stopDrugTarget) return;
+        if (!stopDrugReason.trim()) {
+            toast.error('Please enter a reason for stopping this medication');
+            return;
+        }
+
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            await axios.put(
+                `${backendUrl}/api/prescriptions/${stopDrugTarget.prescriptionId}/medicines/${stopDrugTarget.medIndex}/discontinue`,
+                { reason: stopDrugReason.trim() },
+                config
+            );
+            toast.success('Medication stopped! Reason logged for nurses.');
+            setShowStopDrugModal(false);
+            setStopDrugTarget(null);
+            setStopDrugReason('');
+            fetchPatient();
+        } catch (err) {
+            console.error(err);
+            toast.error('Error stopping medication');
+        }
+    };
+
+    const handleToggleReactivateDrug = async (prescriptionId, medIndex) => {
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            await axios.put(
+                `${backendUrl}/api/prescriptions/${prescriptionId}/medicines/${medIndex}/discontinue`,
+                {},
+                config
+            );
+            toast.success('Medication reactivated!');
+            fetchPatient();
+        } catch (err) {
+            console.error(err);
+            toast.error('Error reactivating medication');
+        }
+    };
 
     // Checklist States
     const [checklists, setChecklists] = useState([]);
@@ -726,7 +820,7 @@ const PatientDetails = () => {
                 return num > 20 ? 1 : num; // If it's a large number (e.g. 500), it's likely strength
             };
 
-            const doseUnits = parseDose(drugDosage);
+            const doseUnits = parseDose(drugDosageText || drugStrength);
 
             // Parse frequencyMultiplier based on medical abbreviations
             const freqLower = (drugFrequency || '').toLowerCase().trim();
@@ -766,7 +860,7 @@ const PatientDetails = () => {
 
         const timer = setTimeout(calculateTotal, 300); // Debounce
         return () => clearTimeout(timer);
-    }, [drugDosage, drugFrequency, drugDuration, showRxModal, selectedDrug]);
+    }, [drugDosageText, drugStrength, drugFrequency, drugDuration, showRxModal, selectedDrug]);
 
     // Tab State - default based on user role
     const getDefaultTab = () => {
@@ -786,6 +880,92 @@ const PatientDetails = () => {
     const [showVitalsModal, setShowVitalsModal] = useState(false);
     const [showNurseNoteModal, setShowNurseNoteModal] = useState(false);
     const [nursingNote, setNursingNote] = useState('');
+
+    // Order Task States & Handlers
+    const [showOrderTaskModal, setShowOrderTaskModal] = useState(false);
+    const [editingTaskId, setEditingTaskId] = useState(null);
+    const [orderType, setOrderType] = useState('');
+    const [customOrderTask, setCustomOrderTask] = useState('');
+    const [expectedDischargeDate, setExpectedDischargeDate] = useState('');
+    const [orderInstructions, setOrderInstructions] = useState('');
+    const [submittingOrderTask, setSubmittingOrderTask] = useState(false);
+
+    const handleSaveOrderTask = async (e) => {
+        e.preventDefault();
+        if (!orderType) {
+            toast.error('Please select an order type');
+            return;
+        }
+        if (orderType === 'Others' && !customOrderTask.trim()) {
+            toast.error('Please specify the order task');
+            return;
+        }
+        if (orderType === 'Admission order' && !expectedDischargeDate) {
+            toast.error('Please select expected date of discharge');
+            return;
+        }
+        if (!orderInstructions.trim()) {
+            toast.error('Please enter instructions for the nurse');
+            return;
+        }
+
+        try {
+            setSubmittingOrderTask(true);
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const payload = {
+                orderType,
+                customOrderTask: orderType === 'Others' ? customOrderTask.trim() : '',
+                expectedDischargeDate: orderType === 'Admission order' ? expectedDischargeDate : undefined,
+                instructions: orderInstructions.trim()
+            };
+
+            let response;
+            if (editingTaskId) {
+                response = await axios.put(
+                    `${backendUrl}/api/visits/${encounter._id}/order-tasks/${editingTaskId}`,
+                    payload,
+                    config
+                );
+                toast.success('Order task updated successfully!');
+            } else {
+                response = await axios.post(
+                    `${backendUrl}/api/visits/${encounter._id}/order-tasks`,
+                    payload,
+                    config
+                );
+                toast.success('Order task created successfully!');
+            }
+
+            setEncounter(response.data);
+            setShowOrderTaskModal(false);
+            setEditingTaskId(null);
+            setOrderType('');
+            setCustomOrderTask('');
+            setExpectedDischargeDate('');
+            setOrderInstructions('');
+        } catch (err) {
+            console.error('Error saving order task:', err);
+            toast.error(err.response?.data?.message || 'Failed to save order task');
+        } finally {
+            setSubmittingOrderTask(false);
+        }
+    };
+
+    const handleUpdateOrderTaskStatus = async (taskId, newStatus = 'Completed') => {
+        try {
+            const config = { headers: { Authorization: `Bearer ${user.token}` } };
+            const response = await axios.put(
+                `${backendUrl}/api/visits/${encounter._id}/order-tasks/${taskId}/status`,
+                { status: newStatus },
+                config
+            );
+            toast.success(`Order task marked as ${newStatus.toLowerCase()}`);
+            setEncounter(response.data);
+        } catch (err) {
+            console.error('Error updating order task status:', err);
+            toast.error(err.response?.data?.message || 'Failed to update order task status');
+        }
+    };
 
     useEffect(() => {
         if (showSoapModal && encounter && patient) {
@@ -869,6 +1049,56 @@ const PatientDetails = () => {
                 }
             } else {
                 setSoapNote(initialSoap);
+            }
+
+            // Also initialize ANC note if this is an ANC Visit encounter
+            if (encounter.type === 'ANC Visit' || encounter.encounterType === 'ANC Visit') {
+                const noteSource = editingNoteId && editingNoteId !== 'legacy-root'
+                    ? (encounter.clinicalNotes || []).find(n => n._id?.toString() === editingNoteId)
+                    : null;
+                if (noteSource && noteSource.noteType === 'anc') {
+                    setAncNote({
+                        noteType: 'anc',
+                        ancVisitNumber: noteSource.ancVisitNumber || '',
+                        gravida: noteSource.gravida || '',
+                        para: noteSource.para || '',
+                        lmp: noteSource.lmp || '',
+                        edd: noteSource.edd || '',
+                        gestation: noteSource.gestation || '',
+                        ancComplaints: noteSource.ancComplaints || '',
+                        ancRiskFactors: noteSource.ancRiskFactors || '',
+                        maternalWeight: noteSource.maternalWeight || '',
+                        maternalBP: noteSource.maternalBP || '',
+                        maternalPulse: noteSource.maternalPulse || '',
+                        maternalTemp: noteSource.maternalTemp || '',
+                        maternalHb: noteSource.maternalHb || '',
+                        urinalysis: noteSource.urinalysis || '',
+                        fundalHeight: noteSource.fundalHeight || '',
+                        fetalLie: noteSource.fetalLie || '',
+                        fetalPresentation: noteSource.fetalPresentation || '',
+                        fetalPosition: noteSource.fetalPosition || '',
+                        fetalHeartRate: noteSource.fetalHeartRate || '',
+                        engagement: noteSource.engagement || '',
+                        liquor: noteSource.liquor || '',
+                        uterineContractions: noteSource.uterineContractions || '',
+                        amnioticFluidIndex: noteSource.amnioticFluidIndex || '',
+                        placentalLocation: noteSource.placentalLocation || '',
+                        malariaProphylaxis: noteSource.malariaProphylaxis || '',
+                        tetanusToxoid: noteSource.tetanusToxoid || '',
+                        ironFolate: noteSource.ironFolate || '',
+                        hivStatus: noteSource.hivStatus || '',
+                        syphilisStatus: noteSource.syphilisStatus || '',
+                        bloodGroupGenotype: noteSource.bloodGroupGenotype || '',
+                        assessment: noteSource.assessment || '',
+                        plan: noteSource.plan || '',
+                        ancCounselling: noteSource.ancCounselling || '',
+                        ancReferral: noteSource.ancReferral || '',
+                        nextAppointment: noteSource.nextAppointment || '',
+                        diagnosis: noteSource.diagnosis || []
+                    });
+                } else if (!editingNoteId) {
+                    setAncNote(blankAncNote);
+                }
             }
         }
 
@@ -1593,7 +1823,12 @@ const PatientDetails = () => {
             return;
         }
 
-        if (!soapNote.diagnosis || soapNote.diagnosis.length === 0) {
+        const isAncVisit = encounter.type === 'ANC Visit' || encounter.encounterType === 'ANC Visit';
+
+        // For ANC visits, use ancNote diagnosis; for standard, use soapNote diagnosis
+        const activeDiagnosis = isAncVisit ? ancNote.diagnosis : soapNote.diagnosis;
+
+        if (!activeDiagnosis || activeDiagnosis.length === 0) {
             toast.error('Diagnosis is compulsory. Please search and select at least one ICD diagnosis.');
             return;
         }
@@ -1601,17 +1836,26 @@ const PatientDetails = () => {
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
-            const payload = {
-                ...soapNote,
-                diagnosis: soapNote.diagnosis,
-                ...(editingNoteId ? { noteId: editingNoteId } : {})
-            };
+            let payload;
+            if (isAncVisit) {
+                payload = {
+                    ...ancNote,
+                    diagnosis: ancNote.diagnosis,
+                    ...(editingNoteId ? { noteId: editingNoteId } : {})
+                };
+            } else {
+                payload = {
+                    ...soapNote,
+                    diagnosis: soapNote.diagnosis,
+                    ...(editingNoteId ? { noteId: editingNoteId } : {})
+                };
+            }
             const { data } = await axios.post(
                 `${backendUrl}/api/visits/${encounter._id}/clinical-notes`,
                 payload,
                 config
             );
-            toast.success(editingNoteId ? 'Clinical note updated!' : 'Clinical note added!');
+            toast.success(editingNoteId ? 'Clinical note updated!' : (isAncVisit ? 'ANC note saved!' : 'Clinical note added!'));
             localStorage.removeItem(`draft_soap_${patient._id}_${encounter._id}`);
             setShowSoapModal(false);
             setEditingNoteId(null);
@@ -1647,6 +1891,7 @@ const PatientDetails = () => {
                 plan: '',
                 diagnosis: []
             });
+            setAncNote(blankAncNote);
         } catch (error) {
             console.error(error);
             toast.error(error.response?.data?.message || 'Error saving clinical note');
@@ -1873,8 +2118,10 @@ const PatientDetails = () => {
 
         // Auto-populate fields from drug data
         setDrugRoute(drug.route || '');
-        setDrugDosage(drug.dosage || '');
-        setDrugForm(drug.form || '');
+        setDrugStrength(drug.dosage || drug.strength || '');
+        setDrugFormulation(drug.form || drug.formulation || '');
+        setDrugDosageText('');
+        setDrugNote('');
         setDrugFrequency(drug.frequency || '');
     };
 
@@ -1904,10 +2151,12 @@ const PatientDetails = () => {
             price: drugData.price,
             quantity: drugQuantity,
             route: drugRoute || 'As directed',
-            dosage: drugDosage || 'As directed',
-            form: drugForm || 'As directed',
+            strength: drugStrength || '-',
+            formulation: drugFormulation || '-',
+            dosage: drugDosageText || '-',
             frequency: drugFrequency || 'As directed',
             duration: (drugDuration && !isNaN(drugDuration)) ? `${drugDuration} days` : (drugDuration || 'As directed'),
+            note: drugNote || '',
             buyOutside: buyOutside // Include flag
         };
 
@@ -1918,8 +2167,10 @@ const PatientDetails = () => {
         setDrugSearchTerm('');
         setDrugQuantity(1);
         setDrugRoute('');
-        setDrugDosage('');
-        setDrugForm('');
+        setDrugStrength('');
+        setDrugFormulation('');
+        setDrugDosageText('');
+        setDrugNote('');
         setDrugFrequency('');
         setDrugDuration('');
         toast.success('Drug added to list');
@@ -1932,23 +2183,24 @@ const PatientDetails = () => {
     const processSinglePrescription = async (drugItem, config) => {
         const selectedDrugData = inventoryDrugs.find(d => d._id === drugItem.drugId);
 
-        // removed charge generation logic here
-
         // Create prescription WITHOUT charge ID
         await axios.post(
             `${backendUrl}/api/prescriptions`,
             {
                 patientId: patient._id,
                 visitId: encounter._id,
-                // chargeId is now omitted
                 medicines: [{
                     name: selectedDrugData.name,
-                    dosage: drugItem.dosage,
+                    strength: drugItem.strength !== '-' ? drugItem.strength : '',
+                    formulation: drugItem.formulation !== '-' ? drugItem.formulation : '',
+                    dosage: (drugItem.strength !== '-' ? drugItem.strength : (drugItem.dosage !== '-' ? drugItem.dosage : 'As directed')),
+                    dosageText: drugItem.dosage !== '-' ? drugItem.dosage : '',
                     frequency: drugItem.frequency,
                     duration: drugItem.duration,
                     route: drugItem.route,
-                    form: drugItem.form,
+                    form: drugItem.formulation !== '-' ? drugItem.formulation : '',
                     quantity: drugItem.quantity,
+                    note: drugItem.note || '',
                     buyOutside: drugItem.buyOutside // Pass the flag
                 }],
                 notes: 'Doctor prescribed'
@@ -2860,6 +3112,122 @@ const PatientDetails = () => {
                                                     }
                                                 })()}
 
+                                                {/* Doctor Order Tasks for Nursing Action */}
+                                                <div className="bg-indigo-50/70 p-4 rounded-lg mt-6 border border-indigo-200 shadow-sm">
+                                                    <div className="flex justify-between items-center mb-3">
+                                                        <h4 className="text-sm font-bold text-indigo-900 flex items-center gap-2">
+                                                            <FaClipboardList className="text-indigo-600" /> Doctor Order Tasks & Instructions for Nurse
+                                                        </h4>
+                                                        {encounter.orderTasks && encounter.orderTasks.length > 0 && (
+                                                            <span className="text-xs font-semibold px-2.5 py-0.5 bg-indigo-200 text-indigo-800 rounded-full">
+                                                                {encounter.orderTasks.filter(t => t.status === 'Pending').length} Pending
+                                                            </span>
+                                                        )}
+                                                    </div>
+
+                                                    {(!encounter.orderTasks || encounter.orderTasks.length === 0) ? (
+                                                        <p className="text-xs text-gray-500 italic bg-white p-3 rounded border border-indigo-100">
+                                                            No order tasks recorded by doctor yet.
+                                                        </p>
+                                                    ) : (
+                                                        <div className="space-y-3">
+                                                            {encounter.orderTasks.map((task, idx) => {
+                                                                const isCompleted = task.status === 'Completed';
+                                                                return (
+                                                                    <div key={task._id || idx} className={`p-3.5 rounded-lg border bg-white shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-3 ${isCompleted ? 'border-green-300 bg-green-50/30' : 'border-indigo-200'}`}>
+                                                                        <div className="space-y-1.5 flex-1">
+                                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                                <span className={`text-xs font-bold px-2.5 py-0.5 rounded ${isCompleted ? 'bg-green-100 text-green-800 border border-green-300' : 'bg-amber-100 text-amber-800 border border-amber-300'}`}>
+                                                                                    {task.orderType}
+                                                                                </span>
+                                                                                {task.orderType === 'Others' && task.customOrderTask && (
+                                                                                    <span className="text-xs font-bold text-gray-800 bg-gray-100 px-2 py-0.5 rounded border border-gray-200">
+                                                                                        Task: {task.customOrderTask}
+                                                                                    </span>
+                                                                                )}
+                                                                                {task.expectedDischargeDate && (
+                                                                                    <span className="text-xs font-bold text-blue-800 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                                                                        Expected Discharge: {new Date(task.expectedDischargeDate).toLocaleDateString()}
+                                                                                    </span>
+                                                                                )}
+                                                                                <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${isCompleted ? 'bg-green-600 text-white' : 'bg-amber-500 text-white'}`}>
+                                                                                    {task.status || 'Pending'}
+                                                                                </span>
+                                                                            </div>
+
+                                                                            <p className="text-xs text-gray-800 font-medium whitespace-pre-line bg-gray-50 p-2.5 rounded border border-gray-200 mt-1">
+                                                                                {task.instructions}
+                                                                            </p>
+
+                                                                            <div className="flex items-center gap-3 text-[11px] text-gray-500 pt-1 flex-wrap">
+                                                                                <span>Doctor: <strong className="text-gray-700">{task.doctorName || task.doctor?.name || 'Doctor'}</strong></span>
+                                                                                <span>Ordered: {new Date(task.createdAt).toLocaleString()}</span>
+                                                                                {task.expectedDischargeDate && (
+                                                                                    <span className="text-blue-700 font-bold bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                                                                                        • Exp. Discharge: {new Date(task.expectedDischargeDate).toLocaleDateString()}
+                                                                                    </span>
+                                                                                )}
+                                                                                {task.updatedByName && (
+                                                                                    <span className="text-amber-800 font-bold bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
+                                                                                        • Modified by Dr. <strong>{task.updatedByName.replace(/^Dr\.\s*/i, '')}</strong> at {new Date(task.updatedAt).toLocaleString()}
+                                                                                    </span>
+                                                                                )}
+                                                                                {isCompleted && (
+                                                                                    <span className="text-green-700 font-medium bg-green-100/80 px-2 py-0.5 rounded border border-green-200">
+                                                                                        • Completed by Nurse <strong>{task.completedByName || task.completedBy?.name || 'Nurse'}</strong> at {new Date(task.completedAt).toLocaleString()}
+                                                                                    </span>
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+
+                                                                        <div className="flex items-center gap-2 self-start md:self-center">
+                                                                            {canEdit && (
+                                                                                <button
+                                                                                    type="button"
+                                                                                    onClick={() => {
+                                                                                        setEditingTaskId(task._id);
+                                                                                        setOrderType(task.orderType || '');
+                                                                                        setCustomOrderTask(task.customOrderTask || '');
+                                                                                        setExpectedDischargeDate(task.expectedDischargeDate ? new Date(task.expectedDischargeDate).toISOString().split('T')[0] : '');
+                                                                                        setOrderInstructions(task.instructions || '');
+                                                                                        setShowOrderTaskModal(true);
+                                                                                    }}
+                                                                                    className="px-3 py-1.5 text-xs bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 font-bold rounded-lg transition flex items-center gap-1 shadow-2xs active:scale-95"
+                                                                                    title="Edit Order Task"
+                                                                                >
+                                                                                    <FaEdit size={11} /> Edit Order
+                                                                                </button>
+                                                                            )}
+
+                                                                            {user && ['nurse', 'matron'].includes(user.role) && (
+                                                                                <>
+                                                                                    {!isCompleted ? (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={() => handleUpdateOrderTaskStatus(task._id, 'Completed')}
+                                                                                            className="px-3.5 py-2 text-xs bg-green-600 text-white font-bold rounded-lg hover:bg-green-700 transition flex items-center gap-1.5 shadow-sm active:scale-95"
+                                                                                        >
+                                                                                            <FaCheckCircle /> Mark as Completed
+                                                                                        </button>
+                                                                                    ) : (
+                                                                                        <button
+                                                                                            type="button"
+                                                                                            onClick={() => handleUpdateOrderTaskStatus(task._id, 'Pending')}
+                                                                                            className="px-2.5 py-1 text-[11px] bg-gray-200 text-gray-700 font-semibold rounded hover:bg-gray-300 transition"
+                                                                                        >
+                                                                                            Re-open Task
+                                                                                        </button>
+                                                                                    )}
+                                                                                </>
+                                                                            )}
+                                                                        </div>
+                                                                    </div>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    )}
+                                                </div>
+
                                                 {/* Drug Observation Chart (MAR) - For Inpatients */}
                                                 {encounter.type === 'Inpatient' && (
                                                     <div className="mt-8 border rounded-lg overflow-hidden shadow-sm bg-white">
@@ -2932,13 +3300,12 @@ const PatientDetails = () => {
                                                                                                 <thead className="bg-gray-100 border-b">
                                                                                                     <tr>
                                                                                                         <th className="p-2 border-r font-bold text-gray-600 w-64">Medication</th>
-                                                                                                        {dayTimes.length > 0 ? dayTimes.map(timeStr => (
+                                                                                                        {dayTimes.map(timeStr => (
                                                                                                             <th key={timeStr} className="p-2 border-r font-bold text-gray-600 text-center min-w-[70px]">
                                                                                                                 {timeStr}
                                                                                                             </th>
-                                                                                                        )) : (
-                                                                                                            <th className="p-2 border-r font-bold text-gray-400 text-center italic">No records for this day</th>
-                                                                                                        )}
+                                                                                                        ))}
+                                                                                                        <th className="p-2 border-r font-bold text-green-700 text-center w-16 bg-green-50/30">Action</th>
                                                                                                     </tr>
                                                                                                 </thead>
                                                                                                 <tbody>
@@ -2947,55 +3314,106 @@ const PatientDetails = () => {
                                                                                                         return dispensedPrescriptions.flatMap(p => p.medicines.map(m => {
                                                                                                             const isFirstRow = overallRowIdx === 0;
                                                                                                             overallRowIdx++;
+                                                                                                            const stoppedByName = m.discontinuedBy?.name || p.doctor?.name || 'Doctor';
                                                                                                             return (
-                                                                                                                <tr key={`${p._id}-${m._id || m.name}`} className="hover:bg-blue-50/10 border-b last:border-0 transition-colors">
+                                                                                                                <tr key={`${p._id}-${m._id || m.name}`} className={`border-b last:border-0 transition-colors ${m.isDiscontinued ? 'bg-red-50/40 border-l-4 border-l-red-500' : 'hover:bg-blue-50/10'}`}>
                                                                                                                     <td className="p-2 border-r">
-                                                                                                                        <div className="font-bold text-blue-950 leading-tight flex items-center gap-2">
-                                                                                                                            {m.name}
-                                                                                                                            {m.buyOutside && (
-                                                                                                                                <span className="text-[9px] bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded border border-orange-200 uppercase font-black">
-                                                                                                                                    Buy Outside
-                                                                                                                                </span>
+                                                                                                                        <div className="font-bold text-blue-950 leading-tight flex items-center justify-between gap-2">
+                                                                                                                            <div className="flex items-center gap-2 flex-wrap">
+                                                                                                                                <span className={m.isDiscontinued ? 'line-through text-red-700 font-bold' : ''}>{m.name}</span>
+                                                                                                                                {m.buyOutside && (
+                                                                                                                                    <span className="text-[9px] bg-orange-100 text-orange-800 px-1.5 py-0.5 rounded border border-orange-200 uppercase font-black">
+                                                                                                                                        Buy Outside
+                                                                                                                                    </span>
+                                                                                                                                )}
+                                                                                                                                {m.isDiscontinued && (
+                                                                                                                                    <span className="text-[9px] bg-red-100 text-red-800 px-2 py-0.5 rounded border border-red-300 font-bold uppercase tracking-wide flex items-center gap-1">
+                                                                                                                                        🛑 STOPPED BY {stoppedByName.toUpperCase().startsWith('DR') ? stoppedByName.toUpperCase() : `DR. ${stoppedByName.toUpperCase()}`}
+                                                                                                                                    </span>
+                                                                                                                                )}
+                                                                                                                            </div>
+
+                                                                                                                            {/* Doctor Stop / Discontinue Checkbox */}
+                                                                                                                            {user.role === 'doctor' && (
+                                                                                                                                <label className="flex items-center gap-1.5 text-[10px] font-bold text-red-700 hover:text-red-800 bg-red-50 hover:bg-red-100 px-2 py-1 rounded border border-red-200 cursor-pointer transition shadow-2xs ml-auto whitespace-nowrap">
+                                                                                                                                    <input
+                                                                                                                                        type="checkbox"
+                                                                                                                                        checked={!!m.isDiscontinued}
+                                                                                                                                        onChange={() => {
+                                                                                                                                            const medIdx = p.medicines.findIndex(item => (item._id && item._id === m._id) || item.name === m.name);
+                                                                                                                                            if (!m.isDiscontinued) {
+                                                                                                                                                setStopDrugTarget({
+                                                                                                                                                    prescriptionId: p._id,
+                                                                                                                                                    medIndex: medIdx >= 0 ? medIdx : 0,
+                                                                                                                                                    medName: m.name
+                                                                                                                                                });
+                                                                                                                                                setStopDrugReason('');
+                                                                                                                                                setShowStopDrugModal(true);
+                                                                                                                                            } else {
+                                                                                                                                                handleToggleReactivateDrug(p._id, medIdx >= 0 ? medIdx : 0);
+                                                                                                                                            }
+                                                                                                                                        }}
+                                                                                                                                        className="accent-red-600 w-3.5 h-3.5 cursor-pointer"
+                                                                                                                                    />
+                                                                                                                                    <span>{m.isDiscontinued ? 'Stopped' : 'Stop Drug'}</span>
+                                                                                                                                </label>
                                                                                                                             )}
                                                                                                                         </div>
-                                                                                                                        <div className="text-[9px] text-gray-500 flex items-center gap-1 mt-0.5">
-                                                                                                                            <span className="font-medium text-gray-700">{m.dosage}</span>
+                                                                                                                        <div className="text-[9px] text-gray-500 flex flex-wrap items-center gap-1 mt-0.5">
+                                                                                                                            <span className="font-medium text-gray-700">Strength: {m.dosage}</span>
                                                                                                                             <span>|</span>
                                                                                                                             <span className="font-medium text-gray-700">{m.frequency}</span>
                                                                                                                             {m.route && <><span className="text-orange-500 font-bold px-1 rounded uppercase bg-orange-50 text-[8px] border border-orange-100">{m.route}</span></>}
+                                                                                                                            <span className="text-purple-700 font-semibold text-[8px] bg-purple-50 px-1 rounded border border-purple-100">Dosage: {m.dosageText || 'As directed'}</span>
+                                                                                                                            <span className="text-blue-600 italic text-[8px]">Note: {m.note || 'None'}</span>
                                                                                                                         </div>
+                                                                                                                        {m.isDiscontinued && (
+                                                                                                                            <div className="mt-1 bg-red-50 border-l-2 border-red-500 text-red-800 px-2 py-1 rounded-r text-[10px] flex items-center gap-1.5 font-medium shadow-2xs">
+                                                                                                                                <span className="font-bold text-red-700">Reason:</span>
+                                                                                                                                <span className="italic font-normal">{m.discontinueReason || 'No reason specified'}</span>
+                                                                                                                            </div>
+                                                                                                                        )}
                                                                                                                     </td>
                                                                                                                     {dayTimes.map(timeStr => {
                                                                                                                         const admin = dayHistory.find(h =>
                                                                                                                             new Date(h.administeredAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) === timeStr &&
-                                                                                                                            (h.medicineId === m._id || h.medicineName === m.name)
+                                                                                                                            ((h.medicineId && m._id && h.medicineId === m._id) || h.medicineName === m.name)
                                                                                                                         );
                                                                                                                         return (
                                                                                                                             <td key={timeStr} className="p-2 border-r text-center">
                                                                                                                                 {admin ? (
                                                                                                                                     <div className="inline-flex flex-col items-center justify-center p-1 rounded-md bg-green-50 border border-green-200 shadow-sm group relative cursor-help">
-                                                                                                                                        <span className="font-black text-[8px] text-green-700 uppercase tracking-tighter">Given</span>
+                                                                                                                                        <div className="flex items-center gap-0.5">
+                                                                                                                                            <span className="font-black text-[8px] text-green-700 uppercase tracking-tighter">Given</span>
+                                                                                                                                            {admin.remarks && <FaCommentAlt size={7} className="text-green-600 ml-0.5" title="Comment recorded" />}
+                                                                                                                                        </div>
                                                                                                                                         <span className="text-[7px] text-green-600 leading-none">{getNurseFirstName(admin.nurse?.name)}</span>
                                                                                                                                         {isFirstRow ? (
-                                                                                                                                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-48 bg-gray-900 border border-gray-700 text-white p-2 rounded-lg text-[9px] hidden group-hover:block z-50 shadow-2xl backdrop-blur-sm text-left">
-                                                                                                                                                <div className="font-bold mb-1" style={{ color: '#ffffff' }}>
+                                                                                                                                            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-52 bg-gray-900 border border-gray-700 text-white p-2.5 rounded-lg text-[9px] hidden group-hover:block z-50 shadow-2xl backdrop-blur-sm text-left">
+                                                                                                                                                <div className="text-white font-bold mb-1" style={{ color: '#ffffff' }}>
                                                                                                                                                     Administered by: {admin.nurse?.name || 'Unknown'}
                                                                                                                                                 </div>
+                                                                                                                                                <div className="text-gray-300 text-[8.5px]">
+                                                                                                                                                    Time: {new Date(admin.administeredAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                                                                                                                                                </div>
                                                                                                                                                 {admin.remarks && (
-                                                                                                                                                    <div className="text-gray-300 break-words mt-1 border-t border-gray-700 pt-1">
-                                                                                                                                                        Remarks: {admin.remarks}
+                                                                                                                                                    <div className="text-gray-200 break-words mt-1 border-t border-gray-700 pt-1 font-medium">
+                                                                                                                                                        Comment: {admin.remarks}
                                                                                                                                                     </div>
                                                                                                                                                 )}
                                                                                                                                                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 border-4 border-transparent border-b-gray-900"></div>
                                                                                                                                             </div>
                                                                                                                                         ) : (
-                                                                                                                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 bg-gray-900 border border-gray-700 text-white p-2 rounded-lg text-[9px] hidden group-hover:block z-50 shadow-2xl backdrop-blur-sm text-left">
-                                                                                                                                                <div className="font-bold mb-1" style={{ color: '#ffffff' }}>
+                                                                                                                                            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 bg-gray-900 border border-gray-700 text-white p-2.5 rounded-lg text-[9px] hidden group-hover:block z-50 shadow-2xl backdrop-blur-sm text-left">
+                                                                                                                                                <div className="text-white font-bold mb-1" style={{ color: '#ffffff' }}>
                                                                                                                                                     Administered by: {admin.nurse?.name || 'Unknown'}
                                                                                                                                                 </div>
+                                                                                                                                                <div className="text-gray-300 text-[8.5px]">
+                                                                                                                                                    Time: {new Date(admin.administeredAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                                                                                                                                                </div>
                                                                                                                                                 {admin.remarks && (
-                                                                                                                                                    <div className="text-gray-300 break-words mt-1 border-t border-gray-700 pt-1">
-                                                                                                                                                        Remarks: {admin.remarks}
+                                                                                                                                                    <div className="text-gray-200 break-words mt-1 border-t border-gray-700 pt-1 font-medium">
+                                                                                                                                                        Comment: {admin.remarks}
                                                                                                                                                     </div>
                                                                                                                                                 )}
                                                                                                                                                 <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-gray-900"></div>
@@ -3006,6 +3424,45 @@ const PatientDetails = () => {
                                                                                                                             </td>
                                                                                                                         );
                                                                                                                     })}
+                                                                                                                    {(() => {
+                                                                                                                        const medAdminOnDate = dayHistory.filter(h => (h.medicineId && m._id && h.medicineId === m._id) || h.medicineName === m.name);
+                                                                                                                        const isServedOnDate = medAdminOnDate.length > 0;
+                                                                                                                        const isPastDate = dateTimestamp < today.getTime();
+
+                                                                                                                        return (
+                                                                                                                            <td className={`p-2 text-center ${m.isDiscontinued ? 'bg-red-50/40' : (isServedOnDate ? 'bg-gray-50/60' : 'bg-green-50/20')}`}>
+                                                                                                                                {m.isDiscontinued ? (
+                                                                                                                                    <div className="flex flex-col items-center justify-center">
+                                                                                                                                        <button
+                                                                                                                                            disabled
+                                                                                                                                            className="w-6 h-6 flex items-center justify-center mx-auto bg-red-200 text-red-700 rounded-md cursor-not-allowed shadow-sm border border-red-300"
+                                                                                                                                            title="Medication stopped by doctor. Cannot administer."
+                                                                                                                                        >
+                                                                                                                                            <FaTimes size={10} />
+                                                                                                                                        </button>
+                                                                                                                                        <span className="text-[7px] font-black text-red-600 uppercase mt-0.5">STOPPED</span>
+                                                                                                                                    </div>
+                                                                                                                                ) : (isServedOnDate || isPastDate) ? (
+                                                                                                                                    <div className="flex flex-col items-center justify-center">
+                                                                                                                                        <button
+                                                                                                                                            disabled
+                                                                                                                                            className="w-6 h-6 flex items-center justify-center mx-auto bg-gray-200 text-gray-400 rounded-md cursor-not-allowed border border-gray-300 shadow-2xs"
+                                                                                                                                            title={isServedOnDate ? "Medication already served for this date" : "Past date. Serving disabled."}
+                                                                                                                                        >
+                                                                                                                                            <FaCheck size={10} className="text-gray-500" />
+                                                                                                                                        </button>
+                                                                                                                                        <span className="text-[7px] font-bold text-gray-500 uppercase mt-0.5">
+                                                                                                                                            {isServedOnDate ? 'SERVED' : 'PASSED'}
+                                                                                                                                        </span>
+                                                                                                                                    </div>
+                                                                                                                                ) : (
+                                                                                                                                    <div className="flex flex-col items-center justify-center">
+                                                                                                                                        <span className="text-[7px] font-bold text-green-700 uppercase">PENDING</span>
+                                                                                                                                    </div>
+                                                                                                                                )}
+                                                                                                                            </td>
+                                                                                                                        );
+                                                                                                                    })()}
                                                                                                                 </tr>
                                                                                                             );
                                                                                                         }));
@@ -3033,14 +3490,35 @@ const PatientDetails = () => {
                                         {activeTab === 'soap' && (
                                             <div className="space-y-4">
                                                 <div className="flex justify-between items-center">
-                                                    <h3 className="text-xl font-bold">Clinical Documentation</h3>
+                                                    <h3 className="text-xl font-bold flex items-center gap-2">
+                                                        {(encounter.type === 'ANC Visit' || encounter.encounterType === 'ANC Visit') ? (
+                                                            <><span>🤰</span>ANC Documentation</>
+                                                        ) : 'Clinical Documentation'}
+                                                    </h3>
                                                     {canEdit && (
-                                                        <button
-                                                            onClick={() => { setEditingNoteId(null); setShowSoapModal(true); }}
-                                                            className="px-4 py-2 rounded flex items-center gap-2 bg-green-600 text-white hover:bg-green-700"
-                                                        >
-                                                            <FaPlus /> Add Clinical Note
-                                                        </button>
+                                                        <div className="flex items-center gap-2">
+                                                            <button
+                                                                onClick={() => {
+                                                                    setEditingTaskId(null);
+                                                                    setOrderType('');
+                                                                    setCustomOrderTask('');
+                                                                    setExpectedDischargeDate('');
+                                                                    setOrderInstructions('');
+                                                                    setShowOrderTaskModal(true);
+                                                                }}
+                                                                className="px-4 py-2 rounded flex items-center gap-2 bg-blue-600 text-white hover:bg-blue-700 font-semibold shadow-sm text-sm"
+                                                            >
+                                                                <FaClipboardList /> Order Task
+                                                            </button>
+                                                            <button
+                                                                onClick={() => { setEditingNoteId(null); setShowSoapModal(true); }}
+                                                                className={(encounter.type === 'ANC Visit' || encounter.encounterType === 'ANC Visit')
+                                                                    ? "px-4 py-2 rounded flex items-center gap-2 bg-pink-600 text-white hover:bg-pink-700 text-sm"
+                                                                    : "px-4 py-2 rounded flex items-center gap-2 bg-green-600 text-white hover:bg-green-700 text-sm"}
+                                                            >
+                                                                <FaPlus /> {(encounter.type === 'ANC Visit' || encounter.encounterType === 'ANC Visit') ? '🤰 Add ANC Note' : 'Add Clinical Note'}
+                                                            </button>
+                                                        </div>
                                                     )}
                                                 </div>
 
@@ -3092,8 +3570,92 @@ const PatientDetails = () => {
                                                                         </div>
 
                                                                         <div className="bg-white p-4 space-y-3">
-                                                                            {/* Clinical History - Collapsible */}
-                                                                            {(note.presentingComplaints || note.historyOfPresentingComplaint ||
+                                                                            {/* ANC Note Display */}
+                                                                            {note.noteType === 'anc' && (
+                                                                                <div className="space-y-3">
+                                                                                    <div className="bg-pink-50 border border-pink-200 rounded-lg p-3 flex items-center gap-2 text-sm text-pink-800">
+                                                                                        <span className="text-lg">🤰</span>
+                                                                                        <span><strong>ANC Visit Note</strong> — {note.gestation ? `${note.gestation} Gestation` : ''} {note.gravida ? `| ${note.gravida}` : ''}{note.para ? `${note.para}` : ''}</span>
+                                                                                    </div>
+                                                                                    {/* Booking Info Row */}
+                                                                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                                                                                        {[
+                                                                                            { label: 'Visit No.', val: note.ancVisitNumber },
+                                                                                            { label: 'Gravida', val: note.gravida },
+                                                                                            { label: 'Para', val: note.para },
+                                                                                            { label: 'LMP', val: note.lmp },
+                                                                                            { label: 'EDD', val: note.edd },
+                                                                                            { label: 'Gestation', val: note.gestation },
+                                                                                        ].filter(f => f.val).map(f => (
+                                                                                            <div key={f.label} className="bg-gray-50 rounded p-2 border">
+                                                                                                <p className="text-gray-500 font-semibold text-[10px]">{f.label}</p>
+                                                                                                <p className="font-bold text-gray-800">{f.val}</p>
+                                                                                            </div>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                    {note.ancComplaints && <div className="bg-gray-50 p-2 rounded border-l-4 border-pink-400"><p className="text-[11px] font-bold text-gray-600 mb-0.5">Chief Complaints</p><p className="text-sm text-gray-800 whitespace-pre-wrap">{note.ancComplaints}</p></div>}
+                                                                                    {note.ancRiskFactors && <div className="bg-red-50 p-2 rounded border-l-4 border-red-400"><p className="text-[11px] font-bold text-red-700 mb-0.5">⚠ Risk Factors</p><p className="text-sm text-gray-800 whitespace-pre-wrap">{note.ancRiskFactors}</p></div>}
+                                                                                    {/* Vitals Row */}
+                                                                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                                                                                        {[
+                                                                                            { label: 'Weight', val: note.maternalWeight, unit: 'kg' },
+                                                                                            { label: 'BP', val: note.maternalBP, unit: 'mmHg' },
+                                                                                            { label: 'Pulse', val: note.maternalPulse, unit: 'bpm' },
+                                                                                            { label: 'Temp', val: note.maternalTemp, unit: '°C' },
+                                                                                            { label: 'Hb', val: note.maternalHb, unit: 'g/dL' },
+                                                                                            { label: 'Urinalysis', val: note.urinalysis },
+                                                                                        ].filter(f => f.val).map(f => (
+                                                                                            <div key={f.label} className="bg-blue-50 rounded p-2 border border-blue-100">
+                                                                                                <p className="text-blue-600 font-semibold text-[10px]">{f.label}</p>
+                                                                                                <p className="font-bold text-gray-800">{f.val} {f.unit || ''}</p>
+                                                                                            </div>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                    {/* Obstetric Exam */}
+                                                                                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
+                                                                                        {[
+                                                                                            { label: 'Fundal Height', val: note.fundalHeight },
+                                                                                            { label: 'Fetal Lie', val: note.fetalLie },
+                                                                                            { label: 'Presentation', val: note.fetalPresentation },
+                                                                                            { label: 'Position', val: note.fetalPosition },
+                                                                                            { label: 'FHR', val: note.fetalHeartRate, unit: 'bpm' },
+                                                                                            { label: 'Engagement', val: note.engagement },
+                                                                                            { label: 'Liquor', val: note.liquor },
+                                                                                            { label: 'Contractions', val: note.uterineContractions },
+                                                                                            { label: 'AFI', val: note.amnioticFluidIndex },
+                                                                                        ].filter(f => f.val).map(f => (
+                                                                                            <div key={f.label} className="bg-green-50 rounded p-2 border border-green-100">
+                                                                                                <p className="text-green-700 font-semibold text-[10px]">{f.label}</p>
+                                                                                                <p className="font-bold text-gray-800">{f.val} {f.unit || ''}</p>
+                                                                                            </div>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                    {/* Prophylaxis */}
+                                                                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs">
+                                                                                        {[
+                                                                                            { label: 'Malaria Prophylaxis', val: note.malariaProphylaxis },
+                                                                                            { label: 'Tetanus Toxoid', val: note.tetanusToxoid },
+                                                                                            { label: 'Iron/Folic Acid', val: note.ironFolate },
+                                                                                            { label: 'HIV Status', val: note.hivStatus },
+                                                                                            { label: 'Syphilis', val: note.syphilisStatus },
+                                                                                            { label: 'Blood Group/Genotype', val: note.bloodGroupGenotype },
+                                                                                        ].filter(f => f.val).map(f => (
+                                                                                            <div key={f.label} className="bg-purple-50 rounded p-2 border border-purple-100">
+                                                                                                <p className="text-purple-700 font-semibold text-[10px]">{f.label}</p>
+                                                                                                <p className="text-gray-800">{f.val}</p>
+                                                                                            </div>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                    {note.assessment && <div className="bg-yellow-50 p-2 rounded border-l-4 border-yellow-400"><p className="text-[11px] font-bold text-yellow-700 mb-0.5">Assessment</p><p className="text-sm whitespace-pre-wrap">{note.assessment}</p></div>}
+                                                                                    {note.plan && <div className="bg-yellow-50 p-2 rounded border-l-4 border-orange-400"><p className="text-[11px] font-bold text-orange-700 mb-0.5">Plan</p><p className="text-sm whitespace-pre-wrap">{note.plan}</p></div>}
+                                                                                    {note.ancCounselling && <div className="bg-teal-50 p-2 rounded border-l-4 border-teal-400"><p className="text-[11px] font-bold text-teal-700 mb-0.5">Counselling Given</p><p className="text-sm whitespace-pre-wrap">{note.ancCounselling}</p></div>}
+                                                                                    {note.ancReferral && <div className="bg-red-50 p-2 rounded border-l-4 border-red-400"><p className="text-[11px] font-bold text-red-700 mb-0.5">Referral</p><p className="text-sm whitespace-pre-wrap">{note.ancReferral}</p></div>}
+                                                                                    {note.nextAppointment && <div className="bg-green-50 p-2 rounded border-l-4 border-green-400"><p className="text-[11px] font-bold text-green-700 mb-0.5">Next Appointment</p><p className="text-sm font-bold">{note.nextAppointment}</p></div>}
+                                                                                </div>
+                                                                            )}
+
+                                                                            {/* Standard Clinical Note Display */}
+                                                                            {note.noteType !== 'anc' && (note.presentingComplaints || note.historyOfPresentingComplaint ||
                                                                                 note.systemReview || note.pastMedicalSurgicalHistory ||
                                                                                 note.socialFamilyHistory || note.drugsHistory ||
                                                                                 note.functionalCognitiveStatus || note.menstruationGynecologicalObstetricsHistory ||
@@ -3605,17 +4167,24 @@ const PatientDetails = () => {
                                                                                                             )}
                                                                                                         </p>
                                                                                                         <div className="text-sm text-gray-600 space-y-1 mt-1">
-                                                                                                            <p><span className="font-medium">Dosage:</span> {med.dosage}</p>
+                                                                                                            {med.route && <p><span className="font-medium">Route:</span> {med.route}</p>}
+                                                                                                            {(med.strength || med.dosage) && <p><span className="font-medium">Strength:</span> {med.strength || med.dosage}</p>}
+                                                                                                            {(med.formulation || med.form) && <p><span className="font-medium">Formulation:</span> {med.formulation || med.form}</p>}
+                                                                                                            {med.dosageText && <p><span className="font-medium">Dosage:</span> {med.dosageText}</p>}
                                                                                                             <p><span className="font-medium">Frequency:</span> {med.frequency}</p>
                                                                                                             <p><span className="font-medium">Duration:</span> {(med.duration && !isNaN(med.duration)) ? `${med.duration} days` : med.duration}</p>
+                                                                                                            {med.note && <p><span className="font-medium">Note:</span> {med.note}</p>}
                                                                                                             {med.instructions && (
                                                                                                                 <p><span className="font-medium">Instructions:</span> {med.instructions}</p>
                                                                                                             )}
                                                                                                         </div>
                                                                                                     </div>
                                                                                                 ))}
-                                                                                                <p className="text-xs text-gray-500 mt-2">
-                                                                                                    Prescribed at: {new Date(rx.createdAt).toLocaleString()}
+                                                                                                <p className="text-xs text-gray-600 mt-2 flex flex-wrap items-center gap-1 font-medium">
+                                                                                                    <span className="font-bold text-gray-700">Prescribed by:</span>
+                                                                                                    <span className="text-blue-900 font-semibold">{rx.doctor?.name ? (rx.doctor.name.toLowerCase().startsWith('dr') ? rx.doctor.name : `Dr. ${rx.doctor.name}`) : 'Doctor'}</span>
+                                                                                                    <span className="text-gray-400 font-normal">|</span>
+                                                                                                    <span className="text-gray-500">{new Date(rx.createdAt).toLocaleString()}</span>
                                                                                                 </p>
                                                                                             </div>
                                                                                             <div className="flex flex-col gap-2 ml-4">
@@ -5326,6 +5895,114 @@ const PatientDetails = () => {
                 </div>
             )}
 
+            {/* Order Task Modal Popup */}
+            {showOrderTaskModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden animate-in fade-in zoom-in duration-150">
+                        {/* Modal Header */}
+                        <div className="bg-blue-600 text-white px-6 py-4 flex justify-between items-center">
+                            <h3 className="text-lg font-bold flex items-center gap-2">
+                                <FaClipboardList /> Order Task for Nurse
+                            </h3>
+                            <button
+                                type="button"
+                                onClick={() => setShowOrderTaskModal(false)}
+                                className="text-white/80 hover:text-white transition"
+                            >
+                                <FaTimes size={20} />
+                            </button>
+                        </div>
+
+                        {/* Modal Form Body */}
+                        <form onSubmit={handleSaveOrderTask} className="p-6 space-y-4">
+                            {/* Order Type Dropdown */}
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                    Order Type <span className="text-red-500">*</span>
+                                </label>
+                                <select
+                                    value={orderType}
+                                    onChange={(e) => setOrderType(e.target.value)}
+                                    className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                                    required
+                                >
+                                    <option value="">Select Order Type</option>
+                                    <option value="Admission order">Admission order</option>
+                                    <option value="Discharge order">Discharge order</option>
+                                    <option value="Others">Others</option>
+                                </select>
+                            </div>
+
+                            {/* Expected Date of Discharge - Appears when Admission order is selected */}
+                            {orderType === 'Admission order' && (
+                                <div className="animate-in fade-in duration-200">
+                                    <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                        Expected Date of Discharge <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="date"
+                                        required
+                                        value={expectedDischargeDate}
+                                        onChange={(e) => setExpectedDischargeDate(e.target.value)}
+                                        className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                </div>
+                            )}
+
+                            {/* Custom Order Task Title - Appears when Others is selected */}
+                            {orderType === 'Others' && (
+                                <div className="animate-in fade-in duration-200">
+                                    <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                        Order Task Title <span className="text-red-500">*</span>
+                                    </label>
+                                    <input
+                                        type="text"
+                                        required
+                                        placeholder="e.g. Catheterization, Wound Dressing, ECG Check..."
+                                        value={customOrderTask}
+                                        onChange={(e) => setCustomOrderTask(e.target.value)}
+                                        className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                    />
+                                </div>
+                            )}
+
+                            {/* Doctor Instructions Textarea */}
+                            <div>
+                                <label className="block text-sm font-semibold text-gray-700 mb-1">
+                                    Doctor Instructions <span className="text-red-500">*</span>
+                                </label>
+                                <textarea
+                                    required
+                                    rows={4}
+                                    placeholder="Write detailed instructions for the nurse to carry out..."
+                                    value={orderInstructions}
+                                    onChange={(e) => setOrderInstructions(e.target.value)}
+                                    className="w-full border border-gray-300 rounded-lg p-2.5 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                                />
+                            </div>
+
+                            {/* Modal Footer Buttons */}
+                            <div className="flex justify-end gap-3 pt-3 border-t">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowOrderTaskModal(false)}
+                                    className="px-4 py-2 text-sm font-semibold text-gray-600 hover:text-gray-800 bg-gray-100 rounded-lg hover:bg-gray-200 transition"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={submittingOrderTask}
+                                    className="px-5 py-2 text-sm font-semibold text-white bg-blue-600 rounded-lg hover:bg-blue-700 transition flex items-center gap-2 shadow disabled:opacity-50"
+                                >
+                                    {submittingOrderTask ? 'Saving...' : 'Save Order Task'}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            )}
+
             {/* Discharge Note Modal */}
             {showDischargeModal && (
                 <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50">
@@ -5381,18 +6058,262 @@ const PatientDetails = () => {
                 </div>
             )}
 
-            {/* SOAP Modal */}
+            {/* SOAP / ANC Note Modal */}
             {
-                showSoapModal && (
+                showSoapModal && (() => {
+                    const isAncVisit = encounter && (encounter.type === 'ANC Visit' || encounter.encounterType === 'ANC Visit');
+                    return (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
                         <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
                             <div className="flex justify-between items-center mb-4">
-                                <h3 className="text-xl font-bold">{editingNoteId ? 'Edit Clinical Note' : 'Add Clinical Note'}</h3>
+                                <h3 className="text-xl font-bold flex items-center gap-2">
+                                    {isAncVisit ? (
+                                        <><span>🤰</span>{editingNoteId ? 'Edit ANC Note' : 'Add ANC Note'}</>
+                                    ) : (
+                                        editingNoteId ? 'Edit Clinical Note' : 'Add Clinical Note'
+                                    )}
+                                </h3>
                                 <button onClick={() => { setShowSoapModal(false); setEditingNoteId(null); }} className="text-gray-500 hover:text-gray-700">
                                     <FaTimes size={24} />
                                 </button>
                             </div>
-                            <div className="space-y-4">
+                            {isAncVisit ? (
+                                /* ==================== ANC NOTE FORM ==================== */
+                                <div className="space-y-5">
+                                    {/* ANC Visit Header Banner */}
+                                    <div className="bg-pink-50 border border-pink-200 rounded-lg p-3 flex items-center gap-2 text-sm text-pink-800">
+                                        <span className="text-lg">🤰</span>
+                                        <span><strong>Antenatal Care Note</strong> — Complete the obstetric assessment below</span>
+                                    </div>
+
+                                    {/* Section 1: Booking / Obstetric History */}
+                                    <div className="bg-gray-50 rounded-lg p-4 border">
+                                        <h4 className="font-bold text-gray-700 mb-3 text-sm uppercase tracking-wide">📋 A. Booking / Obstetric History</h4>
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1">Visit Number</label>
+                                                <input
+                                                    className="w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-pink-400"
+                                                    placeholder="e.g. 1st, 2nd"
+                                                    value={ancNote.ancVisitNumber}
+                                                    onChange={e => setAncNote({ ...ancNote, ancVisitNumber: e.target.value })}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1">Gravida (G)</label>
+                                                <input
+                                                    className="w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-pink-400"
+                                                    placeholder="e.g. G3"
+                                                    value={ancNote.gravida}
+                                                    onChange={e => setAncNote({ ...ancNote, gravida: e.target.value })}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1">Para (P)</label>
+                                                <input
+                                                    className="w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-pink-400"
+                                                    placeholder="e.g. P2+0"
+                                                    value={ancNote.para}
+                                                    onChange={e => setAncNote({ ...ancNote, para: e.target.value })}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1">LMP (Last Menstrual Period)</label>
+                                                <input
+                                                    type="date"
+                                                    className="w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-pink-400"
+                                                    value={ancNote.lmp}
+                                                    onChange={e => {
+                                                        const val = e.target.value;
+                                                        let updated = { ...ancNote, lmp: val };
+                                                        if (val) {
+                                                            const lmpObj = new Date(val);
+                                                            if (!isNaN(lmpObj.getTime())) {
+                                                                const eddObj = new Date(lmpObj.getTime() + 280 * 24 * 60 * 60 * 1000);
+                                                                updated.edd = eddObj.toISOString().split('T')[0];
+                                                                const today = new Date();
+                                                                const diffTime = today - lmpObj;
+                                                                if (diffTime >= 0) {
+                                                                    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+                                                                    const weeks = Math.floor(diffDays / 7);
+                                                                    const days = diffDays % 7;
+                                                                    updated.gestation = `${weeks}+${days} weeks`;
+                                                                }
+                                                            }
+                                                        }
+                                                        setAncNote(updated);
+                                                    }}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1">EDD (Expected Delivery Date)</label>
+                                                <input
+                                                    type="date"
+                                                    className="w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-pink-400"
+                                                    value={ancNote.edd}
+                                                    onChange={e => setAncNote({ ...ancNote, edd: e.target.value })}
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1">Gestational Age</label>
+                                                <input
+                                                    className="w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-pink-400"
+                                                    placeholder="e.g. 28+2 weeks"
+                                                    value={ancNote.gestation}
+                                                    onChange={e => setAncNote({ ...ancNote, gestation: e.target.value })}
+                                                />
+                                            </div>
+                                        </div>
+                                        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1">Chief Complaints This Visit</label>
+                                                <textarea className="w-full border rounded px-2 py-1.5 text-sm" rows="2" placeholder="e.g. leg swelling, abdominal pain..." value={ancNote.ancComplaints} onChange={e => setAncNote({ ...ancNote, ancComplaints: e.target.value })} />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1">Risk Factors Identified</label>
+                                                <textarea className="w-full border rounded px-2 py-1.5 text-sm" rows="2" placeholder="e.g. elderly gravida, pre-eclampsia..." value={ancNote.ancRiskFactors} onChange={e => setAncNote({ ...ancNote, ancRiskFactors: e.target.value })} />
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Section 2: Maternal Vitals */}
+                                    <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
+                                        <h4 className="font-bold text-blue-700 mb-3 text-sm uppercase tracking-wide">💊 B. Maternal Vitals & Investigations</h4>
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                            {[
+                                                { label: 'Weight (kg)', key: 'maternalWeight', placeholder: 'e.g. 68' },
+                                                { label: 'Blood Pressure', key: 'maternalBP', placeholder: 'e.g. 120/80 mmHg' },
+                                                { label: 'Pulse (bpm)', key: 'maternalPulse', placeholder: 'e.g. 84' },
+                                                { label: 'Temperature (°C)', key: 'maternalTemp', placeholder: 'e.g. 36.8' },
+                                                { label: 'Haemoglobin (g/dL)', key: 'maternalHb', placeholder: 'e.g. 11.2' },
+                                                { label: 'Urinalysis', key: 'urinalysis', placeholder: 'Protein/Sugar/Ketones' },
+                                            ].map(({ label, key, placeholder }) => (
+                                                <div key={key}>
+                                                    <label className="block text-xs font-semibold text-gray-600 mb-1">{label}</label>
+                                                    <input className="w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400" placeholder={placeholder} value={ancNote[key]} onChange={e => setAncNote({ ...ancNote, [key]: e.target.value })} />
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div className="mt-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+                                            {[
+                                                { label: 'Malaria Prophylaxis (SP)', key: 'malariaProphylaxis', placeholder: 'Dose no. & date given' },
+                                                { label: 'Tetanus Toxoid', key: 'tetanusToxoid', placeholder: 'TT1/TT2 & date' },
+                                                { label: 'Iron/Folic Acid', key: 'ironFolate', placeholder: 'Tabs dispensed & adherence' },
+                                                { label: 'HIV Status / PMTCT', key: 'hivStatus', placeholder: 'Positive/Negative/On ARV' },
+                                                { label: 'Syphilis (RPR/TPHA)', key: 'syphilisStatus', placeholder: 'Reactive/Non-reactive' },
+                                                { label: 'Blood Group / Genotype', key: 'bloodGroupGenotype', placeholder: 'e.g. A+ / AA' },
+                                            ].map(({ label, key, placeholder }) => (
+                                                <div key={key}>
+                                                    <label className="block text-xs font-semibold text-gray-600 mb-1">{label}</label>
+                                                    <input className="w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-blue-400" placeholder={placeholder} value={ancNote[key]} onChange={e => setAncNote({ ...ancNote, [key]: e.target.value })} />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Section 3: Obstetric Examination */}
+                                    <div className="bg-green-50 rounded-lg p-4 border border-green-100">
+                                        <h4 className="font-bold text-green-700 mb-3 text-sm uppercase tracking-wide">🩺 C. Obstetric Examination (Abdominal)</h4>
+                                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                            {[
+                                                { label: 'Fundal Height (cm)', key: 'fundalHeight', placeholder: 'e.g. 28 cm' },
+                                                { label: 'Fetal Lie', key: 'fetalLie', placeholder: 'Longitudinal/Transverse' },
+                                                { label: 'Presentation', key: 'fetalPresentation', placeholder: 'Cephalic/Breech' },
+                                                { label: 'Position', key: 'fetalPosition', placeholder: 'e.g. LOA, ROA, ROP' },
+                                                { label: 'Fetal Heart Rate (bpm)', key: 'fetalHeartRate', placeholder: 'e.g. 142' },
+                                                { label: 'Engagement', key: 'engagement', placeholder: 'Engaged / 2/5 palpable' },
+                                                { label: 'Liquor', key: 'liquor', placeholder: 'Adequate/Reduced' },
+                                                { label: 'Uterine Contractions', key: 'uterineContractions', placeholder: 'None/Mild/Mod/Strong' },
+                                                { label: 'AFI (USS)', key: 'amnioticFluidIndex', placeholder: 'Amniotic fluid index' },
+                                                { label: 'Placental Location (USS)', key: 'placentalLocation', placeholder: 'Fundal/Anterior/etc.' },
+                                            ].map(({ label, key, placeholder }) => (
+                                                <div key={key}>
+                                                    <label className="block text-xs font-semibold text-gray-600 mb-1">{label}</label>
+                                                    <input className="w-full border rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-green-400" placeholder={placeholder} value={ancNote[key]} onChange={e => setAncNote({ ...ancNote, [key]: e.target.value })} />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Section 4: Assessment, Plan, Counselling */}
+                                    <div className="bg-yellow-50 rounded-lg p-4 border border-yellow-100">
+                                        <h4 className="font-bold text-yellow-700 mb-3 text-sm uppercase tracking-wide">📝 D. Assessment, Plan & Counselling</h4>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1">Clinical Assessment / Impression</label>
+                                                <textarea className="w-full border rounded px-2 py-1.5 text-sm" rows="3" placeholder="Impression and clinical findings..." value={ancNote.assessment} onChange={e => setAncNote({ ...ancNote, assessment: e.target.value })} />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1">Treatment Plan</label>
+                                                <textarea className="w-full border rounded px-2 py-1.5 text-sm" rows="3" placeholder="Medications, referrals, investigations..." value={ancNote.plan} onChange={e => setAncNote({ ...ancNote, plan: e.target.value })} />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1">Counselling Given</label>
+                                                <textarea className="w-full border rounded px-2 py-1.5 text-sm" rows="2" placeholder="Nutrition, danger signs, birth preparedness..." value={ancNote.ancCounselling} onChange={e => setAncNote({ ...ancNote, ancCounselling: e.target.value })} />
+                                            </div>
+                                            <div>
+                                                <label className="block text-xs font-semibold text-gray-600 mb-1">Referral (if applicable)</label>
+                                                <textarea className="w-full border rounded px-2 py-1.5 text-sm" rows="2" placeholder="Referred to (specialist / facility)..." value={ancNote.ancReferral} onChange={e => setAncNote({ ...ancNote, ancReferral: e.target.value })} />
+                                            </div>
+                                        </div>
+                                        <div className="mt-3">
+                                            <label className="block text-xs font-semibold text-gray-600 mb-1">Next ANC Appointment Date</label>
+                                            <input className="border rounded px-2 py-1.5 text-sm w-48 focus:outline-none focus:ring-1 focus:ring-yellow-400" type="date" value={ancNote.nextAppointment} onChange={e => setAncNote({ ...ancNote, nextAppointment: e.target.value })} />
+                                        </div>
+                                    </div>
+
+                                    {/* Diagnosis (ICD-11 — same as standard note) */}
+                                    <div className="border rounded-lg p-4">
+                                        <h4 className="font-bold text-gray-700 mb-3 text-sm uppercase tracking-wide">🩻 E. Diagnosis (ICD-11) <span className="text-red-500">*</span></h4>
+                                        <div className="relative mb-2">
+                                            <input
+                                                className="w-full border p-2 rounded text-sm"
+                                                placeholder="Search ICD-11 diagnosis..."
+                                                value={diagSearchTerm}
+                                                onChange={e => { setDiagSearchTerm(e.target.value); setShowDiagDropdown(true); }}
+                                                onFocus={() => setShowDiagDropdown(true)}
+                                            />
+                                            {showDiagDropdown && diagSearchTerm && (
+                                                <div className="absolute z-10 w-full bg-white border rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                                                    <div className="p-2 text-xs text-gray-500">Type to search ICD-11 codes...</div>
+                                                </div>
+                                            )}
+                                        </div>
+                                        {ancNote.diagnosis.length > 0 && (
+                                            <div className="flex flex-wrap gap-2 mt-2">
+                                                {ancNote.diagnosis.map((d, i) => (
+                                                    <span key={i} className="bg-pink-100 text-pink-800 text-xs px-2 py-1 rounded flex items-center gap-1">
+                                                        {d.code} — {d.description}
+                                                        <button onClick={() => setAncNote({ ...ancNote, diagnosis: ancNote.diagnosis.filter((_, idx) => idx !== i) })} className="text-pink-600 hover:text-pink-800 ml-1">✕</button>
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        )}
+                                        {ancNote.diagnosis.length === 0 && (
+                                            <p className="text-xs text-red-500 mt-1">⚠ At least one ICD-11 diagnosis is required before saving.</p>
+                                        )}
+                                    </div>
+
+                                    {/* ANC Save Buttons */}
+                                    <div className="flex gap-2 pt-2">
+                                        <button
+                                            onClick={handleSaveSOAP}
+                                            disabled={ancNote.diagnosis.length === 0}
+                                            className={`px-6 py-2 rounded font-semibold transition-colors ${ancNote.diagnosis.length === 0 ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-pink-600 text-white hover:bg-pink-700'}`}
+                                        >
+                                            {editingNoteId ? 'Update ANC Note' : '🤰 Save ANC Note'}
+                                        </button>
+                                        <button onClick={() => { setShowSoapModal(false); setEditingNoteId(null); }} className="bg-gray-400 text-white px-6 py-2 rounded hover:bg-gray-500">
+                                            Cancel
+                                        </button>
+                                        {ancNote.diagnosis.length === 0 && (
+                                            <span className="text-red-500 text-sm font-medium">⚠ Diagnosis required to save</span>
+                                        )}
+                                    </div>
+                                </div>
+                            ) : (
+                                /* ==================== STANDARD CLINICAL NOTE FORM ==================== */
+                                <div className="space-y-4">
                                 {/* Structured History Fields - 2 columns */}
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                     <div>
@@ -5738,13 +6659,15 @@ const PatientDetails = () => {
                                         Cancel
                                     </button>
                                     {soapNote.diagnosis.length === 0 && (
-                                        <span className="text-red-500 text-sm font-medium">âš  Diagnosis required to save</span>
+                                        <span className="text-red-500 text-sm font-medium">⚠ Diagnosis required to save</span>
                                     )}
                                 </div>
-                            </div>
+                                </div>
+                            )}
                         </div>
                     </div>
-                )
+                    );
+                })()
             }
 
             {/* Lab Order Modal */}
@@ -5986,13 +6909,11 @@ const PatientDetails = () => {
 
 
 
-
-
             {/* Prescription Modal */}
             {
                 showRxModal && (
                     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                        <div className="bg-white rounded-lg p-6 w-full max-w-4xl">
+                        <div className="bg-white rounded-lg p-6 w-full max-w-5xl">
                             <div className="flex justify-between items-center mb-4">
                                 <h3 className="text-xl font-bold">Add Prescription</h3>
                                 <button onClick={() => setShowRxModal(false)} className="text-gray-500 hover:text-gray-700">
@@ -6031,7 +6952,7 @@ const PatientDetails = () => {
                                                                 )}
                                                             </div>
                                                             <div className="text-xs text-gray-500">
-                                                                Total Stock: {drug.quantity} {drug.batches.length > 1 && `(${drug.batches.length} batches)`} | â‚¦{drug.price}
+                                                                Total Stock: {drug.quantity} {drug.batches.length > 1 && `(${drug.batches.length} batches)`} | ₦{drug.price}
                                                             </div>
                                                         </div>
                                                     ))}
@@ -6040,131 +6961,158 @@ const PatientDetails = () => {
                                         </div>
 
                                         {selectedDrug && (
-                                            <div className="grid grid-cols-7 gap-2 items-end">
-                                                <div>
-                                                    <label className="block text-xs text-gray-600 mb-1">Route</label>
-                                                    <select
-                                                        className="w-full border p-2 rounded text-sm"
-                                                        value={drugRoute}
-                                                        onChange={(e) => setDrugRoute(e.target.value)}
-                                                    >
-                                                        <option value="">-- Route --</option>
-                                                        {metadataOptions.route.map(m => (
-                                                            <option key={m._id} value={m.value}>{m.value}</option>
-                                                        ))}
-                                                        {!metadataOptions.route.find(m => m.value === drugRoute) && drugRoute && (
-                                                            <option value={drugRoute}>{drugRoute}</option>
-                                                        )}
-                                                    </select>
+                                            <div className="space-y-3 pt-1">
+                                                <div className="grid grid-cols-1 md:grid-cols-5 gap-2 items-end">
+                                                    <div>
+                                                        <label className="block text-xs text-gray-600 mb-1 font-semibold">Route</label>
+                                                        <select
+                                                            className="w-full border p-2 rounded text-sm"
+                                                            value={drugRoute}
+                                                            onChange={(e) => setDrugRoute(e.target.value)}
+                                                        >
+                                                            <option value="">-- Route --</option>
+                                                            {metadataOptions.route.map(m => (
+                                                                <option key={m._id} value={m.value}>{m.value}</option>
+                                                            ))}
+                                                            {!metadataOptions.route.find(m => m.value === drugRoute) && drugRoute && (
+                                                                <option value={drugRoute}>{drugRoute}</option>
+                                                            )}
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs text-gray-600 mb-1 font-semibold">Strength</label>
+                                                        <select
+                                                            className="w-full border p-2 rounded text-sm"
+                                                            value={drugStrength}
+                                                            onChange={(e) => setDrugStrength(e.target.value)}
+                                                        >
+                                                            <option value="">-- Strength --</option>
+                                                            {metadataOptions.dosage.map(m => (
+                                                                <option key={m._id} value={m.value}>{m.value}</option>
+                                                            ))}
+                                                            {!metadataOptions.dosage.find(m => m.value === drugStrength) && drugStrength && (
+                                                                <option value={drugStrength}>{drugStrength}</option>
+                                                            )}
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs text-gray-600 mb-1 font-semibold">Formulation</label>
+                                                        <select
+                                                            className="w-full border p-2 rounded text-sm"
+                                                            value={drugFormulation}
+                                                            onChange={(e) => setDrugFormulation(e.target.value)}
+                                                        >
+                                                            <option value="">-- Formulation --</option>
+                                                            {metadataOptions.form.map(m => (
+                                                                <option key={m._id} value={m.value}>{m.value}</option>
+                                                            ))}
+                                                            {!metadataOptions.form.find(m => m.value === drugFormulation) && drugFormulation && (
+                                                                <option value={drugFormulation}>{drugFormulation}</option>
+                                                            )}
+                                                        </select>
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs text-gray-600 mb-1 font-semibold">Dosage</label>
+                                                        <input
+                                                            type="text"
+                                                            className="w-full border p-2 rounded text-sm"
+                                                            value={drugDosageText}
+                                                            onChange={(e) => setDrugDosageText(e.target.value)}
+                                                            placeholder="e.g. 1 Tablet"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs text-gray-600 mb-1 font-semibold">Frequency</label>
+                                                        <select
+                                                            className="w-full border p-2 rounded text-sm"
+                                                            value={drugFrequency}
+                                                            onChange={(e) => setDrugFrequency(e.target.value)}
+                                                        >
+                                                            <option value="">-- Freq --</option>
+                                                            {metadataOptions.frequency.map(m => (
+                                                                <option key={m._id} value={m.value}>{m.value}</option>
+                                                            ))}
+                                                            {!metadataOptions.frequency.find(m => m.value === drugFrequency) && drugFrequency && (
+                                                                <option value={drugFrequency}>{drugFrequency}</option>
+                                                            )}
+                                                        </select>
+                                                    </div>
                                                 </div>
-                                                <div>
-                                                    <label className="block text-xs text-gray-600 mb-1">Dosage</label>
-                                                    <select
-                                                        className="w-full border p-2 rounded text-sm"
-                                                        value={drugDosage}
-                                                        onChange={(e) => setDrugDosage(e.target.value)}
-                                                    >
-                                                        <option value="">-- Dosage --</option>
-                                                        {metadataOptions.dosage.map(m => (
-                                                            <option key={m._id} value={m.value}>{m.value}</option>
-                                                        ))}
-                                                        {!metadataOptions.dosage.find(m => m.value === drugDosage) && drugDosage && (
-                                                            <option value={drugDosage}>{drugDosage}</option>
-                                                        )}
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-xs text-gray-600 mb-1">Form</label>
-                                                    <select
-                                                        className="w-full border p-2 rounded text-sm"
-                                                        value={drugForm}
-                                                        onChange={(e) => setDrugForm(e.target.value)}
-                                                    >
-                                                        <option value="">-- Form --</option>
-                                                        {metadataOptions.form.map(m => (
-                                                            <option key={m._id} value={m.value}>{m.value}</option>
-                                                        ))}
-                                                        {!metadataOptions.form.find(m => m.value === drugForm) && drugForm && (
-                                                            <option value={drugForm}>{drugForm}</option>
-                                                        )}
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-xs text-gray-600 mb-1">Frequency</label>
-                                                    <select
-                                                        className="w-full border p-2 rounded text-sm"
-                                                        value={drugFrequency}
-                                                        onChange={(e) => setDrugFrequency(e.target.value)}
-                                                    >
-                                                        <option value="">-- Freq --</option>
-                                                        {metadataOptions.frequency.map(m => (
-                                                            <option key={m._id} value={m.value}>{m.value}</option>
-                                                        ))}
-                                                        {!metadataOptions.frequency.find(m => m.value === drugFrequency) && drugFrequency && (
-                                                            <option value={drugFrequency}>{drugFrequency}</option>
-                                                        )}
-                                                    </select>
-                                                </div>
-                                                <div>
-                                                    <label className="block text-xs text-gray-600 mb-1">Duration</label>
-                                                    <input
-                                                        type="text"
-                                                        className="w-full border p-2 rounded text-sm"
-                                                        value={drugDuration}
-                                                        onChange={(e) => setDrugDuration(e.target.value)}
-                                                        placeholder="5 days"
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <label className="block text-xs text-gray-600 mb-1">Quantity</label>
-                                                    <input
-                                                        type="number"
-                                                        className="w-full border p-2 rounded text-sm"
-                                                        value={drugQuantity}
-                                                        onChange={(e) => setDrugQuantity(parseInt(e.target.value))}
-                                                        min="1"
-                                                    />
-                                                </div>
-                                                <div className="flex flex-col items-center justify-center h-full mb-1">
-                                                    <label className="text-[10px] text-gray-600 mb-1 font-bold">Buy Outside</label>
-                                                    <input
-                                                        type="checkbox"
-                                                        className="w-5 h-5 cursor-pointer accent-red-600"
-                                                        checked={buyOutside}
-                                                        onChange={(e) => setBuyOutside(e.target.checked)}
-                                                    />
-                                                </div>
-                                                <div>
-                                                    <button
-                                                        onClick={handleAddDrugToQueue}
-                                                        className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700 text-sm font-semibold h-[38px]"
-                                                    >
-                                                        Add
-                                                    </button>
+
+                                                <div className="grid grid-cols-1 md:grid-cols-5 gap-2 items-end">
+                                                    <div>
+                                                        <label className="block text-xs text-gray-600 mb-1 font-semibold">Duration</label>
+                                                        <input
+                                                            type="text"
+                                                            className="w-full border p-2 rounded text-sm"
+                                                            value={drugDuration}
+                                                            onChange={(e) => setDrugDuration(e.target.value)}
+                                                            placeholder="5 days"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs text-gray-600 mb-1 font-semibold">Quantity</label>
+                                                        <input
+                                                            type="number"
+                                                            className="w-full border p-2 rounded text-sm"
+                                                            value={drugQuantity}
+                                                            onChange={(e) => setDrugQuantity(parseInt(e.target.value) || 1)}
+                                                            min="1"
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <label className="block text-xs text-gray-600 mb-1 font-semibold">Note</label>
+                                                        <input
+                                                            type="text"
+                                                            className="w-full border p-2 rounded text-sm"
+                                                            value={drugNote}
+                                                            onChange={(e) => setDrugNote(e.target.value)}
+                                                            placeholder="e.g. After meals"
+                                                        />
+                                                    </div>
+                                                    <div className="flex flex-col items-center justify-center h-full mb-1">
+                                                        <label className="text-[10px] text-gray-600 mb-1 font-bold">Buy Outside</label>
+                                                        <input
+                                                            type="checkbox"
+                                                            className="w-5 h-5 cursor-pointer accent-red-600"
+                                                            checked={buyOutside}
+                                                            onChange={(e) => setBuyOutside(e.target.checked)}
+                                                        />
+                                                    </div>
+                                                    <div>
+                                                        <button
+                                                            onClick={handleAddDrugToQueue}
+                                                            className="w-full bg-blue-600 text-white p-2 rounded hover:bg-blue-700 text-sm font-semibold h-[38px]"
+                                                        >
+                                                            Add
+                                                        </button>
+                                                    </div>
                                                 </div>
                                             </div>
                                         )}
                                     </div>
 
                                     {/* Temporary Drug List */}
-                                    <div className="border rounded overflow-hidden">
+                                    <div className={`border rounded overflow-x-auto ${tempDrugs.length >= 6 ? 'max-h-72 overflow-y-auto' : ''}`}>
                                         <table className="w-full text-sm text-left">
-                                            <thead className="bg-gray-100">
+                                            <thead className="bg-gray-100 sticky top-0 z-10">
                                                 <tr>
                                                     <th className="p-2">Drug</th>
                                                     <th className="p-2">Route</th>
+                                                    <th className="p-2">Strength</th>
+                                                    <th className="p-2">Formulation</th>
                                                     <th className="p-2">Dosage</th>
-                                                    <th className="p-2">Form</th>
                                                     <th className="p-2">Freq</th>
                                                     <th className="p-2">Dur</th>
                                                     <th className="p-2">Qty</th>
+                                                    <th className="p-2">Note</th>
                                                     <th className="p-2">Action</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {tempDrugs.length === 0 ? (
                                                     <tr>
-                                                        <td colSpan="8" className="p-4 text-center text-gray-500">
+                                                        <td colSpan="10" className="p-4 text-center text-gray-500">
                                                             No drugs added yet. Search and add drugs above.
                                                         </td>
                                                     </tr>
@@ -6181,12 +7129,14 @@ const PatientDetails = () => {
                                                                     )}
                                                                 </div>
                                                             </td>
-                                                            <td className="p-2">{drug.route}</td>
-                                                            <td className="p-2">{drug.dosage}</td>
-                                                            <td className="p-2">{drug.form}</td>
-                                                            <td className="p-2">{drug.frequency}</td>
-                                                            <td className="p-2">{(drug.duration && !isNaN(drug.duration)) ? `${drug.duration} days` : drug.duration}</td>
+                                                            <td className="p-2">{drug.route || '-'}</td>
+                                                            <td className="p-2">{drug.strength || '-'}</td>
+                                                            <td className="p-2">{drug.formulation || '-'}</td>
+                                                            <td className="p-2">{drug.dosage || '-'}</td>
+                                                            <td className="p-2">{drug.frequency || '-'}</td>
+                                                            <td className="p-2">{(drug.duration && !isNaN(drug.duration)) ? `${drug.duration} days` : (drug.duration || '-')}</td>
                                                             <td className="p-2">{drug.quantity}</td>
+                                                            <td className="p-2 text-xs text-gray-600 max-w-[120px] truncate" title={drug.note}>{drug.note || '-'}</td>
                                                             <td className="p-2">
                                                                 <button
                                                                     onClick={() => handleRemoveDrugFromQueue(drug.id)}
@@ -6454,6 +7404,58 @@ const PatientDetails = () => {
                     </div>
                 )
             }
+
+            {/* Stop Drug Reason Modal */}
+            {showStopDrugModal && (
+                <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[9999] p-4 animate-fade-in">
+                    <div className="bg-white rounded-xl shadow-2xl max-w-md w-full overflow-hidden border-t-4 border-red-600">
+                        <div className="bg-red-50 p-4 border-b border-red-100 flex justify-between items-center">
+                            <h3 className="font-bold text-lg text-red-800 flex items-center gap-2">
+                                🛑 Reason for Stopping Medication
+                            </h3>
+                            <button
+                                onClick={() => { setShowStopDrugModal(false); setStopDrugTarget(null); setStopDrugReason(''); }}
+                                className="text-gray-400 hover:text-gray-600 text-2xl font-bold"
+                            >
+                                &times;
+                            </button>
+                        </div>
+                        <div className="p-5 space-y-4">
+                            <div className="bg-gray-50 border p-3 rounded-lg">
+                                <p className="text-xs text-gray-500 font-semibold uppercase">Target Medication</p>
+                                <p className="font-bold text-gray-800 text-base">{stopDrugTarget?.medName}</p>
+                            </div>
+                            <div>
+                                <label className="block text-sm font-bold text-gray-700 mb-1">
+                                    Discontinue Reason <span className="text-red-500">*</span>
+                                </label>
+                                <textarea
+                                    className="w-full border border-gray-300 p-3 rounded-lg focus:ring-2 focus:ring-red-400 outline-none text-sm"
+                                    rows="3"
+                                    placeholder="e.g. Patient experienced allergic rash, Adverse reaction, Treatment complete, etc."
+                                    value={stopDrugReason}
+                                    onChange={(e) => setStopDrugReason(e.target.value)}
+                                    autoFocus
+                                ></textarea>
+                            </div>
+                        </div>
+                        <div className="bg-gray-50 p-4 border-t flex justify-end gap-3">
+                            <button
+                                onClick={() => { setShowStopDrugModal(false); setStopDrugTarget(null); setStopDrugReason(''); }}
+                                className="px-4 py-2 text-gray-600 hover:bg-gray-200 rounded-lg font-semibold text-sm transition"
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={handleConfirmStopDrug}
+                                className="px-5 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg font-bold text-sm shadow transition flex items-center gap-2"
+                            >
+                                🛑 Confirm & Stop Medication
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </Layout >
     );
 };
