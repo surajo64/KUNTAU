@@ -528,6 +528,11 @@ const FrontDeskDashboard = () => {
             return;
         }
 
+        if (selectedPatient && (selectedPatient.isWalkIn || selectedPatient.contact === 'Walk-in' || (selectedPatient.mrn && /^WI-|^LAB-|^RAD-/.test(selectedPatient.mrn)))) {
+            toast.error('Cannot create a clinical encounter for a walk-in customer.');
+            return;
+        }
+
         try {
             setLoading(true);
             const config = { headers: { Authorization: `Bearer ${user.token}` } };
@@ -1597,7 +1602,7 @@ const FrontDeskDashboard = () => {
                                                     let patientFee = charge.standardFee || charge.basePrice || 0;
                                                     let feeLabel = 'Standard';
                                                     let feeLabelColor = 'bg-blue-100 text-blue-700';
-                                                    if (provider === 'Corporate Retainership' || provider === 'Retainership') {
+                                                    if (provider === 'Corporate Retainership' || provider === 'Retainership' || provider === 'Joud Alkhair Retainership') {
                                                         patientFee = charge.retainershipFee || patientFee;
                                                         feeLabel = 'Corp Ret.';
                                                         feeLabelColor = 'bg-purple-100 text-purple-700';
@@ -1670,7 +1675,7 @@ const FrontDeskDashboard = () => {
                                                     if (waiveConsultationFee && c.type === 'consultation') return sum;
                                                     const prov = selectedPatient?.provider || 'Standard';
                                                     let fee = c.standardFee || c.basePrice || 0;
-                                                    if (prov === 'Corporate Retainership' || prov === 'Retainership') fee = c.retainershipFee || fee;
+                                                    if (prov === 'Corporate Retainership' || prov === 'Retainership' || prov === 'Joud Alkhair Retainership') fee = c.retainershipFee || fee;
                                                     else if (prov === 'Family Retainership') fee = c.familyRetainershipFee || fee;
                                                     else if (prov === 'NHIA') fee = c.nhiaFee || fee;
                                                     else if (prov === 'KSCHMA') fee = c.kschmaFee || fee;
@@ -1800,7 +1805,7 @@ const FrontDeskDashboard = () => {
                                                     .map(charge => {
                                                         // Determine fee based on patient provider
                                                         let fee = charge.standardFee || charge.basePrice || 0;
-                                                        if (addChargesPatient.provider === 'Retainership' || addChargesPatient.provider === 'Corporate Retainership') fee = charge.retainershipFee || fee;
+                                                        if (addChargesPatient.provider === 'Retainership' || addChargesPatient.provider === 'Corporate Retainership' || addChargesPatient.provider === 'Joud Alkhair Retainership') fee = charge.retainershipFee || fee;
                                                         else if (addChargesPatient.provider === 'Family Retainership') fee = charge.familyRetainershipFee || fee;
                                                         else if (addChargesPatient.provider === 'NHIA') fee = charge.nhiaFee || fee;
                                                         else if (addChargesPatient.provider === 'KSCHMA') fee = charge.kschmaFee || fee;
@@ -1868,7 +1873,7 @@ const FrontDeskDashboard = () => {
                                                 let fee = charge.standardFee || charge.basePrice || 0;
                                                 let addFeeLabel = 'Standard';
                                                 let addFeeLabelColor = 'bg-blue-100 text-blue-700';
-                                                if (addChargesPatient.provider === 'Retainership' || addChargesPatient.provider === 'Corporate Retainership') {
+                                                if (addChargesPatient.provider === 'Retainership' || addChargesPatient.provider === 'Corporate Retainership' || addChargesPatient.provider === 'Joud Alkhair Retainership') {
                                                     fee = charge.retainershipFee || fee;
                                                     addFeeLabel = 'Corp Ret.';
                                                     addFeeLabelColor = 'bg-purple-100 text-purple-700';
@@ -1933,7 +1938,7 @@ const FrontDeskDashboard = () => {
                                                 .filter(c => selectedAdditionalCharges.includes(c._id))
                                                 .reduce((sum, c) => {
                                                     let fee = c.standardFee || c.basePrice || 0;
-                                                    if (addChargesPatient.provider === 'Retainership' || addChargesPatient.provider === 'Corporate Retainership') fee = c.retainershipFee || fee;
+                                                    if (addChargesPatient.provider === 'Retainership' || addChargesPatient.provider === 'Corporate Retainership' || addChargesPatient.provider === 'Joud Alkhair Retainership') fee = c.retainershipFee || fee;
                                                     else if (addChargesPatient.provider === 'Family Retainership') fee = c.familyRetainershipFee || fee;
                                                     else if (addChargesPatient.provider === 'NHIA') fee = c.nhiaFee || fee;
                                                     else if (addChargesPatient.provider === 'KSCHMA') fee = c.kschmaFee || fee;
