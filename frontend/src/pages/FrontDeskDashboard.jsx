@@ -1167,7 +1167,7 @@ const FrontDeskDashboard = () => {
                                                                 onClick={() => handleEditClick(patient)}
                                                                 className="bg-purple-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-purple-700"
                                                             >
-                                                                <FaBed /> Edit / Admit
+                                                                Edit Encounter
                                                             </button>
                                                         </>
                                                     )}
@@ -1263,7 +1263,7 @@ const FrontDeskDashboard = () => {
                                                                 onClick={() => handleEditClick(patient)}
                                                                 className="bg-purple-600 text-white px-4 py-2 rounded flex items-center gap-2 hover:bg-purple-700"
                                                             >
-                                                                <FaBed /> Edit / Admit
+                                                                Edit Encounter
                                                             </button>
                                                         </>
                                                     )}
@@ -1353,8 +1353,7 @@ const FrontDeskDashboard = () => {
                                 >
                                     <option value="Outpatient">Outpatient</option>
                                     <option value="Follow-up">Follow-up</option>
-                                    <option value="ANC Visit">🤰 ANC Visit</option>
-                                    <option value="Inpatient">Inpatient</option>
+                                    <option value="ANC Visit"> ANC Visit</option>
                                     <option value="Emergency">Emergency</option>
                                 </select>
                             </div>
@@ -1435,7 +1434,7 @@ const FrontDeskDashboard = () => {
                                     <div>
                                         <p className="font-bold text-pink-800 text-sm">ANC Visit Selected — No Consultation Fee Required</p>
                                         <p className="text-xs text-pink-600 mt-1">
-                                            This patient will be routed directly to the nurse for vitals, then to the doctor. 
+                                            This patient will be routed directly to the nurse for vitals, then to the doctor.
                                             The doctor will see a <strong>dedicated ANC Note</strong> form instead of the standard clinic note.
                                         </p>
                                     </div>
@@ -2033,7 +2032,6 @@ const FrontDeskDashboard = () => {
                                             onChange={(e) => setEncounterType(e.target.value)}
                                         >
                                             <option value="Outpatient">Outpatient Consultation</option>
-                                            <option value="Inpatient">Inpatient Admission</option>
                                             <option value="Emergency">Emergency</option>
                                             <option value="External Pharmacy">External Pharmacy</option>
                                             <option value="External Lab/Radiology">External Lab/Radiology</option>
